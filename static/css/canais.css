@@ -1,0 +1,122 @@
+/* canais.css - Aba CANAIS */
+.sub-nav-canais {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 16px;
+    margin-bottom: 6px;
+}
+
+.sub-tab-btn {
+    background: rgba(255, 255, 255, 0.08);
+    color: #ccc;
+    border: 1px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.5px;
+}
+
+.sub-tab-btn:hover {
+    background: rgba(203, 151, 39, 0.2);
+    color: var(--mq-gold);
+    border-color: var(--mq-gold);
+}
+
+.sub-tab-btn.active {
+    background: var(--mq-gold);
+    color: #000;
+    border-color: var(--mq-gold);
+    box-shadow: 0 0 10px rgba(203, 151, 39, 0.4);
+}
+
+.sub-tab-btn.auto-rotate-active {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+}
+
+/* Containers da Grid */
+.canais-main-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 10px 8px;
+    box-sizing: border-box;
+}
+
+/* Modo 3 Cards (Gigantes - igual Power BI) */
+.grid-canais-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr;
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+/* Modo 6 Cards (2x3) - Todos os canais juntos */
+.grid-canais-6 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+.canal-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    height: 100%;
+}
+
+.canal-title {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--mq-gold);
+    border-bottom: 1px solid var(--border-color);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grid-canais-6 .canal-title {
+    font-size: 0.92rem;
+    padding: 6px 4px;
+}
+
+.canal-chart {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+.canal-card.meta-batida {
+    border-color: #28a745;
+    animation: blink-success 1.5s infinite;
+}
+
+@keyframes blink-success {
+    0% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
+    50% { border-color: rgba(40, 167, 69, 1); box-shadow: 0 0 40px rgba(40, 167, 69, 0.8); }
+    100% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
+}

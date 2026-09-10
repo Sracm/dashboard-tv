@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Acompanhamento de Performance</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/acumulado.css') }}?v=5">
+    
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn active">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                </div>
+                <div class="header-title-main">INDICADORES DE PERFORMANCE</div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <input type="hidden" id="filter-month" value="12">
+                    <select id="filter-year" onchange="fetchData()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                    <div class="next-update" id="next-update">Próxima atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sub-navegação rápida de Grupos Acumulados -->
+        <div class="sub-nav-canais" style="display:flex; justify-content:center; gap:12px; padding:2px 16px; margin-bottom:4px;">
+            <button id="btn-acum-todos" class="tab-btn active" style="padding:4px 14px; font-size:0.8rem;" onclick="filtrarAcumulado('todos')">TODOS (7)</button>
+            <button id="btn-acum-reg" class="tab-btn" style="padding:4px 14px; font-size:0.8rem;" onclick="filtrarAcumulado('reg')">ACUMULADO REG E DISTRIBUIÇÃO</button>
+            <button id="btn-acum-ecom" class="tab-btn" style="padding:4px 14px; font-size:0.8rem;" onclick="filtrarAcumulado('ecom')">ACUMULADO COMEX E ECOMER</button>
+        </div>
+
+        <!-- Main Grid for Bars and Gauges -->
+        <main class="grid-container-acumulado" id="acumulado-container">
+            <!-- Row 1: 4 Bar Charts -->
+            <div class="bar-card" id="bar-card-0">
+                <div class="bar-title" id="bar-title-0">VAREJO ESPECIALIZADO - SP</div>
+                <div class="bar-chart" id="bar-0"></div>
+            </div>
+            <div class="bar-card" id="bar-card-1">
+                <div class="bar-title" id="bar-title-1">VAREJO ESPECIALIZADO REG.</div>
+                <div class="bar-chart" id="bar-1"></div>
+            </div>
+            <div class="bar-card" id="bar-card-2">
+                <div class="bar-title" id="bar-title-2">DISTRIBUIÇÃO</div>
+                <div class="bar-chart" id="bar-2"></div>
+            </div>
+            <div class="bar-card" id="bar-card-3">
+                <div class="bar-title" id="bar-title-3">COMEX</div>
+                <div class="bar-chart" id="bar-3"></div>
+            </div>
+
+            <!-- Row 2: 3 Bar Charts -->
+            <div class="bar-card" id="bar-card-4">
+                <div class="bar-title" id="bar-title-4">E-COMMERCE</div>
+                <div class="bar-chart" id="bar-4"></div>
+            </div>
+            <div class="bar-card" id="bar-card-5">
+                <div class="bar-title" id="bar-title-5">E-COMMERCE - PARLUX</div>
+                <div class="bar-chart" id="bar-5"></div>
+            </div>
+            <div class="bar-card" id="bar-card-6">
+                <div class="bar-title" id="bar-title-6">EMPRESA</div>
+                <div class="bar-chart" id="bar-6"></div>
+            </div>
+
+            <!-- Row 3: 7 Mini Gauges -->
+            <div id="gauges-row">
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">VAREJO ESP. - SP</div>
+                    <div class="mini-gauge-chart" id="gauge-0"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">VAREJO ESP. REG.</div>
+                    <div class="mini-gauge-chart" id="gauge-1"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">DISTRIBUIÇÃO</div>
+                    <div class="mini-gauge-chart" id="gauge-2"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">COMEX</div>
+                    <div class="mini-gauge-chart" id="gauge-3"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">E-COMMERCE</div>
+                    <div class="mini-gauge-chart" id="gauge-4"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">E-COMMERCE - PARLUX</div>
+                    <div class="mini-gauge-chart" id="gauge-5"></div>
+                </div>
+                <div class="mini-gauge-card">
+                    <div class="mini-gauge-title">EMPRESA</div>
+                    <div class="mini-gauge-chart" id="gauge-6"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/acumulado.js') }}?v=14"></script>
+</body>
+</html>

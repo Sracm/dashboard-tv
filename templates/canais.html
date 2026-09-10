@@ -1,0 +1,107 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Performance por Canais</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/canais.css') }}?v=1">
+    
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <!-- Esquerda: Controles de Filtro -->
+            <div class="header-left">
+                <div class="filters">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">MENSAL (%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">ACUMULADO (%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">TRIMESTRE</button>
+                    <button onclick="navigateTab('/canais')" class="tab-btn active">CANAIS</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">EMPRESA</button>
+                    
+                    <select id="filter-month" onchange="fetchData()">
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                    <select id="filter-year" onchange="fetchData()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                    <button onclick="testarAudio()" style="background:var(--mq-gold); color:#000; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">🔊 Sirene</button>
+                    <button onclick="testarAudio('empresa')" style="background:#ffc107; color:#000; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Empresa - Van Halen (28s)">⚡ Van Halen (28s)</button>
+                    <button onclick="testarAudio('distribuicao')" style="background:#0d6efd; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Distribuição - The Who (30s)">🎸 The Who (30s)</button>
+                    <button onclick="testarAudio('ecommerce')" style="background:#6f42c1; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio E-commerce - Deep Purple (30s)">🟣 Deep Purple (30s)</button>
+                    <button onclick="testarAudio('comex')" style="background:#dc3545; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Comex - Led Zeppelin (30s)">🥁 Led Zeppelin (30s)</button>
+                    <button onclick="testarAudio('varejo_sp')" style="background:#198754; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Varejo SP - Creedence (18s)">🎸 Creedence (18s)</button>
+                    <button onclick="testarAudio('varejo_reg')" style="background:#d63384; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Varejo Reg - ZZ Top (12s)">🧔 ZZ Top (12s)</button>
+                    <button onclick="testarAudio('parlux')" style="background:#fd7e14; color:#fff; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-weight:bold; margin-left:4px;" title="Testar áudio Parlux - Heart (28s)">🐟 Heart (28s)</button>
+                </div>
+            </div>
+            
+            <!-- Centro: Título do Painel -->
+            <div class="header-center">
+                <h1>INDICADORES</h1>
+                <h2>Acompanhamento de Performance de Equipes (Realizado vs Projetado)</h2>
+            </div>
+            
+            <!-- Direita: Relógio e Atualizações -->
+            <div class="header-right">
+                <div class="clock" id="clock">00:00:00</div>
+                <div class="date" id="date">01/01/2026</div>
+                <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                <div class="next-update" id="next-update" style="font-size: 1rem; color: #ff9800; font-weight: bold; margin-top: 2px;">Próxima atualização em: 10:00</div>
+            </div>
+        </header>
+
+        <!-- Sub-navegação interna de Canais -->
+        <div class="sub-nav-canais">
+            <button id="btn-mode-reg" class="sub-tab-btn active" onclick="setViewMode('reg')">REG & DISTRIBUIÇÃO</button>
+            <button id="btn-mode-ecom" class="sub-tab-btn" onclick="setViewMode('ecom')">COMEX & E-COMMERCE</button>
+            <button id="btn-mode-todos" class="sub-tab-btn" onclick="setViewMode('todos')">TODOS OS CANAIS (6)</button>
+            <button id="btn-auto-rotate" class="sub-tab-btn" onclick="toggleAutoRotate()" title="Alternar automaticamente entre os grupos de canais">⏱ Rotação TV</button>
+        </div>
+
+        <!-- Main Container para os Gráficos -->
+        <main class="canais-main-container">
+            <div id="canais-container" class="grid-canais-3"></div>
+        </main>
+    </div>
+
+    <!-- Áudio de Vitória / Meta -->
+    <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
+    <audio id="music-sound" src="/static/audio/van_halen_jump.mp3" preload="none"></audio>
+    <audio id="audio-distribuicao" src="/static/audio/the_who_who_are_you.mp3" preload="none"></audio>
+    <audio id="audio-ecommerce" src="/static/audio/deep_purple_perfect_strangers.mp3" preload="none"></audio>
+    <audio id="audio-comex" src="/static/audio/led_zeppelin_whole_lotta_love.mp3" preload="none"></audio>
+    <audio id="audio-varejo-sp" src="/static/audio/creedence_fortunate_son.mp3" preload="none"></audio>
+    <audio id="audio-varejo-reg" src="/static/audio/zztop_lagrange.mp3" preload="none"></audio>
+    <audio id="audio-parlux" src="/static/audio/heart_barracuda.mp3" preload="none"></audio>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/canais.js') }}?v=11"></script>
+</body>
+</html>
+

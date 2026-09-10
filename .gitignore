@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+.env
+.agents/
+.vscode/
+.idea/
+scratch/
+pbix_extract/
+response.json
+*.zip

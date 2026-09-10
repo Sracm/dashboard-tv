@@ -1,0 +1,102 @@
+/* diario.css - Estilos para Diário Canal e Diário Marcas */
+.diario-sub-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    padding: 3px 16px;
+    margin-bottom: 4px;
+}
+
+.diario-sub-title {
+    color: var(--mq-gold);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    font-style: italic;
+}
+
+.diario-legend-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 4px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.legend-color-box {
+    width: 14px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.leg-mes-atual { background-color: #FF3333; }
+.leg-mes-ant { background-color: #FFC107; }
+.leg-ano-ant { background-color: #00A3FF; }
+
+/* Grid de 6 Gráficos Diários (2 linhas x 3 colunas) */
+.grid-container-diario {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    padding: 2px 14px 8px;
+    box-sizing: border-box;
+}
+
+/* Grid de Carrossel para a TV (1 coluna x 2 linhas) */
+.grid-carousel-diario {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 15px;
+    flex: 1;
+    min-height: 0;
+    padding: 10px 14px 15px;
+    box-sizing: border-box;
+}
+
+.diario-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    height: 100%;
+}
+
+.diario-card-title {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--mq-gold);
+    border-bottom: 1px solid var(--border-color);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.diario-card-chart {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}

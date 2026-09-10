@@ -1,0 +1,91 @@
+.grid-container-acumulado {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: 1.15fr 1.15fr 1fr;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    padding: 2px 14px 8px;
+    box-sizing: border-box;
+}
+
+/* Bar Cards */
+.bar-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.bar-title {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 5px;
+    text-align: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--mq-gold);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bar-chart {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+}
+
+/* Grid positions for bar cards */
+#bar-card-0 { grid-column: 1; grid-row: 1; }
+#bar-card-1 { grid-column: 2; grid-row: 1; }
+#bar-card-2 { grid-column: 3; grid-row: 1; }
+#bar-card-3 { grid-column: 4; grid-row: 1; }
+#bar-card-4 { grid-column: 1; grid-row: 2; }
+#bar-card-5 { grid-column: 2; grid-row: 2; }
+#bar-card-6 { grid-column: 3 / span 2; grid-row: 2; }
+
+/* Gauges Row */
+#gauges-row {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    display: flex;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+}
+
+.mini-gauge-card {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    height: 100%;
+    padding: 3px 2px 2px;
+    box-sizing: border-box;
+}
+
+.mini-gauge-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--mq-gold);
+    text-align: center;
+    padding: 3px 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.mini-gauge-chart {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}

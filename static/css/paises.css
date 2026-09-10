@@ -1,0 +1,427 @@
+/* =========================================================
+   DESIGN SYSTEM MQ PROFESSIONAL — PAÍSES (COMEX)
+   Ajustado para caber perfeitamente em 1 tela (Full Viewport TV / Monitor)
+   Sem rolagem horizontal, 100vh travado e layout executivo
+   ========================================================= */
+
+/* Trava a tela inteira em 100vh */
+html, body {
+    height: 100vh !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.dashboard-container {
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+/* Header compacto */
+.header {
+    flex-shrink: 0 !important;
+}
+
+.controls-bar {
+    flex-shrink: 0 !important;
+    padding: 2px 10px 4px 10px !important;
+}
+
+/* Container da Tabela Ocupa 100% do espaço restante sem estourar */
+.table-card-container {
+    flex: 1 !important;
+    min-height: 0 !important;
+    padding: 0 10px 4px 10px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+.table-responsive-wrapper {
+    flex: 1 !important;
+    min-height: 0 !important;
+    background: #0e1117 !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important; /* Elimina qualquer barra horizontal indesejada */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Tabela Executiva — 100% da Largura, Distribuída */
+.exec-table {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+    font-size: 0.72rem !important;
+}
+
+/* Cabeçalho Fixo no Topo */
+.exec-table thead th {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+    background: #11141c !important;
+    padding: 4px 8px !important;
+    font-size: 0.60rem !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid #242a38 !important;
+    white-space: nowrap !important;
+    line-height: 1.15 !important;
+}
+
+/* Linhas com altura compacta e elegante para caber muitos itens na tela */
+.exec-table tbody tr {
+    height: 28px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+    transition: background-color 0.1s ease !important;
+}
+
+.exec-table tbody tr:hover {
+    background-color: rgba(203, 151, 39, 0.08) !important;
+}
+
+.exec-table tbody td {
+    padding: 2px 8px !important;
+    vertical-align: middle !important;
+    white-space: nowrap !important;
+    line-height: 1.15 !important;
+}
+
+/* Coluna 1: Rank (#) */
+th.col-rank, td.col-rank {
+    position: sticky !important;
+    left: 0 !important;
+    z-index: 22 !important;
+    width: 32px !important;
+    min-width: 30px !important;
+    max-width: 36px !important;
+    text-align: center !important;
+    padding: 2px 2px !important;
+    background: #11141c !important;
+}
+
+td.col-rank {
+    z-index: 10 !important;
+    background: #0e1117 !important;
+}
+
+tr:hover td.col-rank {
+    background: #181d26 !important;
+}
+
+.rank-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 50% !important;
+    font-weight: 800 !important;
+    font-size: 0.58rem !important;
+}
+
+.rank-badge.top-1, .rank-badge.rank-1 {
+    background: linear-gradient(135deg, #ffd700, #b8860b) !important;
+    color: #000000 !important;
+    box-shadow: 0 0 6px rgba(255, 215, 0, 0.4) !important;
+}
+
+.rank-badge.top-2, .rank-badge.rank-2 {
+    background: linear-gradient(135deg, #e2e8f0, #94a3b8) !important;
+    color: #000000 !important;
+}
+
+.rank-badge.top-3, .rank-badge.rank-3 {
+    background: linear-gradient(135deg, #d97706, #78350f) !important;
+    color: #ffffff !important;
+}
+
+.rank-badge.standard, .rank-badge.rank-other {
+    color: #8c95a6 !important;
+    font-size: 0.58rem !important;
+}
+
+/* Coluna 2: País */
+th.col-item, td.col-item {
+    position: sticky !important;
+    left: 32px !important;
+    z-index: 22 !important;
+    width: 150px !important;
+    min-width: 130px !important;
+    max-width: 170px !important;
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    color: #ffffff !important;
+    letter-spacing: 0.3px !important;
+    text-transform: uppercase !important;
+    padding: 2px 8px !important;
+    background: #11141c !important;
+    border-right: 2px solid #242a38 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+td.col-item {
+    z-index: 10 !important;
+    background: #0e1117 !important;
+}
+
+tr:hover td.col-item {
+    background: #181d26 !important;
+}
+
+/* Colunas dos Meses (MAI, JUN, JUL, AGO, etc.) */
+.col-mes-header {
+    font-size: 0.58rem !important;
+    text-align: right !important;
+    padding: 4px 8px !important;
+    min-width: 85px !important;
+}
+
+.col-mes-val {
+    font-variant-numeric: tabular-nums !important;
+    text-align: right !important;
+    padding: 2px 8px !important;
+    min-width: 85px !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.03) !important;
+}
+
+/* Mês Fechado / Referência (AGO M-1 FECHADO) */
+.col-mes-header.active-month-th {
+    color: #ffd700 !important;
+    background: rgba(203, 151, 39, 0.12) !important;
+    border-bottom: 2px solid var(--gold) !important;
+}
+
+.col-mes-val.active-month-td {
+    background: rgba(203, 151, 39, 0.05) !important;
+}
+
+.ref-badge {
+    background: var(--gold) !important;
+    color: #000000 !important;
+    font-size: 0.48rem !important;
+    font-weight: 800 !important;
+    padding: 1px 4px !important;
+    border-radius: 2px !important;
+    text-transform: uppercase !important;
+    margin-left: 3px !important;
+    letter-spacing: 0.2px !important;
+}
+
+/* Caixa Interna da Célula do Mês */
+.cell-month-box {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 1px !important;
+    line-height: 1.05 !important;
+}
+
+.cell-month-top {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 4px !important;
+    line-height: 1.05 !important;
+}
+
+.cell-month-main {
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+    font-family: 'Montserrat', sans-serif !important;
+    color: #f8fafc !important;
+    font-variant-numeric: tabular-nums !important;
+    line-height: 1.05 !important;
+}
+
+.active-month-td .cell-month-main {
+    color: #ffd700 !important;
+}
+
+/* Badge de Delta Posição (▲1, ▼2, —) */
+.delta-badge-sm {
+    font-size: 0.58rem !important;
+    font-weight: 800 !important;
+    padding: 0 2px !important;
+    border-radius: 2px !important;
+}
+.delta-badge-sm.up {
+    color: #38d35f !important;
+}
+.delta-badge-sm.down {
+    color: #ff5c6c !important;
+}
+.delta-badge-sm.equal {
+    color: #64748b !important;
+}
+
+/* Pílulas MoM e YoY */
+.cell-month-metrics {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 3px !important;
+    margin-top: 1px !important;
+    line-height: 1 !important;
+}
+
+.metric-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 0 3px !important;
+    border-radius: 2px !important;
+    font-size: 0.54rem !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.2px !important;
+    white-space: nowrap !important;
+    line-height: 1.1 !important;
+}
+
+.metric-pill.positive {
+    background: rgba(40, 167, 69, 0.16) !important;
+    color: #38d35f !important;
+    border: 1px solid rgba(40, 167, 69, 0.25) !important;
+}
+
+.metric-pill.negative {
+    background: rgba(220, 53, 69, 0.20) !important;
+    color: #ff5c6c !important;
+    border: 1px solid rgba(220, 53, 69, 0.35) !important;
+}
+
+.metric-pill.neutral {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #94a3b8 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Coluna: Share Período */
+.col-share-periodo {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    text-align: right !important;
+    padding: 2px 8px !important;
+    min-width: 65px !important;
+    color: var(--gold-light) !important;
+    background: rgba(203, 151, 39, 0.05) !important;
+    border-left: 1px solid rgba(203, 151, 39, 0.2) !important;
+}
+
+th.col-share-periodo {
+    color: var(--gold-light) !important;
+    background: rgba(203, 151, 39, 0.12) !important;
+    border-bottom: 2px solid var(--gold) !important;
+}
+
+.share-periodo-val {
+    font-size: 0.82rem !important;
+    font-weight: 800 !important;
+    color: var(--gold) !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+/* Coluna: Share A-1 */
+.col-share-ant {
+    font-size: 0.68rem !important;
+    text-align: right !important;
+    padding: 2px 8px !important;
+    min-width: 62px !important;
+    color: #e2e8f0 !important;
+}
+
+.share-ant-val {
+    font-size: 0.78rem !important;
+    font-weight: 700 !important;
+    color: #f1f5f9 !important;
+    font-variant-numeric: tabular-nums !important;
+}
+
+/* Coluna: Δ Share */
+.col-share-var {
+    text-align: right !important;
+    padding: 2px 6px !important;
+    min-width: 65px !important;
+}
+
+.var-share-pill {
+    display: inline-flex !important;
+    align-items: center !important;
+    padding: 1px 4px !important;
+    border-radius: 2px !important;
+    font-size: 0.65rem !important;
+    font-weight: 800 !important;
+    font-variant-numeric: tabular-nums !important;
+    white-space: nowrap !important;
+}
+
+.var-share-pill.up {
+    color: #38d35f !important;
+    background: rgba(40, 167, 69, 0.16) !important;
+    border: 1px solid rgba(40, 167, 69, 0.25) !important;
+}
+
+.var-share-pill.down, .var-share-pill.negative {
+    color: #ff5c6c !important;
+    background: rgba(220, 53, 69, 0.20) !important;
+    border: 1px solid rgba(220, 53, 69, 0.35) !important;
+}
+
+.var-share-pill.equal {
+    color: #8c93a0 !important;
+    background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Coluna: Status */
+.col-status {
+    text-align: center !important;
+    padding: 2px 6px !important;
+    min-width: 60px !important;
+}
+
+.status-tag {
+    display: inline-block !important;
+    font-size: 0.58rem !important;
+    font-weight: 800 !important;
+    padding: 1px 6px !important;
+    border-radius: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.2px !important;
+}
+
+.status-tag.lider {
+    background: rgba(255, 215, 0, 0.15) !important;
+    color: #ffd700 !important;
+    border: 1px solid rgba(255, 215, 0, 0.4) !important;
+}
+
+.status-tag.expansao {
+    background: rgba(40, 167, 69, 0.15) !important;
+    color: #38d35f !important;
+    border: 1px solid rgba(40, 167, 69, 0.4) !important;
+}
+
+.status-tag.atencao {
+    background: rgba(220, 53, 69, 0.15) !important;
+    color: #ff5c6c !important;
+    border: 1px solid rgba(220, 53, 69, 0.4) !important;
+}
+
+.status-tag.estavel {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #94a3b8 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Célula sem dados */
+.cell-vazio {
+    color: #475569 !important;
+    font-size: 0.72rem !important;
+}

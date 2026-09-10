@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Categorias & Marcas</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=24">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Unificado -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn active">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                </div>
+                <div class="header-title-main">INTELIGÊNCIA DE MERCADO — CATEGORIAS & MARCAS</div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <div class="multiselect-wrapper" id="month-multiselect">
+                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
+                            <span class="ms-icon">📅</span>
+                            <span id="month-select-label">Meses: Mai a Ago (4)</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="month-select-menu">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+                                    <span class="ms-title">Filtrar Meses na Tabela</span>
+                                    <span class="ms-selected-count" id="ms-count-badge">4 sel.</span>
+                                </div>
+                                <div class="ms-quick-actions">
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(true, event)">Todos</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(3, event)">Últ. 3</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(6, event)">Últ. 6</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(false, event)">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="ms-grid" id="month-checkbox-grid">
+                                <!-- Checkboxes gerados dinamicamente -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="filter-month" value="8">
+                    </div>
+                    <select id="filter-year" onchange="fetchData()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                    <div class="next-update" id="next-update">Próxima atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- View Controls & Filters -->
+        <section class="controls-bar">
+            <div class="controls-left-group">
+                <div class="view-switch-container">
+                    <button class="view-btn active" id="btn-view-cat" onclick="switchView('categoria')">
+                        🏷️ Categorias
+                    </button>
+                </div>
+
+                <div class="metric-switch-container">
+                    <button class="metric-btn active" id="btn-met-completo" onclick="switchMetric('completo')">
+                        🎯 Completo (Share + Δ Posição + MoM + YoY)
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-and-stats">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="table-search" placeholder="Filtrar nesta visualização..." onkeyup="filterTable()">
+                </div>
+            </div>
+        </section>
+
+        <!-- Executive Table Container -->
+        <main class="table-card-container">
+            <div class="table-responsive-wrapper">
+                <table class="exec-table" id="table-categorias">
+                    <thead>
+                        <tr id="table-header-row">
+                            <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Áudio de Comemoração da Meta -->
+    <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
+    <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
+
+    <script src="{{ url_for('static', filename='js/categorias.js') }}?v=20260909_3"></script>
+</body>
+</html>
+

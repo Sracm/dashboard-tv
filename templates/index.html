@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Acompanhamento de Performance</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn active">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                </div>
+                <div class="header-title-main">INDICADORES DE PERFORMANCE</div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <select id="filter-month" onchange="fetchData()">
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9">Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                    <select id="filter-year" onchange="fetchData()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                    
+                    <button id="btn-parar-audio" onclick="pararTodosAudios()" class="btn-parar-audio" title="Parar reprodução de música">
+                        ⏹️ Parar Música
+                    </button>
+
+                    <!-- Status Visual da Reprodução -->
+                    <span id="audio-status-badge" class="audio-status-badge" style="display:none;"></span>
+
+                    <!-- Menu Dropdown para Testar Músicas Individuais -->
+                    <div class="audio-dropdown-container">
+                        <button id="btn-dropdown-toggle" onclick="toggleAudioDropdown(event)" class="btn-dropdown-audio" title="Testar músicas individuais de cada canal">
+                            🎸 Músicas Individuais ▾
+                        </button>
+                        <div id="audio-dropdown-menu" class="audio-dropdown-menu">
+                            <div class="dropdown-header">Testar Som por Canal</div>
+                            <button onclick="testarAudioIndividual('distribuicao')" class="drop-item"><span class="drop-dot" style="background:#0d6efd;"></span><strong>Distribuição:</strong> The Who (30s)</button>
+                            <button onclick="testarAudioIndividual('varejo_sp')" class="drop-item"><span class="drop-dot" style="background:#198754;"></span><strong>Varejo SP:</strong> Creedence (18s)</button>
+                            <button onclick="testarAudioIndividual('ecommerce')" class="drop-item"><span class="drop-dot" style="background:#6f42c1;"></span><strong>E-commerce:</strong> Deep Purple (30s)</button>
+                            <button onclick="testarAudioIndividual('empresa')" class="drop-item"><span class="drop-dot" style="background:#ffc107;"></span><strong>Empresa:</strong> Van Halen (28s)</button>
+                            <button onclick="testarAudioIndividual('comex')" class="drop-item"><span class="drop-dot" style="background:#dc3545;"></span><strong>Comex:</strong> Led Zeppelin (30s)</button>
+                            <button onclick="testarAudioIndividual('varejo_reg')" class="drop-item"><span class="drop-dot" style="background:#d63384;"></span><strong>Varejo Reg:</strong> ZZ Top (12s)</button>
+                            <button onclick="testarAudioIndividual('parlux')" class="drop-item"><span class="drop-dot" style="background:#fd7e14;"></span><strong>Parlux:</strong> Heart (28s)</button>
+                            <button onclick="testarAudioIndividual('sirene')" class="drop-item"><span class="drop-dot" style="background:#fff;"></span><strong>Geral:</strong> 🔊 Sirene Vitória (10s)</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                    <div class="next-update" id="next-update">Próxima atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Grid for Gauges -->
+        <main class="grid-container" id="gauges-container">
+            <!-- Gauges will be dynamically inserted here via JS -->
+        </main>
+    </div>
+
+    <!-- Áudio de Comemoração da Meta -->
+    <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
+    <audio id="music-sound" src="/static/audio/van_halen_jump.mp3" preload="none"></audio>
+    <audio id="audio-distribuicao" src="/static/audio/the_who_who_are_you.mp3" preload="none"></audio>
+    <audio id="audio-ecommerce" src="/static/audio/deep_purple_perfect_strangers.mp3" preload="none"></audio>
+    <audio id="audio-comex" src="/static/audio/led_zeppelin_whole_lotta_love.mp3" preload="none"></audio>
+    <audio id="audio-varejo-sp" src="/static/audio/creedence_fortunate_son.mp3" preload="none"></audio>
+    <audio id="audio-varejo-reg" src="/static/audio/zztop_lagrange.mp3" preload="none"></audio>
+    <audio id="audio-parlux" src="/static/audio/heart_barracuda.mp3" preload="none"></audio>
+
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=22"></script>
+</body>
+</html>
+
+
