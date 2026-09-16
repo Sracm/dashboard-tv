@@ -1,4 +1,4 @@
-let nextUpdateSeconds = 600;
+﻿let nextUpdateSeconds = 600;
 let currentView = 'marca'; // 'categoria' ou 'marca'
 let currentMetric = 'completo'; // 'completo', 'share', 'mom', 'yoy'
 let currentData = null;
@@ -565,7 +565,7 @@ function renderMarcasTable() {
         return currentSort.asc ? valA - valB : valB - valA;
     });
 
-    const tbody = document.getElementById('table-body');
+    const tbody = document.getElementById('table-body'); if (!tbody) return;
     if (!tbody) return;
 
     const totalCols = 3 + meses.length + 2;
@@ -993,10 +993,22 @@ function renderTable() {
 
 function switchView(view) {
     currentView = view;
-    const btnCat = document.getElementById('btn-view-cat');
     const btnMarca = document.getElementById('btn-view-marca');
-    if (btnCat) btnCat.classList.toggle('active', view === 'categoria');
+    const btnCanais = document.getElementById('btn-view-canais');
+    
     if (btnMarca) btnMarca.classList.toggle('active', view === 'marca');
+    if (btnCanais) btnCanais.classList.toggle('active', view === 'canais');
+
+    const secMarcas = document.getElementById('section-marcas');
+    const secCanais = document.getElementById('section-canais');
+
+    if (view === 'marca') {
+        if (secMarcas) secMarcas.style.display = 'block';
+        if (secCanais) secCanais.style.display = 'none';
+    } else if (view === 'canais') {
+        if (secMarcas) secMarcas.style.display = 'none';
+        if (secCanais) secCanais.style.display = 'block';
+    }
 
     if (currentData) {
         renderTable();
@@ -1075,3 +1087,4 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateClock, 1000);
     fetchData();
 });
+

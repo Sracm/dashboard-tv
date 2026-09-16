@@ -614,6 +614,10 @@ def categorias():
 def marcas():
     return render_template('marcas.html')
 
+@app.route('/canais_vendas')
+def canais_vendas():
+    return render_template('canais_vendas.html')
+
 @app.route('/paises')
 def paises():
     return render_template('paises.html')

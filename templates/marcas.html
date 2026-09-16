@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -26,6 +26,7 @@
                     <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
                     <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
                     <button onclick="navigateTab('/marcas')" class="tab-btn active">Marcas</button>
+                    <button onclick="navigateTab('/canais_vendas')" class="tab-btn">Canais de Vendas</button>
                     <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
                     <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
@@ -147,24 +148,6 @@
                 </div>
             </div>
 
-            <!-- Seção 2: Canais de Vendas -->
-            <div class="table-section-block" style="margin-top: 5px;">
-                <div class="table-section-title">
-                    <span class="section-icon">🏢</span> PERFORMANCE POR CANAIS DE VENDAS
-                </div>
-                <div class="table-responsive-wrapper">
-                    <table class="exec-table" id="table-canais">
-                        <thead>
-                            <tr id="table-canais-header-row">
-                                <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
-                            </tr>
-                        </thead>
-                        <tbody id="table-canais-body">
-                            <!-- Linhas de Canais geradas dinamicamente via JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -175,4 +158,5 @@
     <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260909_3"></script>
 </body>
 </html>
+
 
