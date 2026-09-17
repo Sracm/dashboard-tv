@@ -30,8 +30,8 @@ DB_USER = os.getenv("ORACLE_USER", "")
 DB_PASS = os.getenv("ORACLE_PASSWORD", "")
 DB_DSN = os.getenv("ORACLE_DSN", "")
 
-EXCEL_METAS_PATH = r"C:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\METAS MQ BASE\METAS MQ BASE.xlsx"
-SQL_PATH = r"c:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\ANTIGRAVITY\PROJETOS\DASHBOARD_tv\vendas_vendedor_gerente.sql"
+EXCEL_METAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'meta.xlsx')
+SQL_PATH = os.path.join(os.path.dirname(__file__), 'query', 'vendas_vendedor_gerente.sql')
 
 def get_db_connection():
     conn = oracledb.connect(user=DB_USER, password=DB_PASS, dsn=DB_DSN)
