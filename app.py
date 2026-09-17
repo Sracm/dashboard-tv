@@ -692,7 +692,7 @@ def obter_dados_categorias_marcas(mes, ano):
         if setor == 'SP':
             return 'VAREJO ESPECIALIZADO - SP'
         elif setor in ['NO - ND', 'RJ - MG - ES', 'SUL']:
-            return 'VAREJO ESPECIALIZADO REG.'
+            return f'REGIONAL {setor}'
         elif 'DISTRIB' in setor or 'VAGNER' in setor:
             return 'DISTRIBUIÇÃO'
         elif setor == 'COMEX':
@@ -838,7 +838,9 @@ def obter_dados_categorias_marcas(mes, ano):
 
     ordem_canais = [
         'VAREJO ESPECIALIZADO - SP',
-        'VAREJO ESPECIALIZADO REG.',
+        'REGIONAL RJ - MG - ES',
+        'REGIONAL NO - ND',
+        'REGIONAL SUL',
         'DISTRIBUIÇÃO',
         'COMEX',
         'E-COMMERCE - MQ',

@@ -4,6 +4,7 @@
 // ============================================================
 
 let empresaChart = null;
+let ytdYoyChart = null;
 let empresaData = null;
 let currentView = 'mes'; // 'mes' ou 'acumulado'
 let nextUpdateSeconds = 600;
@@ -120,12 +121,12 @@ function getEmpresaGaugeOption(percent, diff) {
                 },
                 title: {
                     offsetCenter: [0, '15%'],
-                    fontSize: 52,
+                    fontSize: 36,
                     color: '#0d6efd',
                     fontWeight: 'bolder'
                 },
                 detail: {
-                    fontSize: 32,
+                    fontSize: 20,
                     offsetCenter: [0, '42%'],
                     valueAnimation: true,
                     formatter: function () {
@@ -148,8 +149,11 @@ function initFilters() {
     const yearEl = document.getElementById('filter-year');
     if (yearEl) yearEl.value = defaultAno;
 
-    // Na Guia Empresa, SEMPRE deixar setado o mês atual
-    selectedMonths = [currentM];
+    // Na Guia Empresa, vamos deixar setado de Janeiro até o Mês Atual por padrão (YTD)
+    selectedMonths = [];
+    for (let m = 1; m <= currentM; m++) {
+        selectedMonths.push(m);
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
@@ -398,41 +402,65 @@ function renderEmpresa() {
         const chartEl = document.getElementById('empresa-gauge');
         if (chartEl) empresaChart = echarts.init(chartEl);
     }
+    if (!ytdYoyChart) {
+        const ytdYoyEl = document.getElementById('ytd-yoy-gauge');
+        if (ytdYoyEl) ytdYoyChart = echarts.init(ytdYoyEl);
+    }
 
     if (empresaChart) {
         empresaChart.setOption(getEmpresaGaugeOption(item.percent, item.diff));
         empresaChart.resize();
     }
+    if (ytdYoyChart) {
+        // YTD vs Ano Anterior percent
+        const ytdYoyPercent = (item.yoy || 0) + 100;
+        const ytdYoyDiff = (item.yoy || 0); // Difference vs 100% is exactly item.yoy
+        ytdYoyChart.setOption(getEmpresaGaugeOption(ytdYoyPercent, ytdYoyDiff));
+    }
 
-    // Renderizar Comparativos abaixo do velocímetro (apenas percentuais: Mês Ant, MoM, Ano Ant, YoY)
-    const compContainer = document.getElementById('empresa-comparisons');
-    if (compContainer) {
-        if (currentView === 'mes') {
-            const mom = item.mom || 0;
-            const yoy = item.yoy || 0;
-            const prevMonth = item.prev_month_percent !== undefined ? item.prev_month_percent : 0;
-            const prevYear = item.prev_year_percent !== undefined ? item.prev_year_percent : 0;
-
-            compContainer.style.display = 'flex';
-            compContainer.innerHTML = 
-                renderValueBadge('Mês Ant', prevMonth) +
-                renderTrendBadge('MoM', mom) +
-                renderValueBadge('Ano Ant', prevYear) +
-                renderTrendBadge('YoY', yoy);
-        } else {
-            const yoy = item.yoy || 0;
-            const prevYear = item.prev_year_percent !== undefined ? item.prev_year_percent : 0;
-
-            if (prevYear > 0 || yoy !== 0) {
-                compContainer.style.display = 'flex';
-                compContainer.innerHTML = 
-                    renderValueBadge('Ano Ant', prevYear) +
-                    renderTrendBadge('YoY', yoy);
+    const ytdYoyContainer = document.getElementById('ytd-yoy-container');
+    const ytdYoyBanner = document.getElementById('ytd-yoy-banner-el');
+    const mainContainer = document.getElementById('main-gauge-container');
+    
+    if (currentView === 'acumulado') {
+        if (mainContainer) mainContainer.style.maxWidth = '650px';
+        if (ytdYoyContainer) ytdYoyContainer.style.display = 'flex';
+        
+        const ytdYoyCard = document.getElementById('ytd-yoy-card-el');
+        
+        // Exibir banner de "SUPEROU ANO ANTERIOR" se YTD YoY > 0
+        if (ytdYoyBanner) {
+            if ((item.yoy || 0) > 0) {
+                ytdYoyBanner.classList.add('show');
+                if (ytdYoyCard) {
+                    ytdYoyCard.classList.add('atingiu-meta');
+                    ytdYoyCard.classList.add('meta-batida');
+                }
             } else {
-                compContainer.style.display = 'none';
-                compContainer.innerHTML = '';
+                ytdYoyBanner.classList.remove('show');
+                if (ytdYoyCard) {
+                    ytdYoyCard.classList.remove('atingiu-meta');
+                    ytdYoyCard.classList.remove('meta-batida');
+                }
             }
         }
+        
+        // Only resize after the container is visible
+        if (ytdYoyChart) {
+            setTimeout(() => {
+                ytdYoyChart.resize();
+            }, 50);
+        }
+    } else {
+        if (mainContainer) mainContainer.style.maxWidth = '1000px';
+        if (ytdYoyContainer) ytdYoyContainer.style.display = 'none';
+    }
+    
+    // Ensure main chart resizes if container width changed
+    if (empresaChart) {
+        setTimeout(() => {
+            empresaChart.resize();
+        }, 300); // wait for CSS transition to finish
     }
 }
 
@@ -524,7 +552,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(updateClock, 1000);
     updateClock();
 
+    // Adicionar listener de redimensionamento para os gráficos
     window.addEventListener('resize', () => {
         if (empresaChart) empresaChart.resize();
+        if (ytdYoyChart) ytdYoyChart.resize();
     });
 });

@@ -43,13 +43,18 @@
 
 .empresa-title {
     background: rgba(255, 255, 255, 0.05);
-    padding: 10px 14px;
+    padding: 16px 14px;
     text-align: center;
-    font-size: 1.35rem;
+    font-size: 1.25rem;
+    line-height: 1.4;
     font-weight: 800;
     color: var(--mq-gold);
     border-bottom: 1px solid var(--border-color);
     letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 75px;
 }
 
 .empresa-chart {
@@ -93,7 +98,9 @@
 }
 
 .meta-banner {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
+    display: block;
     text-align: center;
     background: linear-gradient(90deg, #0b3815, #28a745, #0b3815);
     color: #fff;
@@ -105,10 +112,12 @@
     letter-spacing: 1px;
     text-transform: uppercase;
     box-shadow: 0 0 20px rgba(40, 167, 69, 0.7);
+    transition: opacity 0.3s ease;
 }
 
 .meta-banner.show {
-    display: block;
+    opacity: 1;
+    pointer-events: auto;
     animation: bannerBlink 1s infinite ease-in-out;
 }
 

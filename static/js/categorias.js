@@ -279,7 +279,7 @@ function renderTableHeader() {
 
     let html = `
         <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')">${itemLabel} ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 220px;">${itemLabel} ↕</th>
     `;
 
     meses.forEach(m => {
@@ -287,19 +287,23 @@ function renderTableHeader() {
         const refClass = isRef ? 'active-month-th' : '';
         const refTag = isRef ? ' <span class="ref-badge">M-1 Fechado</span>' : '';
 
-        let subLabel = '';
-        if (currentMetric === 'share') subLabel = ' (Share)';
-        else if (currentMetric === 'mom') subLabel = ' (MoM)';
-        else if (currentMetric === 'yoy') subLabel = ' (YoY)';
-
-        html += `<th class="col-mes-header sortable text-right ${refClass}" onclick="sortTable('mes_${m.num}')">${m.label}${subLabel}${refTag} ↕</th>`;
+        // Mês Principal
+        html += `<th class="col-mes-header sortable text-right ${refClass}" onclick="sortTable('mes_${m.num}')" title="Faturamento e Share do mês de ${m.label}" style="border-left: 1px solid #475569; padding: 4px 2px; font-size: 0.8rem; white-space: nowrap;">${m.label}${refTag} ↕</th>`;
+        // Coluna MoM
+        html += `<th class="col-mes-mom text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="MoM (Month-over-Month): Crescimento percentual em relação ao mês imediatamente anterior">MoM</th>`;
+        // Coluna YoY
+        html += `<th class="col-mes-yoy text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="YoY (Year-over-Year): Crescimento percentual em relação ao mesmo mês do ano anterior">YoY</th>`;
+        
+        if (isRef) {
+            html += `<th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); font-size:0.8rem; padding: 4px 2px; white-space: nowrap;" title="YTD YoY (Year-to-Date Year-over-Year): Crescimento percentual do acumulado (Jan até M-1) em relação ao mesmo período do ano anterior">YTD YoY ↕</th>`;
+        }
     });
 
     html += `
-        <th class="col-share-periodo sortable text-right" onclick="sortTable('share_periodo')">Share Per. ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortTable('share_periodo_ant')">Share A-1 ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')">Δ Share ↕</th>
-        <th class="col-status text-center">Status</th>
+        <th class="col-share-periodo sortable text-right" onclick="sortTable('share_periodo')" title="Share Período: Participação % da categoria no total do período analisado">Share Per. ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_periodo_ant')" title="Share Ano Anterior (A-1): Participação % da categoria no mesmo período do ano passado">Share A-1 ↕</th>
+        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')" title="Δ Share: Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
+        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;" title="Status de performance da categoria">Status</th>
     `;
 
     theadRow.innerHTML = html;
@@ -332,6 +336,14 @@ function renderTable() {
         row.fat_periodo_ant = fatItemAnt;
         totalPeriodoGeral += fatItem;
         totalPeriodoAntGeral += fatItemAnt;
+
+        let ytd_atual = 0;
+        let ytd_ant = 0;
+        for(let i=1; i<=mesRef; i++) {
+            ytd_atual += (row.meses_dados?.[i]?.faturamento || 0);
+            ytd_ant += (row.meses_dados?.[i]?.faturamento_ant || 0);
+        }
+        row.ytd_yoy_val = ytd_ant > 0 ? ((ytd_atual / ytd_ant) - 1) * 100 : (ytd_atual > 0 ? 100 : 0);
     });
 
     items.forEach(row => {
@@ -355,6 +367,9 @@ function renderTable() {
         } else if (currentSort.column === 'share_var') {
             valA = a.share_var ?? 0;
             valB = b.share_var ?? 0;
+        } else if (currentSort.column === 'ytd_yoy') {
+            valA = a.ytd_yoy_val ?? -Infinity;
+            valB = b.ytd_yoy_val ?? -Infinity;
         } else if (currentSort.column.startsWith('mes_')) {
             const mNum = parseInt(currentSort.column.replace('mes_', ''));
             const dataA = a.meses_dados?.[mNum] || {};
@@ -387,7 +402,7 @@ function renderTable() {
     const tbody = document.getElementById('table-body');
     if (!tbody) return;
 
-    const totalCols = 3 + meses.length + 2;
+    const totalCols = 20;
 
     if (filtered.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; padding: 30px; color: #8c93a0;">Nenhum registro encontrado.</td></tr>`;
@@ -411,73 +426,46 @@ function renderTable() {
             const d = row.meses_dados?.[m.num] || {};
             const share = d.share || 0;
             const vlr = d.faturamento || 0;
-            const delta = d.delta_rank;
             const mom = d.mom;
             const yoy = d.yoy;
-            const rank = d.rank;
 
             const isRef = m.num === mesRef;
             const refClass = isRef ? 'active-month-td' : '';
+            const shareNegCls = share < 0 ? 'negative' : '';
 
-            // Tooltip completo
-            const deltaDesc = delta > 0 ? `subiu ${delta} posições` : (delta < 0 ? `caiu ${Math.abs(delta)} posições` : 'manteve a posição');
-            const tooltip = `${m.label}/${ano}
-• Faturamento: ${formatMoeda(vlr)}
-• Share no Mês: ${share.toFixed(1)}%
-• Posição: #${rank || '—'} (${deltaDesc})
-• MoM: ${formatPct(mom)} vs mês anterior
-• YoY: ${formatPct(yoy)} vs mesmo mês ano anterior`;
+            // Main column
+            let cellContent = (share !== 0 || vlr > 0) ? `
+                <div class="cell-month-box" style="flex-direction:row; justify-content:flex-end; padding:0; height:100%; border:none;">
+                    <span class="cell-month-main ${shareNegCls}" style="font-size:0.95rem; margin:0;">${share.toFixed(1)}%</span>
+                </div>
+            ` : '<span class="cell-vazio">—</span>';
+            mesesHtml += `<td class="col-mes-val text-right ${refClass}" style="border-left: 1px solid #475569; padding:4px 2px;">${cellContent}</td>`;
 
-            let cellContent = '';
-
-            if (currentMetric === 'completo') {
-                let deltaBadge = '';
-                if (delta !== null && delta !== undefined) {
-                    if (delta > 0) deltaBadge = `<span class="delta-badge-sm up" title="Subiu ${delta} posições">▲${delta}</span>`;
-                    else if (delta < 0) deltaBadge = `<span class="delta-badge-sm down" title="Caiu ${Math.abs(delta)} posições">▼${Math.abs(delta)}</span>`;
-                    else deltaBadge = `<span class="delta-badge-sm equal" title="Manteve a posição">—</span>`;
-                }
-
-                let momBadge = '';
-                if (mom !== null && mom !== undefined && vlr > 0) {
-                    const momCls = mom > 0 ? 'positive' : (mom < 0 ? 'negative' : 'neutral');
-                    momBadge = `<span class="metric-pill ${momCls}" title="MoM: ${formatPct(mom)}">MoM ${formatPct(mom)}</span>`;
-                }
-
-                let yoyBadge = '';
-                if (yoy !== null && yoy !== undefined && vlr > 0) {
-                    const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
-                    yoyBadge = `<span class="metric-pill ${yoyCls}" title="YoY: ${formatPct(yoy)}">YoY ${formatPct(yoy)}</span>`;
-                }
-
-                const shareNegCls = share < 0 ? 'negative' : '';
-                cellContent = (share !== 0 || vlr > 0) ? `
-                    <div class="cell-month-box">
-                        <div class="cell-month-top">
-                            <span class="cell-month-main ${shareNegCls}">${share.toFixed(1)}%</span>
-                            ${deltaBadge}
-                        </div>
-                        <div class="cell-month-metrics">
-                            ${momBadge}
-                            ${yoyBadge}
-                        </div>
-                    </div>
-                ` : '<span class="cell-vazio">—</span>';
-
-            } else if (currentMetric === 'share') {
-                const shareNegCls = share < 0 ? 'negative' : '';
-                cellContent = (share !== 0 || vlr > 0) ? `<span class="cell-month-main ${shareNegCls}">${share.toFixed(1)}%</span>` : '<span class="cell-vazio">—</span>';
-
-            } else if (currentMetric === 'mom') {
+            // MoM column
+            let momBadge = '<span class="cell-vazio">—</span>';
+            if (mom !== null && mom !== undefined && vlr > 0) {
                 const momCls = mom > 0 ? 'positive' : (mom < 0 ? 'negative' : 'neutral');
-                cellContent = (mom !== null && mom !== undefined && vlr > 0) ? `<span class="pct-pill ${momCls}">${formatPct(mom)}</span>` : '<span class="cell-vazio">—</span>';
-
-            } else if (currentMetric === 'yoy') {
-                const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
-                cellContent = (yoy !== null && yoy !== undefined && vlr > 0) ? `<span class="pct-pill ${yoyCls}">${formatPct(yoy)}</span>` : '<span class="cell-vazio">—</span>';
+                momBadge = `<span class="pct-pill ${momCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(mom)}</span>`;
             }
+            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${momBadge}</td>`;
 
-            mesesHtml += `<td class="col-mes-val text-right ${refClass}" title="${tooltip}">${cellContent}</td>`;
+            // YoY column
+            let yoyBadge = '<span class="cell-vazio">—</span>';
+            if (yoy !== null && yoy !== undefined && vlr > 0) {
+                const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
+                yoyBadge = `<span class="pct-pill ${yoyCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(yoy)}</span>`;
+            }
+            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${yoyBadge}</td>`;
+
+            // YTD YoY (only after M-1)
+            if (isRef) {
+                let ytdBadge = '<span class="cell-vazio">—</span>';
+                if (row.fat_periodo > 0 || row.fat_periodo_ant > 0) {
+                    const ytdCls = row.ytd_yoy_val > 0 ? 'positive' : (row.ytd_yoy_val < 0 ? 'negative' : 'neutral');
+                    ytdBadge = `<span class="pct-pill ${ytdCls}" style="display:inline-block; margin:0; font-weight:bold; border:1px solid currentColor; font-size:0.75rem; padding: 2px 4px;">${formatPct(row.ytd_yoy_val)}</span>`;
+                }
+                mesesHtml += `<td class="text-center" style="vertical-align:middle; background: rgba(255,193,7,0.05); padding:4px 2px;">${ytdBadge}</td>`;
+            }
         });
 
         const sharePerVal = row.share_periodo || 0;
@@ -517,12 +505,12 @@ function renderTable() {
         return `
             <tr>
                 <td class="col-rank text-center">${renderRankBadge(row.rank)}</td>
-                <td class="col-item text-left">${row.item}</td>
+                <td class="col-item text-left" title="${row.item}" style="min-width: 180px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${row.item}</td>
                 ${mesesHtml}
                 ${sharePerHtml}
                 ${shareAntHtml}
                 ${shareVarHtml}
-                <td class="col-status text-center">${renderStatusTag(row.status)}</td>
+                <td class="col-status text-center" style="min-width: 90px; white-space: nowrap;">${renderStatusTag(row.status)}</td>
             </tr>
         `;
     }).join('');
