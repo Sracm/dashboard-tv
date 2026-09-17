@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Teste de Áudio</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; text-align: center; padding: 50px; }
+        button { padding: 20px 40px; font-size: 20px; margin: 20px; cursor: pointer; background: #0d6efd; color: white; border: none; border-radius: 10px; }
+        .btn-green { background: #28a745; }
+        .btn-red { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>Página de Teste de Áudios</h1>
+    <p>Se não tocar aqui, o arquivo mp3 pode estar corrompido.</p>
+    
+    <button class="btn-green" onclick="document.getElementById('audio-caixa').play()">💵 Testar Caixa Registradora</button>
+    <button class="btn-red" onclick="document.getElementById('audio-policia').play()">🚨 Testar Sirene</button>
+
+    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3" controls style="display:block; margin: 20px auto;"></audio>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3" controls style="display:block; margin: 20px auto;"></audio>
+
+</body>
+</html>

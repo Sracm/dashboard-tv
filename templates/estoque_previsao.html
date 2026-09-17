@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Países (COMEX)</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/paises.css') }}?v=3">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Unificado -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canais_vendas')" class="tab-btn">Canais de Vendas</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn active">Países</button>
+                </div>
+                <div class="header-title-main">INTELIGÊNCIA DE MERCADO — PAÍSES (COMEX)</div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <div class="multiselect-wrapper" id="month-multiselect">
+                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
+                            <span class="ms-icon">📅</span>
+                            <span id="month-select-label">Meses: Jan a Ago (8)</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="month-select-menu">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Previsão de Estoque</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/paises.css') }}?v=3">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Unificado -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canais_vendas')" class="tab-btn">Canais de Vendas</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/estoque_previsao')" class="tab-btn active">Estoque/Previsão</button>
+                </div>
+                <div class="header-title-main">INTELIGÊNCIA DE MERCADO — PREVISÃO DE ESTOQUE</div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <!-- Dropdown de Empresas -->
+                    <select id="filter-empresa" onchange="fetchData()">
+                        <option value="TODAS">Todas as Empresas</option>
+                    </select>
+
+                    <button onclick="fetchData()" class="btn-refresh">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                    <div class="next-update" id="next-update">Próxima atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <section class="controls-bar">
+            <div class="search-and-stats" style="width: 100%; display: flex; justify-content: flex-end;">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="table-search" placeholder="Filtrar por produto ou empresa..." onkeyup="filterTable()">
+                </div>
+            </div>
+        </section>
+
+        <!-- Conteúdo Principal - Tabela -->
+        <main class="main-content">
+            <div class="table-container">
+                <table class="exec-table" id="table-estoque">
+                    <thead>
+                        <tr id="table-header-row">
+                            <th>Produto</th>
+                            <th>Empresa</th>
+                            <th class="col-vendas">Venda Média Diária</th>
+                            <th class="col-saldo">Saldo (Estoque)</th>
+                            <th class="col-dias">Dias de Cobertura (Previsão)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=1"></script>
+</body>
+</html>

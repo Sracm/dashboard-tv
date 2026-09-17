@@ -33,6 +33,7 @@
                     <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
                     <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/estoque_previsao')" class="tab-btn">Estoque/Previsão</button>
                 </div>
                 <div class="header-title-main">INDICADORES DE PERFORMANCE</div>
             </div>
@@ -82,6 +83,8 @@
                             <button onclick="testarAudioIndividual('varejo_reg')" class="drop-item"><span class="drop-dot" style="background:#d63384;"></span><strong>Varejo Reg:</strong> ZZ Top (12s)</button>
                             <button onclick="testarAudioIndividual('parlux')" class="drop-item"><span class="drop-dot" style="background:#fd7e14;"></span><strong>Parlux:</strong> Heart (28s)</button>
                             <button onclick="testarAudioIndividual('sirene')" class="drop-item"><span class="drop-dot" style="background:#fff;"></span><strong>Geral:</strong> 🔊 Sirene Vitória (10s)</button>
+                            <button onclick="testarAudioIndividual('caixa')" class="drop-item"><span class="drop-dot" style="background:#28a745;"></span><strong>Oscilação Positiva:</strong> 💵 Caixa Registradora</button>
+                            <button onclick="testarAudioIndividual('policia')" class="drop-item"><span class="drop-dot" style="background:#dc3545;"></span><strong>Oscilação Negativa:</strong> 🚨 Sirene de Polícia</button>
                         </div>
                     </div>
                 </div>
@@ -109,9 +112,13 @@
     <audio id="audio-varejo-sp" src="/static/audio/creedence_fortunate_son.mp3" preload="none"></audio>
     <audio id="audio-varejo-reg" src="/static/audio/zztop_lagrange.mp3" preload="none"></audio>
     <audio id="audio-parlux" src="/static/audio/heart_barracuda.mp3" preload="none"></audio>
+    
+    <!-- Áudios de Oscilação -->
+    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=1" preload="none"></audio>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=1" preload="none"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=22"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=27"></script>
 </body>
 </html>
 

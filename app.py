@@ -5,6 +5,10 @@ import pandas as pd
 from flask import Flask, render_template, jsonify, request, redirect
 from datetime import datetime
 import threading
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -21,9 +25,9 @@ def add_header(response):
     return response
 
 # Configurações do Banco Oracle
-DB_USER = "sankhya"
-DB_PASS = "mqh41r"
-DB_DSN = "192.168.1.55/ORCL"
+DB_USER = os.getenv("DB_USER", "")
+DB_PASS = os.getenv("DB_PASSWORD", "")
+DB_DSN = os.getenv("DB_DSN", "")
 
 EXCEL_METAS_PATH = r"C:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\METAS MQ BASE\METAS MQ BASE.xlsx"
 SQL_PATH = r"c:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\ANTIGRAVITY\PROJETOS\DASHBOARD_tv\vendas_vendedor_gerente.sql"
@@ -622,6 +626,10 @@ def canais_vendas():
 def paises():
     return render_template('paises.html')
 
+@app.route('/estoque_previsao')
+def estoque_previsao():
+    return render_template('estoque_previsao.html')
+
 cached_categorias_data = {}
 
 def obter_dados_categorias_marcas(mes, ano):
@@ -1077,6 +1085,100 @@ def obter_dados_paises(mes, ano):
 
     cached_paises_data[cache_key] = (resultado, now_ts)
     return resultado
+
+@app.route('/api/paises_vendas')
+def api_paises_vendas():
+    try:
+        mes = request.args.get('mes', datetime.now().month)
+        ano = request.args.get('ano', datetime.now().year)
+        
+        try:
+            mes = int(mes)
+            ano = int(ano)
+        except ValueError:
+            return jsonify({'success': False, 'error': 'Parâmetros mês e ano inválidos'})
+
+        df = obter_dados_paises(mes, ano)
+        if df.empty:
+            return jsonify({'success': True, 'data': []})
+
+        # Processar dados para a view
+        resultados = []
+        for index, row in df.iterrows():
+            resultados.append({
+                'pais': row['DESCRICAO'] if pd.notna(row['DESCRICAO']) else 'Desconhecido',
+                'vendas': float(row['VENDAS']) if pd.notna(row['VENDAS']) else 0.0,
+                'pedidos': float(row['PEDIDOS']) if pd.notna(row['PEDIDOS']) else 0.0,
+                'devolucoes': float(row['DEVOLUCAO']) if pd.notna(row['DEVOLUCAO']) else 0.0,
+                'total_geral': float(row['TOTAL_GERAL']) if pd.notna(row['TOTAL_GERAL']) else 0.0,
+                'margem_lucro': float(row['MARGEM_LUCRO']) if pd.notna(row['MARGEM_LUCRO']) else 0.0
+            })
+            
+        # Ordenar por vendas decrescente
+        resultados = sorted(resultados, key=lambda x: x['vendas'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'data': resultados
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/estoque_previsao')
+def api_estoque_previsao():
+    try:
+        conn = get_db_connection()
+        query = """
+        WITH VENDA_MEDIA AS (
+            SELECT 
+                ITE.CODPROD,
+                SUM(ITE.QTDNEG * TOP.GOLDEV) / 90 as VENDA_MEDIA_DIARIA
+            FROM TGFCAB CAB
+            JOIN TGFITE ITE ON CAB.NUNOTA = ITE.NUNOTA
+            JOIN TGFTOP TOP ON CAB.CODTIPOPER = TOP.CODTIPOPER AND TOP.DHALTER = CAB.DHTIPOPER
+            WHERE CAB.DTNEG >= SYSDATE - 90
+              AND TOP.GOLDEV IN (1, -1)
+            GROUP BY ITE.CODPROD
+        )
+        SELECT 
+            EST.CODPROD,
+            PROD.DESCRPROD AS NOME_PRODUTO,
+            PROD.MARCA,
+            EMP.CODEMP,
+            EMP.RAZAOABREV AS NOME_EMPRESA,
+            EST.SALDO AS SALDO_ESTOQUE,
+            NVL(VM.VENDA_MEDIA_DIARIA, 0) AS VENDA_MEDIA_DIARIA
+        FROM VMQ_ESTLOC2 EST
+        JOIN VMQ_TSIEMP EMP ON EST.CODEMP = EMP.CODEMP
+        JOIN VW_MQ_TGFPRO_POWER_BI PROD ON EST.CODPROD = PROD.CODPROD
+        LEFT JOIN VENDA_MEDIA VM ON EST.CODPROD = VM.CODPROD
+        WHERE EST.SALDO > 0
+        ORDER BY PROD.DESCRPROD ASC
+        """
+        df = pd.read_sql(query, conn)
+        
+        # Calcular Dias de Cobertura
+        def calc_dias(row):
+            if row['VENDA_MEDIA_DIARIA'] > 0:
+                return round(row['SALDO_ESTOQUE'] / row['VENDA_MEDIA_DIARIA'])
+            else:
+                return 9999 # Infinito (sem vendas recentes)
+                
+        df['DIAS_COBERTURA'] = df.apply(calc_dias, axis=1)
+        
+        data = df.to_dict('records')
+        return jsonify({'success': True, 'data': data})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+    finally:
+        if 'conn' in locals() and conn:
+            conn.close()
 
 @app.route('/api/paises_dados')
 def api_paises_dados():

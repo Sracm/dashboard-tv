@@ -272,6 +272,65 @@ function renderCharts(data, mes, ano) {
     });
 }
 
+let estadoAnterior = {};
+
+function verificarOscilacao(data, mes, ano) {
+    if (Object.keys(estadoAnterior).length === 0) {
+        data.forEach((equipe, index) => {
+            const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
+            estadoAnterior[chave] = equipe.percent || 0;
+        });
+        return;
+    }
+
+    let tocouSomPositivo = false;
+    let tocouSomNegativo = false;
+
+    data.forEach((equipe, index) => {
+        const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
+        const chartId = `gauge-${index}`;
+        const cardElement = document.getElementById(chartId)?.parentElement;
+        
+        if (!cardElement) return;
+
+        const percentAtual = equipe.percent || 0;
+        const percentAntigo = estadoAnterior[chave];
+
+        if (percentAntigo !== undefined) {
+            if (percentAtual > percentAntigo + 0.05) {
+                cardElement.classList.add('oscilou-cima');
+                setTimeout(() => cardElement.classList.remove('oscilou-cima'), 6000);
+                
+                if (!tocouSomPositivo && !tocouSomNegativo) {
+                    tocouSomPositivo = true;
+                    enfileirarAudioFrente('caixa');
+                }
+            } else if (percentAtual < percentAntigo - 0.05) {
+                cardElement.classList.add('oscilou-baixo');
+                setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 6000);
+                
+                if (!tocouSomNegativo) {
+                    if (tocouSomPositivo) {
+                        const idx = audioQueue.indexOf('caixa');
+                        if (idx > -1) audioQueue.splice(idx, 1);
+                        tocouSomPositivo = false;
+                    }
+                    tocouSomNegativo = true;
+                    enfileirarAudioFrente('policia');
+                }
+                
+                // Desmarcar meta se caiu abaixo de 100
+                if (percentAtual < 100 && percentAntigo >= 100 && chave) {
+                    resetarMetaTocada(chave, mes, ano);
+                    console.log(`[Meta] Canal ${chave} rebaixado para menos de 100%. Meta desmarcada.`);
+                }
+            }
+        }
+        
+        estadoAnterior[chave] = percentAtual;
+    });
+}
+
 let lastPeriodLoaded = '';
 
 // Buscar dados da API
@@ -283,6 +342,7 @@ async function fetchData() {
         const currentPeriod = `${month}_${year}`;
         if (lastPeriodLoaded && lastPeriodLoaded !== currentPeriod) {
             pararTodosAudios();
+            estadoAnterior = {}; // Limpar estado ao mudar de período
         }
         lastPeriodLoaded = currentPeriod;
         
@@ -292,6 +352,7 @@ async function fetchData() {
         
         if (json.success) {
             window.currentVendasData = json.data;
+            verificarOscilacao(json.data, month, year);
             renderCharts(json.data, month, year);
             
             // Atualizar data de última atualização
@@ -318,7 +379,7 @@ function desbloquearAudiosNavegador() {
     const allAudioIds = [
         'victory-sound', 'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
     allAudioIds.forEach(id => {
         const el = document.getElementById(id);
@@ -389,7 +450,9 @@ const AUDIO_CONFIG = {
     'varejo_sp':    { id: 'audio-varejo-sp',    duration: 18000, nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
     'varejo_reg':   { id: 'audio-varejo-reg',   duration: 12000, nome: 'Varejo Reg (ZZ Top - La Grange)' },
     'parlux':       { id: 'audio-parlux',       duration: 28000, nome: 'Parlux (Heart - Barracuda)' },
-    'sirene':       { id: 'victory-sound',      duration: 10000, nome: 'Sirene de Vitória' }
+    'sirene':       { id: 'victory-sound',      duration: 10000, nome: 'Sirene de Vitória' },
+    'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
+    'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }
 };
 
 let audioQueue = [];
@@ -570,6 +633,25 @@ function enfileirarAudio(tipo) {
     }
 }
 
+function enfileirarAudioFrente(tipo) {
+    if (!AUDIO_CONFIG[tipo]) return;
+
+    if (audioQueue.includes(tipo)) return;
+
+    audioQueue.unshift(tipo);
+    if (!audioQueueRunning) {
+        totalMusicasNaFila = audioQueue.length;
+        musicaAtualIndex = 0;
+    } else {
+        totalMusicasNaFila++;
+    }
+    console.log(`[Áudio Fila] Adicionado à frente da fila: ${AUDIO_CONFIG[tipo].nome}. Fila:`, audioQueue);
+
+    if (!audioQueueRunning && !intervalCountdownTimer) {
+        processarFilaAudios();
+    }
+}
+
 function processarFilaAudios() {
     if (audioQueueRunning) return;
     if (audioQueue.length === 0) {
@@ -651,22 +733,26 @@ function processarFilaAudios() {
             const proxConfig = AUDIO_CONFIG[proximoCanal];
             const proxNome = proxConfig ? proxConfig.nome.split('(')[0].trim() : proximoCanal;
             
-            let segundosRestantes = 20;
-            console.log(`[Áudio Fila] Finalizado: ${config.nome}. Aguardando 20 segundos de intervalo antes da próxima música. Restantes na fila: ${audioQueue.length}`);
+            const isCurto = (config.id === 'audio-caixa' || config.id === 'audio-policia');
+            let segundosRestantes = isCurto ? 0 : 20;
+            console.log(`[Áudio Fila] Finalizado: ${config.nome}. Aguardando ${segundosRestantes} segundos de intervalo antes da próxima música. Restantes na fila: ${audioQueue.length}`);
             
             mostrarStatusAudio(`⏳ Intervalo: <strong>${segundosRestantes}s</strong> (Próxima: ${proxNome})`, '#ffc107', 'rgba(255, 193, 7, 0.2)');
             
             if (intervalCountdownTimer) clearInterval(intervalCountdownTimer);
-            intervalCountdownTimer = setInterval(() => {
-                segundosRestantes--;
-                if (segundosRestantes > 0) {
-                    mostrarStatusAudio(`⏳ Intervalo: <strong>${segundosRestantes}s</strong> (Próxima: ${proxNome})`, '#ffc107', 'rgba(255, 193, 7, 0.2)');
-                } else {
-                    clearInterval(intervalCountdownTimer);
-                    intervalCountdownTimer = null;
-                }
-            }, 1000);
-
+            if (segundosRestantes > 0) {
+                intervalCountdownTimer = setInterval(() => {
+                    segundosRestantes--;
+                    if (segundosRestantes > 0) {
+                        mostrarStatusAudio(`⏳ Intervalo: <strong>${segundosRestantes}s</strong> (Próxima: ${proxNome})`, '#ffc107', 'rgba(255, 193, 7, 0.2)');
+                    } else {
+                        clearInterval(intervalCountdownTimer);
+                        intervalCountdownTimer = null;
+                    }
+                }, 1000);
+            }
+            
+            const msEspera = isCurto ? 500 : 20000;
             currentAudioTimeout = setTimeout(() => {
                 currentAudioTimeout = null;
                 if (intervalCountdownTimer) {
@@ -674,7 +760,7 @@ function processarFilaAudios() {
                     intervalCountdownTimer = null;
                 }
                 processarFilaAudios();
-            }, 20000); // Esperar 20 segundos entre o fim de uma música e o início da próxima
+            }, msEspera);
         } else {
             console.log(`[Áudio Fila] Finalizado: ${config.nome}. Todas as músicas da fila foram concluídas.`);
             mostrarStatusAudio('✅ Sequência de Metas Concluída com Sucesso!', '#28a745', 'rgba(40, 167, 69, 0.2)');
@@ -695,6 +781,23 @@ function processarFilaAudios() {
     }).catch(e => {
         console.warn(`Erro ao tocar áudio ${config.nome}:`, e);
         finalizarAudio();
+    });
+}
+
+function desbloquearAudiosNavegador() {
+    const allAudioIds = [
+        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
+    ];
+    allAudioIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.play().then(() => {
+                el.pause();
+                el.currentTime = 0;
+            }).catch(() => {});
+        }
     });
 }
 
@@ -733,7 +836,6 @@ function testarSequenciaMetas() {
 
 // Testar individualmente uma música
 function testarAudioIndividual(tipo) {
-    desbloquearAudiosNavegador();
     pararTodosAudios();
     fecharAudioDropdown();
 
