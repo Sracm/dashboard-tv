@@ -8,7 +8,8 @@ import threading
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+env_path = os.path.join(os.path.dirname(__file__), '.env')
+load_dotenv(env_path)
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -25,15 +26,18 @@ def add_header(response):
     return response
 
 # Configurações do Banco Oracle
-DB_USER = os.getenv("DB_USER", "")
-DB_PASS = os.getenv("DB_PASSWORD", "")
-DB_DSN = os.getenv("DB_DSN", "")
+DB_USER = os.getenv("ORACLE_USER", "")
+DB_PASS = os.getenv("ORACLE_PASSWORD", "")
+DB_DSN = os.getenv("ORACLE_DSN", "")
 
 EXCEL_METAS_PATH = r"C:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\METAS MQ BASE\METAS MQ BASE.xlsx"
 SQL_PATH = r"c:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\ANTIGRAVITY\PROJETOS\DASHBOARD_tv\vendas_vendedor_gerente.sql"
 
 def get_db_connection():
-    return oracledb.connect(user=DB_USER, password=DB_PASS, dsn=DB_DSN)
+    conn = oracledb.connect(user=DB_USER, password=DB_PASS, dsn=DB_DSN)
+    with conn.cursor() as cur:
+        cur.execute("ALTER SESSION SET CURRENT_SCHEMA = SANKHYA")
+    return conn
 
 with open(SQL_PATH, "r", encoding="utf-8") as f:
     RAW_SQL_BASE = f.read()
