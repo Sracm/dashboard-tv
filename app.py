@@ -1139,6 +1139,8 @@ def api_estoque_previsao():
         WITH VENDA_MEDIA AS (
             SELECT 
                 ITE.CODPROD,
+                SUM(CASE WHEN CAB.DTNEG >= TRUNC(SYSDATE, 'MM') THEN (ITE.QTDNEG * TOP.GOLDEV) ELSE 0 END) AS QTD_VENDAS_MES,
+                SUM(ITE.QTDNEG * TOP.GOLDEV) / 3 AS MEDIA_VENDA_TRIMESTRE,
                 SUM(ITE.QTDNEG * TOP.GOLDEV) / 90 as VENDA_MEDIA_DIARIA
             FROM TGFCAB CAB
             JOIN TGFITE ITE ON CAB.NUNOTA = ITE.NUNOTA
@@ -1153,7 +1155,12 @@ def api_estoque_previsao():
             PROD.MARCA,
             EMP.CODEMP,
             EMP.RAZAOABREV AS NOME_EMPRESA,
+            PROD.DESCRGRUPOPROD AS CATEGORIA,
+            PROD.GRUPO_SINTETICO,
+            PROD.GRUPO_ANALITICO,
             EST.SALDO AS SALDO_ESTOQUE,
+            NVL(VM.QTD_VENDAS_MES, 0) AS QTD_VENDAS_MES,
+            NVL(VM.MEDIA_VENDA_TRIMESTRE, 0) AS MEDIA_VENDA_TRIMESTRE,
             NVL(VM.VENDA_MEDIA_DIARIA, 0) AS VENDA_MEDIA_DIARIA
         FROM VMQ_ESTLOC2 EST
         JOIN VMQ_TSIEMP EMP ON EST.CODEMP = EMP.CODEMP
@@ -1173,6 +1180,7 @@ def api_estoque_previsao():
                 
         df['DIAS_COBERTURA'] = df.apply(calc_dias, axis=1)
         
+        df = df.fillna('')
         data = df.to_dict('records')
         return jsonify({'success': True, 'data': data})
         
