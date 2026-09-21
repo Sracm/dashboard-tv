@@ -7,6 +7,8 @@ __pycache__/
 .vscode/
 .idea/
 scratch/
+scratch_*.py
+temp_pbix_*/
 pbix_extract/
 response.json
 *.zip

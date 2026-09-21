@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Categorias & Marcas</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Unificado -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn {{ 'active' if canal_id == 'distribuicao' else '' }}">Distribuição</button>
+                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn {{ 'active' if canal_id == 'ecommerce_mq' else '' }}">E-commerce MQ</button>
+                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn {{ 'active' if canal_id == 'varejo_sp' else '' }}">Varejo SP</button>
+                    <button onclick="navigateTab('/canal/comex')" class="tab-btn {{ 'active' if canal_id == 'comex' else '' }}">Comex</button>
+                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn {{ 'active' if canal_id == 'regional_no_nd' else '' }}">Regional NO/ND</button>
+                    <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn {{ 'active' if canal_id == 'ecommerce_parlux' else '' }}">E-com. Parlux</button>
+                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn {{ 'active' if canal_id == 'regional_rj_mg_es' else '' }}">Reg. RJ/MG/ES</button>
+                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn {{ 'active' if canal_id == 'regional_sul' else '' }}">Regional Sul</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/estoque')" class="tab-btn">Estoque/Previsão</button>
+                </div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <div class="multiselect-wrapper" id="month-multiselect">
+                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
+                            <span class="ms-icon">📅</span>
+                            <span id="month-select-label">Meses: Mai a Ago (4)</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="month-select-menu">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+                                    <span class="ms-title">Filtrar Meses na Tabela</span>
+                                    <span class="ms-selected-count" id="ms-count-badge">4 sel.</span>
+                                </div>
+                                <div class="ms-quick-actions">
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(true, event)">Todos</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(3, event)">Últ. 3</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(6, event)">Últ. 6</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(false, event)">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="ms-grid" id="month-checkbox-grid">
+                                <!-- Checkboxes gerados dinamicamente -->
+                            </div>
+                        </div>
+                        <input type="hidden" id="filter-month" value="8">
+                    </div>
+                    <select id="filter-year" onchange="fetchData()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="last-update" id="last-update">Última atualização: --:--:--</div>
+                    <div class="next-update" id="next-update">Próxima atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- View Controls & Filters -->
+        <section class="controls-bar">
+            <div class="controls-left-group">
+                <div class="view-switch-container">
+                    <button class="view-btn active" id="btn-view-cat" onclick="switchView('categoria')">
+                        🏷️ Categorias
+                    </button>
+                </div>
+
+                <div class="metric-switch-container">
+                    <button class="metric-btn active" id="btn-met-completo" onclick="switchMetric('completo')">
+                        🎯 Completo (Share + Δ Posição + MoM + YoY)
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-and-stats">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="table-search" placeholder="Filtrar nesta visualização..." onkeyup="filterTable()">
+                </div>
+            </div>
+        </section>
+
+        <!-- Pass canal to JS -->
+        <script>
+            window.CURRENT_CANAL = '{{ canal_db }}';
+            window.CURRENT_CANAL_ID = '{{ canal_id }}';
+        </script>
+
+        <!-- Executive Table Container -->
+        <main class="table-card-container">
+            <div class="table-responsive-wrapper">
+                <table class="exec-table" id="table-categorias">
+                    <thead>
+                        <tr id="table-header-row">
+                            <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <!-- Áudio de Comemoração da Meta -->
+    <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
+    <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
+
+    <script src="{{ url_for('static', filename='js/canal.js') }}?v=3"></script>
+</body>
+</html>
+

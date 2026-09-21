@@ -53,12 +53,10 @@ html, body {
 /* Tabela Executiva — 100% da Largura, Distribuída */
 .exec-table {
     width: 100% !important;
-    table-layout: auto !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
     font-size: 0.72rem !important;
 }
-
-/* Cabeçalho Fixo no Topo */
 .exec-table thead th {
     position: sticky !important;
     top: 0 !important;
@@ -68,10 +66,10 @@ html, body {
     font-size: 0.60rem !important;
     font-weight: 800 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.3px !important;
+    letter-spacing: normal !important;
     color: var(--text-muted) !important;
     border-bottom: 1px solid #242a38 !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
     line-height: 1.15 !important;
 }
 
@@ -427,12 +425,13 @@ th.col-share-periodo {
 }
 
 /* ESTILOS EXECUTIVOS PARA ESTOQUE PREVISAO */
-.kpi-section { display: flex; justify-content: space-between; padding: 20px 40px; margin-bottom: -10px; }
-.kpi-cards { display: flex; gap: 20px; width: 100%; }
-.kpi-card { background: rgba(20, 22, 28, 0.9); border: 1px solid #333; border-radius: 8px; padding: 20px; flex: 1; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-.kpi-title { font-size: 0.9em; color: #a0a0a0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
-.kpi-value { font-size: 2em; font-weight: 700; color: #f8f9fa; }
-.kpi-subtitle { font-size: 0.8em; color: #dc3545; margin-top: 5px; }
+/* KPI Cards Adjustments */
+.kpi-section { display: flex; justify-content: space-between; padding: 10px 20px; margin-bottom: 5px; }
+.kpi-cards { display: flex; gap: 15px; width: 100%; }
+.kpi-card { background: rgba(20, 22, 28, 0.9); border: 1px solid #333; border-radius: 8px; padding: 10px 15px; flex: 1; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.kpi-title { font-size: 0.85em; color: #a0a0a0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+.kpi-value { font-size: 1.5em; font-weight: 700; color: #f8f9fa; }
+.kpi-subtitle { font-size: 0.75em; color: #dc3545; margin-top: 3px; }
 .critic-card { border-left: 4px solid #dc3545; }
 .filters-row-executive { background: rgba(15, 17, 21, 0.8); padding: 15px 40px; border-bottom: 1px solid #333; }
 .executive-search input { width: 300px; padding: 8px 15px; border-radius: 4px; border: 1px solid #444; background: #222; color: #fff; }
@@ -442,3 +441,126 @@ th.col-share-periodo {
 .ms-header { border-bottom: 1px solid #444; padding-bottom: 8px; margin-bottom: 8px; font-weight: bold; color: #0dcaf0; }
 .ms-options label { display: block; padding: 5px 0; cursor: pointer; color: #ccc; }
 .ms-options label:hover { color: #fff; }
+
+
+/* =========================================================
+   PREMIUM TREE VIEW (EXECUTIVE) - DESIGN SYSTEM MQ
+   ========================================================= */
+
+/* Parent Rows (Group) */
+.group-row {
+    background: linear-gradient(90deg, #181A20 0%, #121212 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-left: 4px solid #CB9727; /* Dourado MQ */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.group-row:hover {
+    background: linear-gradient(90deg, #1E2129 0%, #181A20 100%) !important;
+    box-shadow: inset 4px 0 0 #CB9727;
+}
+
+.group-row td {
+    padding: 18px 15px !important;
+    font-size: 15px !important;
+    vertical-align: middle;
+}
+
+/* Group Title Styling */
+.group-title-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.group-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(203, 151, 39, 0.1);
+    border: 1px solid rgba(203, 151, 39, 0.5);
+    color: #CB9727;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: 800;
+    transition: all 0.3s;
+}
+
+.group-row:hover .group-icon {
+    background: rgba(203, 151, 39, 0.2);
+    box-shadow: 0 0 10px rgba(203, 151, 39, 0.3);
+}
+
+.group-name {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 1.05em;
+    color: #FFFFFF;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.group-badge {
+    background: rgba(255,255,255,0.1);
+    color: #A0A0A0;
+    font-size: 0.7em;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Child Rows (Products) */
+.child-row {
+    background-color: #0A0C10 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+    transition: background 0.2s;
+}
+
+.child-row:hover {
+    background-color: #12141A !important;
+}
+
+.child-row td {
+    padding: 14px 15px !important;
+    vertical-align: middle;
+}
+
+/* Sub-info styling for products */
+.product-meta {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    align-items: center;
+}
+
+.meta-badge {
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #888;
+    font-size: 0.75em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.3);
+    font-weight: 500;
+}
+
+.product-name {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 0.95em;
+    color: #E0E0E0;
+    line-height: 1.4;
+}
+
+/* KPIs in Table */
+.metric-value {
+    font-family: 'Montserrat', monospace;
+    letter-spacing: 0.5px;
+}
+.metric-value.primary { color: #F8F9FA; font-weight: 600; }
+.metric-value.secondary { color: #A0A0A0; font-weight: 500; }
+.metric-value.highlight { color: #0DCAFD; font-weight: 600; }
+.metric-value.stock { font-size: 1.1em; color: #FFFFFF; font-weight: 700; }

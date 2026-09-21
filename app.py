@@ -85,10 +85,10 @@ def carregar_metas_e_setores(mes, ano):
     global cached_df_metas, cached_df_setores, last_excel_read
     
     if cached_df_metas is None or time.time() - last_excel_read > 1800:
-        cached_df_metas = pd.read_excel(EXCEL_METAS_PATH, sheet_name='TABELA METAS MQ GERAL')
+        cached_df_metas = pd.read_excel(EXCEL_METAS_PATH, sheet_name='metas')
         cached_df_metas.columns = cached_df_metas.columns.str.strip().str.upper()
         
-        cached_df_setores = pd.read_excel(EXCEL_METAS_PATH, sheet_name='BASE SETORES')
+        cached_df_setores = pd.read_excel(EXCEL_METAS_PATH, sheet_name='base_setores')
         cached_df_setores.columns = cached_df_setores.columns.str.strip().str.upper()
         
         last_excel_read = time.time()
@@ -626,6 +626,45 @@ def marcas():
 def canais_vendas():
     return render_template('canais_vendas.html')
 
+
+@app.route('/api/canal_dados')
+def api_canal_dados():
+    try:
+        now = datetime.now()
+        ultimo_fechado = now.month - 1 if now.month > 1 else 12
+        mes_arg = request.args.get('mes')
+        mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
+        ano = int(request.args.get('ano', now.year))
+        canal = request.args.get('canal')
+        
+        if request.args.get('refresh') == '1':
+            # Optionally clear cache
+            pass
+            
+        data = obter_dados_categorias_marcas(mes, ano, canal_filter=canal)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/canal/<canal_name>')
+def canal_page(canal_name):
+    # Map friendly URL names to actual DB names
+    map_canais = {
+        'distribuicao': 'DISTRIBUIÇÃO',
+        'ecommerce_mq': 'E-COMMERCE - MQ',
+        'varejo_sp': 'VAREJO ESPECIALIZADO - SP',
+        'comex': 'COMEX',
+        'regional_no_nd': 'REGIONAL NO - ND',
+        'ecommerce_parlux': 'E-COMMERCE - PARLUX',
+        'regional_rj_mg_es': 'REGIONAL RJ - MG - ES',
+        'regional_sul': 'REGIONAL SUL'
+    }
+    
+    canal_db = map_canais.get(canal_name, '')
+    return render_template('canal.html', canal_db=canal_db, canal_id=canal_name)
+
 @app.route('/paises')
 def paises():
     return render_template('paises.html')
@@ -634,10 +673,18 @@ def paises():
 def estoque_previsao():
     return render_template('estoque_previsao.html')
 
+@app.route('/estoque')
+def estoque():
+    return render_template('estoque_previsao.html')
+
+@app.route('/tv-alertas')
+def tv_alertas():
+    return render_template('tv_alertas.html')
+
 cached_categorias_data = {}
 
-def obter_dados_categorias_marcas(mes, ano):
-    cache_key = f"{ano}_{mes}"
+def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
+    cache_key = f"{ano}_{mes}_{canal_filter}"
     now_ts = time.time()
     if cache_key in cached_categorias_data:
         data, ts = cached_categorias_data[cache_key]
@@ -717,6 +764,9 @@ def obter_dados_categorias_marcas(mes, ano):
         return 'OUTROS'
 
     df['CANAL'] = df.apply(mapear_canal_venda, axis=1)
+
+    if canal_filter:
+        df = df[df['CANAL'] == canal_filter].copy()
 
     def calcular_dimensao(dim_col):
         pivot = df.groupby(['ANO', 'MES', dim_col])['TOTAL_PREV'].sum().reset_index()
@@ -905,6 +955,7 @@ def api_categorias_dados():
         return jsonify({"success": False, "error": str(e)})
 
 cached_paises_data = {}
+cached_paises_raw_df = {}
 
 def obter_dados_paises(mes, ano):
     cache_key = f"{ano}_{mes}"
@@ -922,62 +973,70 @@ def obter_dados_paises(mes, ano):
     ano_ref = ano
     ano_ant = ano_ref - 1
 
-    query = f"""
-    SELECT 
-        NVL(V.NOME_PAIS, 'NÃO INFORMADO') AS NOME_PAIS,
-        V.ANO,
-        V.MES,
-        SUM(V.CALCULO_LIQUIDO_COM_IPI) AS CALCULO_LIQUIDO_COM_IPI
-    FROM (
+    df = None
+    if ano_ref in cached_paises_raw_df:
+        df_cached, ts_raw = cached_paises_raw_df[ano_ref]
+        if now_ts - ts_raw < 1800:
+            df = df_cached.copy()
+
+    if df is None:
+        query = f"""
         SELECT 
-            (SELECT descricao FROM tsipai WHERE codpais=(SELECT codpais FROM tsiufs WHERE coduf = (SELECT uf FROM tsicid WHERE codcid=(SELECT codcid FROM tgfpar WHERE codparc=cab.codparc)))) AS NOME_PAIS,
-            TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'YYYY')) AS ANO,
-            TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'MM')) AS MES,
-            ( ((ITE.VLRTOT - ITE.VLRDESC - ITE.VLRREPRED + ITE.VLRSUBST + ITE.VLRIPI) * VCA.INDITENSBRUTO) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END * DECODE(CAB.TIPMOV,'D',0,'V',1)
-              - ((ITE.VLRTOT - ITE.VLRDESC - ITE.VLRREPRED + ITE.VLRSUBST + ITE.VLRIPI) * VCA.INDITENSBRUTO) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END * DECODE(CAB.TIPMOV,'D',1,'V',0)
-              - (F_OBTEM_FRETEITE(CAB.NUNOTA,ITE.SEQUENCIA) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END) * DECODE(CAB.TIPMOV,'D',-1,'V',1)
-            ) AS CALCULO_LIQUIDO_COM_IPI
-        FROM TGFCAB CAB,
-             TGFITE ITE,
-             TGFTOP TOP,
-             TGFPAR PAR,
-             TGFTPP TPP,
-             TGFGRU GRU,
-             TGFPRO PRO,
-             TSICID CID,
-             VGFCAB VCA
-        WHERE CAB.CODTIPOPER = TOP.CODTIPOPER
-          AND CAB.DHTIPOPER = TOP.DHALTER
-          AND CAB.NUNOTA = ITE.NUNOTA
-          AND CAB.CODPARC = PAR.CODPARC
-          AND PRO.CODPROD = ITE.CODPROD
-          AND PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
-          AND PAR.CODTIPPARC = TPP.CODTIPPARC
-          AND PAR.CODCID = CID.CODCID
-          AND CAB.TIPMOV IN ('V', 'D')
-          AND CAB.STATUSNOTA = 'L'
-          AND CAB.NUNOTA = VCA.NUNOTA
-          AND (TOP.GOLSINAL = -1 OR BONIFICACAO='S')
-          AND (NOT EXISTS(SELECT 1 FROM TGFVAR VAR WHERE VAR.NUNOTA = ITE.NUNOTA AND VAR.NUNOTAORIG = VAR.NUNOTA AND VAR.SEQUENCIAORIG = ITE.SEQUENCIA))
-          AND (TOP.ATUALFINTERC <> 'N' OR TOP.ATUALESTTERC = 'N' OR ITE.TERCEIROS <> 'S')
-          AND ITE.SEQUENCIA > 0
-          AND TOP.GOLDEV IN (1,-1)
-          AND CAB.DTENTSAI >= TO_DATE('01/01/{ano_ant}','DD/MM/YYYY')
-          AND CAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}','DD/MM/YYYY')
-    ) V
-    WHERE UPPER(TRIM(NVL(V.NOME_PAIS, 'NÃO INFORMADO'))) NOT IN ('BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX')
-    GROUP BY V.NOME_PAIS, V.ANO, V.MES
-    """
+            NVL(V.NOME_PAIS, 'NÃO INFORMADO') AS NOME_PAIS,
+            V.ANO,
+            V.MES,
+            SUM(V.CALCULO_LIQUIDO_COM_IPI) AS CALCULO_LIQUIDO_COM_IPI
+        FROM (
+            SELECT 
+                (SELECT descricao FROM tsipai WHERE codpais=(SELECT codpais FROM tsiufs WHERE coduf = (SELECT uf FROM tsicid WHERE codcid=(SELECT codcid FROM tgfpar WHERE codparc=cab.codparc)))) AS NOME_PAIS,
+                TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'YYYY')) AS ANO,
+                TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'MM')) AS MES,
+                ( ((ITE.VLRTOT - ITE.VLRDESC - ITE.VLRREPRED + ITE.VLRSUBST + ITE.VLRIPI) * VCA.INDITENSBRUTO) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END * DECODE(CAB.TIPMOV,'D',0,'V',1)
+                  - ((ITE.VLRTOT - ITE.VLRDESC - ITE.VLRREPRED + ITE.VLRSUBST + ITE.VLRIPI) * VCA.INDITENSBRUTO) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END * DECODE(CAB.TIPMOV,'D',1,'V',0)
+                  - (F_OBTEM_FRETEITE(CAB.NUNOTA,ITE.SEQUENCIA) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END) * DECODE(CAB.TIPMOV,'D',-1,'V',1)
+                ) AS CALCULO_LIQUIDO_COM_IPI
+            FROM TGFCAB CAB,
+                 TGFITE ITE,
+                 TGFTOP TOP,
+                 TGFPAR PAR,
+                 TGFTPP TPP,
+                 TGFGRU GRU,
+                 TGFPRO PRO,
+                 TSICID CID,
+                 VGFCAB VCA
+            WHERE CAB.CODTIPOPER = TOP.CODTIPOPER
+              AND CAB.DHTIPOPER = TOP.DHALTER
+              AND CAB.NUNOTA = ITE.NUNOTA
+              AND CAB.CODPARC = PAR.CODPARC
+              AND PRO.CODPROD = ITE.CODPROD
+              AND PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
+              AND PAR.CODTIPPARC = TPP.CODTIPPARC
+              AND PAR.CODCID = CID.CODCID
+              AND CAB.TIPMOV IN ('V', 'D')
+              AND CAB.STATUSNOTA = 'L'
+              AND CAB.NUNOTA = VCA.NUNOTA
+              AND (TOP.GOLSINAL = -1 OR BONIFICACAO='S')
+              AND (NOT EXISTS(SELECT 1 FROM TGFVAR VAR WHERE VAR.NUNOTA = ITE.NUNOTA AND VAR.NUNOTAORIG = VAR.NUNOTA AND VAR.SEQUENCIAORIG = ITE.SEQUENCIA))
+              AND (TOP.ATUALFINTERC <> 'N' OR TOP.ATUALESTTERC = 'N' OR ITE.TERCEIROS <> 'S')
+              AND ITE.SEQUENCIA > 0
+              AND TOP.GOLDEV IN (1,-1)
+              AND CAB.DTENTSAI >= TO_DATE('01/01/{ano_ant}','DD/MM/YYYY')
+              AND CAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}','DD/MM/YYYY')
+        ) V
+        WHERE UPPER(TRIM(NVL(V.NOME_PAIS, 'NÃO INFORMADO'))) NOT IN ('BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX')
+        GROUP BY V.NOME_PAIS, V.ANO, V.MES
+        """
 
-    conn = get_db_connection()
-    try:
-        df = pd.read_sql(query, conn)
-    finally:
-        conn.close()
+        conn = get_db_connection()
+        try:
+            df = pd.read_sql(query, conn)
+        finally:
+            conn.close()
 
-    # Excluir Brasil e registros inválidos (foco 100% em COMEX internacional)
-    df['NOME_PAIS'] = df['NOME_PAIS'].astype(str).str.strip().str.upper()
-    df = df[~df['NOME_PAIS'].isin(['BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX', 'NONE', 'NAN', ''])]
+        # Excluir Brasil e registros inválidos (foco 100% em COMEX internacional)
+        df['NOME_PAIS'] = df['NOME_PAIS'].astype(str).str.strip().str.upper()
+        df = df[~df['NOME_PAIS'].isin(['BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX', 'NONE', 'NAN', ''])]
+        cached_paises_raw_df[ano_ref] = (df.copy(), now_ts)
 
     nomes_meses_br = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
     
@@ -1131,66 +1190,109 @@ def api_paises_vendas():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
+cached_estoque_previsao = {
+    'data': None,
+    'timestamp': 0
+}
+
+def obter_dados_estoque_previsao(force=False):
+    global cached_estoque_previsao
+    if not force and cached_estoque_previsao['data'] is not None and (time.time() - cached_estoque_previsao['timestamp'] < 1800):
+        return cached_estoque_previsao['data']
+
+    conn = get_db_connection()
+    query = """
+    WITH VENDA_MEDIA AS (
+        SELECT 
+            ITE.CODPROD,
+            SUM(CASE WHEN CAB.DTENTSAI >= TRUNC(SYSDATE, 'MM') THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_VENDAS_MES,
+            SUM(CASE WHEN CAB.DTENTSAI >= SYSDATE - 90 THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) / 3 AS MEDIA_VENDA_TRIMESTRE,
+            SUM(CASE WHEN CAB.DTENTSAI >= SYSDATE - 90 THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) / 90 as VENDA_MEDIA_DIARIA,
+            SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1) AND CAB.DTENTSAI < TRUNC(SYSDATE, 'MM') THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M1,
+            SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) AND CAB.DTENTSAI < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1) THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M2,
+            SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -3) AND CAB.DTENTSAI < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M3
+        FROM TGFCAB CAB
+        JOIN TGFITE ITE ON CAB.NUNOTA = ITE.NUNOTA
+        JOIN TGFTOP TOP ON CAB.CODTIPOPER = TOP.CODTIPOPER AND TOP.DHALTER = CAB.DHTIPOPER
+        WHERE CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -3)
+          AND TOP.GOLDEV IN (0, 1, -1)
+          AND CAB.STATUSNOTA = 'L'
+          AND (TOP.ATUALFINTERC <> 'N' OR TOP.ATUALESTTERC = 'N' OR ITE.TERCEIROS <> 'S')
+          AND ITE.SEQUENCIA > 0
+          AND (NOT EXISTS(SELECT 1 FROM TGFVAR VAR WHERE VAR.NUNOTA = ITE.NUNOTA AND VAR.NUNOTAORIG = VAR.NUNOTA AND VAR.SEQUENCIAORIG = ITE.SEQUENCIA))
+          AND CAB.CODEMP NOT IN (SELECT CODEMP FROM TSIEMP WHERE NOMEFANTASIA IN ('EKOS - SP', 'GLOBRAL - SP', 'QUALITY - MATRIZ'))
+          AND CAB.CODVEND NOT IN (SELECT CODVEND FROM TGFVEN WHERE APELIDO = 'MULTIMAQ REPRES')
+        GROUP BY ITE.CODPROD
+    ),
+    EST_TOTAL AS (
+        SELECT 
+            CODEMP, 
+            CODPROD, 
+            CASE WHEN CODPARC > 0 THEN 'Terceiros' ELSE 'Próprio' END AS EM_PODER, 
+            SUM(NVL(ESTOQUE, 0)) AS SALDO
+        FROM TGFEST
+        WHERE ESTOQUE <> 0
+          AND TIPO = 'P'
+        GROUP BY CODEMP, CODPROD, CASE WHEN CODPARC > 0 THEN 'Terceiros' ELSE 'Próprio' END
+        HAVING SUM(NVL(ESTOQUE, 0)) > 0
+    )
+    SELECT 
+        EST.CODPROD,
+        PROD.DESCRPROD AS NOME_PRODUTO,
+        PROD.MARCA,
+        EMP.CODEMP,
+        EMP.RAZAOABREV AS NOME_EMPRESA,
+        PROD.DESCRGRUPOPROD AS CATEGORIA,
+        PROD.GRUPO_SINTETICO,
+        PROD.GRUPO_ANALITICO,
+        EST.SALDO AS SALDO_ESTOQUE,
+        NVL(VM.QTD_VENDAS_MES, 0) AS QTD_VENDAS_MES,
+        NVL(VM.MEDIA_VENDA_TRIMESTRE, 0) AS MEDIA_VENDA_TRIMESTRE,
+        NVL(VM.VENDA_MEDIA_DIARIA, 0) AS VENDA_MEDIA_DIARIA,
+        NVL(VM.QTD_M1, 0) AS QTD_M1,
+        NVL(VM.QTD_M2, 0) AS QTD_M2,
+        NVL(VM.QTD_M3, 0) AS QTD_M3,
+        PROD.GRUPO_PAI AS TIPO_GRUPO,
+        EST.EM_PODER
+    FROM EST_TOTAL EST
+    JOIN VMQ_TSIEMP EMP ON EST.CODEMP = EMP.CODEMP
+    JOIN VW_MQ_TGFPRO_POWER_BI PROD ON EST.CODPROD = PROD.CODPROD
+    LEFT JOIN VENDA_MEDIA VM ON EST.CODPROD = VM.CODPROD
+    WHERE EMP.RAZAOABREV NOT IN ('EKOS - SP', 'GLOBRAL - SP', 'QUALITY MATRIZ', 'QUALITY - MATRIZ')
+      AND PROD.DESCRGRUPOPROD NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO', 'SPARE PARTS')
+      AND PROD.DESCRGRUPOPROD NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
+      AND PROD.DESCRGRUPOPROD NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
+      AND PROD.MARCA <> 'TERMIX'
+    ORDER BY PROD.DESCRPROD ASC
+    """
+    try:
+        df = pd.read_sql(query, conn)
+    finally:
+        conn.close()
+
+    def calc_dias(row):
+        if row['VENDA_MEDIA_DIARIA'] > 0:
+            return round(row['SALDO_ESTOQUE'] / row['VENDA_MEDIA_DIARIA'])
+        else:
+            return 9999
+
+    df['DIAS_COBERTURA'] = df.apply(calc_dias, axis=1)
+    df = df.fillna('')
+    data = df.to_dict('records')
+    cached_estoque_previsao['data'] = data
+    cached_estoque_previsao['timestamp'] = time.time()
+    return data
+
 @app.route('/api/estoque_previsao')
 def api_estoque_previsao():
     try:
-        conn = get_db_connection()
-        query = """
-        WITH VENDA_MEDIA AS (
-            SELECT 
-                ITE.CODPROD,
-                SUM(CASE WHEN CAB.DTNEG >= TRUNC(SYSDATE, 'MM') THEN (ITE.QTDNEG * TOP.GOLDEV) ELSE 0 END) AS QTD_VENDAS_MES,
-                SUM(ITE.QTDNEG * TOP.GOLDEV) / 3 AS MEDIA_VENDA_TRIMESTRE,
-                SUM(ITE.QTDNEG * TOP.GOLDEV) / 90 as VENDA_MEDIA_DIARIA
-            FROM TGFCAB CAB
-            JOIN TGFITE ITE ON CAB.NUNOTA = ITE.NUNOTA
-            JOIN TGFTOP TOP ON CAB.CODTIPOPER = TOP.CODTIPOPER AND TOP.DHALTER = CAB.DHTIPOPER
-            WHERE CAB.DTNEG >= SYSDATE - 90
-              AND TOP.GOLDEV IN (1, -1)
-            GROUP BY ITE.CODPROD
-        )
-        SELECT 
-            EST.CODPROD,
-            PROD.DESCRPROD AS NOME_PRODUTO,
-            PROD.MARCA,
-            EMP.CODEMP,
-            EMP.RAZAOABREV AS NOME_EMPRESA,
-            PROD.DESCRGRUPOPROD AS CATEGORIA,
-            PROD.GRUPO_SINTETICO,
-            PROD.GRUPO_ANALITICO,
-            EST.SALDO AS SALDO_ESTOQUE,
-            NVL(VM.QTD_VENDAS_MES, 0) AS QTD_VENDAS_MES,
-            NVL(VM.MEDIA_VENDA_TRIMESTRE, 0) AS MEDIA_VENDA_TRIMESTRE,
-            NVL(VM.VENDA_MEDIA_DIARIA, 0) AS VENDA_MEDIA_DIARIA
-        FROM VMQ_ESTLOC2 EST
-        JOIN VMQ_TSIEMP EMP ON EST.CODEMP = EMP.CODEMP
-        JOIN VW_MQ_TGFPRO_POWER_BI PROD ON EST.CODPROD = PROD.CODPROD
-        LEFT JOIN VENDA_MEDIA VM ON EST.CODPROD = VM.CODPROD
-        WHERE EST.SALDO > 0
-        ORDER BY PROD.DESCRPROD ASC
-        """
-        df = pd.read_sql(query, conn)
-        
-        # Calcular Dias de Cobertura
-        def calc_dias(row):
-            if row['VENDA_MEDIA_DIARIA'] > 0:
-                return round(row['SALDO_ESTOQUE'] / row['VENDA_MEDIA_DIARIA'])
-            else:
-                return 9999 # Infinito (sem vendas recentes)
-                
-        df['DIAS_COBERTURA'] = df.apply(calc_dias, axis=1)
-        
-        df = df.fillna('')
-        data = df.to_dict('records')
+        force = request.args.get('refresh') == '1'
+        data = obter_dados_estoque_previsao(force=force)
         return jsonify({'success': True, 'data': data})
-        
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
-    finally:
-        if 'conn' in locals() and conn:
-            conn.close()
 
 @app.route('/api/paises_dados')
 def api_paises_dados():
@@ -1460,6 +1562,211 @@ def alias_indicadores_mensal():
 def alias_indicadores_acumulado():
     return api_acumulado_tv()
 
+
+import threading
+from datetime import date
+from dateutil.relativedelta import relativedelta
+import pandas as pd
+
+CACHE_HISTORICO_VENDAS = {
+    'df': None,
+    'mes_atual': None
+}
+lock_historico = threading.Lock()
+
+@app.route('/api/estoque')
+
+def api_estoque():
+    from datetime import datetime, date
+    from dateutil.relativedelta import relativedelta
+    import pandas as pd
+    
+    try:
+        hoje = date.today()
+        meses_nomes = ['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ']
+
+        global CACHE_HISTORICO_VENDAS
+        
+        with lock_historico:
+            precisa_atualizar_historico = (
+                CACHE_HISTORICO_VENDAS['df'] is None or 
+                CACHE_HISTORICO_VENDAS['mes_atual'] != hoje.month
+            )
+
+        SQL_PATH_ESTOQUE = os.path.join(os.path.dirname(__file__), 'query', 'estoque.sql')
+        with open(SQL_PATH_ESTOQUE, "r", encoding="utf-8") as f:
+            sql_query_base = f.read()
+
+        conn = get_db_connection()
+        try:
+            if precisa_atualizar_historico:
+                # Buscar histórico (M-6 até último dia de M-1)
+                data_inicio_hist_obj = hoje - relativedelta(months=6)
+                data_inicio_hist_str = f"01/{data_inicio_hist_obj.month:02d}/{data_inicio_hist_obj.year}"
+                
+                ultimo_dia_mes_passado = date(hoje.year, hoje.month, 1) - relativedelta(days=1)
+                data_fim_hist_str = f"{ultimo_dia_mes_passado.day:02d}/{ultimo_dia_mes_passado.month:02d}/{ultimo_dia_mes_passado.year}"
+                
+                sql_hist = sql_query_base.replace("TO_DATE('01/01/2018','DD/MM/YYYY')", f"TO_DATE('{data_inicio_hist_str}', 'DD/MM/YYYY')")
+                
+                query_hist = f"""
+                SELECT 
+                    CODPROD, PRODUTO, MAX(GRUPO_GERAL) as GRUPO_GERAL, MAX(GRUPO_SINTETICO) as GRUPO_SINTETICO,
+                    MAX(GRUPO_ANALITICO) as GRUPO_ANALITICO, MAX(MARCA) as MARCA, TO_CHAR(DTENTSAI, 'YYYY-MM') as MES_ANO,
+                    SUM(NVL(QTDVENDIDA, 0) + NVL(QTDBONIFIC, 0) + NVL(QTDDEVOLVIDA, 0)) as VENDA_BONIF
+                FROM ({sql_hist})
+                WHERE DTENTSAI <= TO_DATE('{data_fim_hist_str}', 'DD/MM/YYYY')
+          AND NVL(empresa, 'X') NOT IN ('EKOS - SP', 'GLOBRAL - SP', 'QUALITY - MATRIZ')
+          AND NVL(perfil_cli, 'X') NOT IN ('ATEND. DIRETO', 'INDUSTRIA VIDRACEIRA')
+          AND NVL(GRUPO_GERAL, 'X') NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO')
+          AND NVL(GRUPO_GERAL, 'X') NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
+          AND NVL(GRUPO_GERAL, 'X') NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
+          AND NVL(vendedor, 'X') <> 'MULTIMAQ REPRES'
+          AND NVL(MARCA, 'X') <> 'TERMIX'
+                GROUP BY CODPROD, PRODUTO, TO_CHAR(DTENTSAI, 'YYYY-MM')
+                """
+                df_historico = pd.read_sql(query_hist, conn)
+                with lock_historico:
+                    CACHE_HISTORICO_VENDAS['df'] = df_historico
+                    CACHE_HISTORICO_VENDAS['mes_atual'] = hoje.month
+            
+            with lock_historico:
+                df_hist = CACHE_HISTORICO_VENDAS['df'].copy()
+
+            # Buscar apenas o Mês Atual
+            data_inicio_atual_str = f"01/{hoje.month:02d}/{hoje.year}"
+            sql_atual = sql_query_base.replace("TO_DATE('01/01/2018','DD/MM/YYYY')", f"TO_DATE('{data_inicio_atual_str}', 'DD/MM/YYYY')")
+            
+            query_atual = f"""
+            SELECT 
+                CODPROD, PRODUTO, MAX(GRUPO_GERAL) as GRUPO_GERAL, MAX(GRUPO_SINTETICO) as GRUPO_SINTETICO,
+                MAX(GRUPO_ANALITICO) as GRUPO_ANALITICO, MAX(MARCA) as MARCA, TO_CHAR(DTENTSAI, 'YYYY-MM') as MES_ANO,
+                SUM(NVL(QTDVENDIDA, 0) + NVL(QTDBONIFIC, 0) + NVL(QTDDEVOLVIDA, 0)) as VENDA_BONIF
+            FROM ({sql_atual})
+            WHERE DTENTSAI <= TO_DATE('{hoje.strftime('%d/%m/%Y')}', 'DD/MM/YYYY')
+              AND NVL(empresa, 'X') NOT IN ('EKOS - SP', 'GLOBRAL - SP', 'QUALITY - MATRIZ')
+              AND NVL(perfil_cli, 'X') NOT IN ('ATEND. DIRETO', 'INDUSTRIA VIDRACEIRA')
+              AND NVL(GRUPO_GERAL, 'X') NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO', 'SPARE PARTS')
+              AND NVL(GRUPO_GERAL, 'X') NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
+              AND NVL(GRUPO_GERAL, 'X') NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
+              AND NVL(vendedor, 'X') <> 'MULTIMAQ REPRES'
+              AND NVL(MARCA, 'X') <> 'TERMIX'
+            GROUP BY CODPROD, PRODUTO, TO_CHAR(DTENTSAI, 'YYYY-MM')
+            """
+            df_mes_atual = pd.read_sql(query_atual, conn)
+            
+            # Buscar Estoque
+            df_est = pd.read_sql("SELECT CODPROD, CODEMP, SALDO FROM VMQ_ESTLOC2", conn)
+            
+        finally:
+            conn.close()
+
+        # Juntar histórico com o mês atual
+        df_vendas = pd.concat([df_hist, df_mes_atual], ignore_index=True)
+
+        if df_vendas.empty:
+            return jsonify({'success': True, 'meses': [], 'data': []})
+
+        # Processar Vendas agregadas
+        df_vendas['MES_ANO'] = pd.to_datetime(df_vendas['MES_ANO']).dt.to_period('M')
+
+        df_pivot = df_vendas.pivot_table(index=['CODPROD', 'PRODUTO'], columns='MES_ANO', values='VENDA_BONIF', aggfunc='sum', fill_value=0).reset_index()
+        
+        # Mapear GRUPO_GERAL, GRUPO_SINTETICO, GRUPO_ANALITICO, MARCA
+        df_grupos = df_vendas[['CODPROD', 'GRUPO_GERAL', 'GRUPO_SINTETICO', 'GRUPO_ANALITICO', 'MARCA']].drop_duplicates()
+        df_pivot = pd.merge(df_pivot, df_grupos, on='CODPROD', how='left')
+
+        meses = []
+        meses_cols = []
+        meses_para_media = []
+        
+        # Exibir 5 meses (M-4 até M-0). A média usa apenas M-4 a M-1.
+        for i in range(4, -1, -1):
+            d = hoje - relativedelta(months=i)
+            period = pd.Period(f"{d.year}-{d.month:02d}", freq='M')
+            mes_nome = meses_nomes[d.month - 1]
+            meses.append(f"{mes_nome} {str(d.year)[2:]}")
+            
+            if period in df_pivot.columns:
+                meses_cols.append(period)
+            else:
+                df_pivot[period] = 0
+                meses_cols.append(period)
+                
+            # O usuário informou que o DAX divide por 4. Pelas nossas contas, 
+            # ele pega a soma dos últimos 4 meses fechados (i de 4 até 1).
+            if 1 <= i <= 4:
+                meses_para_media.append(period)
+
+        # MEDIA CONSUMO = média dos últimos 6 meses fechados, usando round para bater com o BI
+        df_pivot['MEDIA_CONSUMO'] = df_pivot[meses_para_media].mean(axis=1).round().fillna(0).astype(int)
+
+        # Agrupar Estoque Empresa Global
+        df_est_total = df_est.groupby('CODPROD')['SALDO'].sum().reset_index()
+        df_est_total.rename(columns={'SALDO': 'ESTOQUE_EMPRESA'}, inplace=True)
+
+        # Agrupar Estoque MCR (CODEMP = 2)
+        df_est_mcr = df_est[df_est['CODEMP'] == 2].groupby('CODPROD')['SALDO'].sum().reset_index()
+        df_est_mcr.rename(columns={'SALDO': 'ESTOQUE_MCR'}, inplace=True)
+
+        # Merge Vendas e Estoques
+        df_final = pd.merge(df_pivot, df_est_total, on='CODPROD', how='left')
+        df_final = pd.merge(df_final, df_est_mcr, on='CODPROD', how='left')
+
+        df_final['ESTOQUE_EMPRESA'] = df_final['ESTOQUE_EMPRESA'].fillna(0)
+        df_final['ESTOQUE_MCR'] = df_final['ESTOQUE_MCR'].fillna(0)
+
+        # Dias Estoque
+        df_final['DIAS_ESTOQUE'] = 0
+        mask = df_final['MEDIA_CONSUMO'] > 0
+        df_final.loc[mask, 'DIAS_ESTOQUE'] = ((df_final.loc[mask, 'ESTOQUE_EMPRESA'] / df_final.loc[mask, 'MEDIA_CONSUMO']) * 30).round().astype(int)
+
+        # Cálculo de Curva ABC baseado no Volume de Consumo Médio
+        df_final['CURVA'] = 'C'
+        df_final.sort_values(by='MEDIA_CONSUMO', ascending=False, inplace=True)
+        total_consumo = df_final['MEDIA_CONSUMO'].sum()
+        if total_consumo > 0:
+            df_final['CUM_SUM'] = df_final['MEDIA_CONSUMO'].cumsum()
+            df_final['CUM_PERC'] = df_final['CUM_SUM'] / total_consumo
+            df_final.loc[df_final['CUM_PERC'] <= 0.8, 'CURVA'] = 'A'
+            df_final.loc[(df_final['CUM_PERC'] > 0.8) & (df_final['CUM_PERC'] <= 0.95), 'CURVA'] = 'B'
+
+        # Giro do Estoque = [SOMA SALDO ESTOQUE] / [CONSUMO MEDIO]
+        df_final['GIRO'] = 0.0
+        df_final.loc[mask, 'GIRO'] = (df_final.loc[mask, 'ESTOQUE_EMPRESA'] / df_final.loc[mask, 'MEDIA_CONSUMO']).round(2)
+
+        data = []
+        for _, row in df_final.iterrows():
+            vendas = [int(row[col]) for col in meses_cols]
+            
+            p_data = {
+                'cod': str(row['CODPROD']),
+                'nome': str(row['PRODUTO']),
+                'categoria': str(row.get('GRUPO_SINTETICO', 'Sem Categoria')), # Trocado para SINTETICO a pedido do usuario
+                'grupo_geral': str(row.get('GRUPO_GERAL', '')),
+                'grupo_analitico': str(row.get('GRUPO_ANALITICO', '')),
+                'marca': str(row.get('MARCA', '')),
+                'curva': str(row['CURVA']),
+                'vendas': vendas,
+                'media': int(row['MEDIA_CONSUMO']),
+                'estoque_emp': int(row['ESTOQUE_EMPRESA']),
+                'dias_estoque': int(row['DIAS_ESTOQUE']),
+                'estoque_mcr': int(row['ESTOQUE_MCR']),
+                'giro': float(row['GIRO']),
+                'tt_transferir': 0
+            }
+            data.append(p_data)
+            
+        return jsonify({
+            'success': True,
+            'meses': meses,
+            'data': data
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
 def aquecer_cache_background():
     try:
         now = datetime.now()
@@ -1482,8 +1789,20 @@ def aquecer_cache_background():
         print(f"[CACHE WARMUP] Aquecendo paises para {ano}...")
         try:
             obter_dados_paises(mes, ano)
+            obter_dados_paises(mes_ant, ano)
         except Exception as e:
             print(f"[CACHE WARMUP] Erro paises {ano}: {e}")
+        print(f"[CACHE WARMUP] Aquecendo dados diarios {mes}/{ano}...")
+        try:
+            carregar_dados_diarios_sankhya(mes, ano)
+            carregar_dados_diarios_sankhya(mes_ant, ano_ant)
+        except Exception as e:
+            print(f"[CACHE WARMUP] Erro dados diarios: {e}")
+        print(f"[CACHE WARMUP] Aquecendo estoque previsao...")
+        try:
+            obter_dados_estoque_previsao()
+        except Exception as e:
+            print(f"[CACHE WARMUP] Erro estoque previsao: {e}")
         print("[CACHE WARMUP] Cache inicial totalmente aquecido!")
     except Exception as e:
         print(f"[CACHE WARMUP] Erro geral no aquecimento: {e}")

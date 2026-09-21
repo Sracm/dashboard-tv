@@ -269,18 +269,33 @@ function testarAudio() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
     const params = new URLSearchParams(window.location.search);
     const mesParam = params.get('mes');
     const anoParam = params.get('ano');
+
+    const monthEl = document.getElementById('filter-month');
+    const yearEl = document.getElementById('filter-year');
+
     if (mesParam) {
         let finalMes = mesParam;
         if (mesParam.includes(',')) {
             const parts = mesParam.split(',');
             finalMes = parts[parts.length - 1].trim();
         }
-        document.getElementById('filter-month').value = finalMes;
+        if (monthEl) monthEl.value = finalMes;
+    } else if (monthEl && !monthEl.value) {
+        monthEl.value = currentMonth;
     }
-    if (anoParam) document.getElementById('filter-year').value = anoParam;
+
+    if (anoParam) {
+        if (yearEl) yearEl.value = anoParam;
+    } else if (yearEl && !yearEl.value) {
+        yearEl.value = currentYear;
+    }
 
     fetchData();
 

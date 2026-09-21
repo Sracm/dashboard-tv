@@ -1,5 +1,13 @@
 let estoqueData = [];
 
+function navigateTab(path) {
+    if (path === '/tv' || path === '/') {
+        window.location.href = '/tv';
+        return;
+    }
+    window.location.href = path;
+}
+
 // Funções de formatação
 function formatNumber(num) {
     if (num === null || num === undefined || isNaN(num)) return '0';

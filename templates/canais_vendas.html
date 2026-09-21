@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel TV - Marcas</title>
+    <title>Painel TV - Canais de Vendas</title>
     
     <!-- Google Fonts: Montserrat (MQ Design System) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -26,15 +26,20 @@
                     <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
                     <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
                     <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
-                    <button onclick="navigateTab('/canais_vendas')" class="tab-btn">Canais de Vendas</button>
-                    <button onclick="navigateTab('/canais_vendas')" class="tab-btn active">Canais de Vendas</button>
+                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn">Distribuição</button>
+                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn">E-commerce MQ</button>
+                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
+                    <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
+                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+                    <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn">E-com. Parlux</button>
+                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn">Regional Sul</button>
                     <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
                     <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
                     <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
-                    <button onclick="navigateTab('/estoque_previsao')" class="tab-btn">Estoque/Previsão</button>
+                    <button onclick="navigateTab('/estoque')" class="tab-btn">Estoque/Previsão</button>
                 </div>
-                <div class="header-title-main">INTELIGÊNCIA DE MERCADO — MARCAS</div>
             </div>
 
             <div class="header-bottom">
@@ -109,8 +114,8 @@
         <section class="controls-bar">
             <div class="controls-left-group">
                 <div class="view-switch-container">
-                    <button class="view-btn active" id="btn-view-marca" onclick="switchView('marca')">
-                        🏷️ Marcas
+                    <button class="view-btn active" id="btn-view-canal" onclick="switchView('canal')">
+                        🏢 Canais de Vendas
                     </button>
                 </div>
 
@@ -139,11 +144,11 @@
                 <div class="table-responsive-wrapper">
                     <table class="exec-table" id="table-canais">
                         <thead>
-                            <tr id="table-canais-header-row">
+                            <tr id="table-header-row">
                                 <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
                             </tr>
                         </thead>
-                        <tbody id="table-canais-body">
+                        <tbody id="table-body">
                             <!-- Linhas de Canais geradas dinamicamente via JS -->
                         </tbody>
                     </table>
@@ -156,6 +161,6 @@
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
-    <script src="{{ url_for('static', filename='js/marcas.js') }}?v=9"></script>
+    <script src="{{ url_for('static', filename='js/canais.js') }}?v=1"></script>
 </body>
 </html>

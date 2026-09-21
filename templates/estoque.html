@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Previsão de Estoque</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/paises.css') }}?v=5">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header Unificado -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn">Distribuição</button>
+                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn">E-commerce MQ</button>
+                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
+                    <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
+                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+                    <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn">E-com. Parlux</button>
+                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn">Regional Sul</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/estoque')" class="tab-btn active">Estoque/Previsão</button>
+                </div>
+            </div>
+
+            <div class="header-bottom executive-filters">
+                <div class="filters-row-executive" style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: center;">
+                    
+                    <!-- MultiSelect Empresa -->
+                    <div class="multiselect-wrapper" id="empresa-multiselect">
+                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('empresa')">
+                            <span class="ms-icon">🏢</span>
+                            <span id="empresa-select-label">Todas as Empresas</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="empresa-select-menu" style="display: none;">
+                            <div class="ms-header">
+                                <label><input type="checkbox" id="empresa-select-all" checked onchange="toggleAllCustom('empresa', this.checked)"> Selecionar Todas</label>
+                            </div>
+                            <div class="ms-options" id="empresa-options"></div>
+                        </div>
+                    </div>
+
+                    <!-- MultiSelect Categoria -->
+                    <div class="multiselect-wrapper" id="categoria-multiselect">
+                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('categoria')">
+                            <span class="ms-icon">🏷️</span>
+                            <span id="categoria-select-label">Todas as Categorias</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="categoria-select-menu" style="display: none;">
+                            <div class="ms-header">
+                                <label><input type="checkbox" id="categoria-select-all" checked onchange="toggleAllCustom('categoria', this.checked)"> Selecionar Todas</label>
+                            </div>
+                            <div class="ms-options" id="categoria-options"></div>
+                        </div>
+                    </div>
+
+                    <!-- MultiSelect Sintetico -->
+                    <div class="multiselect-wrapper" id="sintetico-multiselect">
+                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('sintetico')">
+                            <span class="ms-icon">📦</span>
+                            <span id="sintetico-select-label">Todos Sintéticos</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="sintetico-select-menu" style="display: none;">
+                            <div class="ms-header">
+                                <label><input type="checkbox" id="sintetico-select-all" checked onchange="toggleAllCustom('sintetico', this.checked)"> Selecionar Todos</label>
+                            </div>
+                            <div class="ms-options" id="sintetico-options"></div>
+                        </div>
+                    </div>
+
+                    <!-- MultiSelect Analitico -->
+                    <div class="multiselect-wrapper" id="analitico-multiselect">
+                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('analitico')">
+                            <span class="ms-icon">📊</span>
+                            <span id="analitico-select-label">Todos Analíticos</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="analitico-select-menu" style="display: none;">
+                            <div class="ms-header">
+                                <label><input type="checkbox" id="analitico-select-all" checked onchange="toggleAllCustom('analitico', this.checked)"> Selecionar Todos</label>
+                            </div>
+                            <div class="ms-options" id="analitico-options"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="search-box executive-search">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="table-search" placeholder="Buscar por produto..." onkeyup="filterTable()">
+                    </div>
+
+                    <button onclick="fetchData()" class="btn-refresh executive-refresh" style="margin-left: auto;">
+                        <i class="fas fa-sync-alt"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Executive KPIs -->
+        <section class="kpi-section">
+            <div class="kpi-cards">
+                <div class="kpi-card">
+                    <div class="kpi-title">Total de Produtos</div>
+                    <div class="kpi-value" id="kpi-produtos">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-title">Saldo Total em Estoque</div>
+                    <div class="kpi-value" id="kpi-saldo">0 und</div>
+                </div>
+                <div class="kpi-card critic-card">
+                    <div class="kpi-title">Produtos em Estado Crítico</div>
+                    <div class="kpi-value" id="kpi-criticos">0</div>
+                    <div class="kpi-subtitle">Cobertura <= 10 dias</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Conteúdo Principal - Tabela -->
+        <main class="main-content">
+            <div class="table-container">
+                <table class="exec-table" id="table-estoque">
+                    <thead>
+                        <tr id="table-header-row">
+                            <th>Produto</th>
+                            <th class="col-vendas">Qtd Vendas (Mês Atual)</th>
+                            <th class="col-vendas">Média Vendas (Trimestre)</th>
+                            <th class="col-vendas">Venda Média Diária</th>
+                            <th class="col-saldo">Saldo (Estoque)</th>
+                            <th class="col-dias">Dias de Cobertura (Previsão)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=10"></script>
+</body>
+</html>
