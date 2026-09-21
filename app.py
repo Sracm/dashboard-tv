@@ -1201,13 +1201,25 @@ def obter_dados_estoque_previsao(force=False):
         return cached_estoque_previsao['data']
 
     conn = get_db_connection()
+    # Meses dinamicos para labels
+    now = datetime.now()
+    nomes_meses_br = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    mes_atual_num  = now.month
+    ano_atual      = now.year
+    mes_m1_num  = 12 if mes_atual_num == 1 else mes_atual_num - 1
+    mes_m2_num  = 11 if mes_atual_num <= 2 else mes_atual_num - 2
+    mes_m3_num  = 10 if mes_atual_num <= 3 else mes_atual_num - 3
+    label_ma  = f"{nomes_meses_br[mes_atual_num]}/{str(ano_atual)[2:]}"
+    label_m1  = f"{nomes_meses_br[mes_m1_num]}/{str(ano_atual)[2:]}"
+    label_m2  = f"{nomes_meses_br[mes_m2_num]}/{str(ano_atual)[2:]}"
+    label_m3  = f"{nomes_meses_br[mes_m3_num]}/{str(ano_atual)[2:]}"
+
     query = """
     WITH VENDA_MEDIA AS (
         SELECT 
             ITE.CODPROD,
             SUM(CASE WHEN CAB.DTENTSAI >= TRUNC(SYSDATE, 'MM') THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_VENDAS_MES,
-            SUM(CASE WHEN CAB.DTENTSAI >= SYSDATE - 90 THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) / 3 AS MEDIA_VENDA_TRIMESTRE,
-            SUM(CASE WHEN CAB.DTENTSAI >= SYSDATE - 90 THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) / 90 as VENDA_MEDIA_DIARIA,
+            SUM(CASE WHEN CAB.DTENTSAI >= SYSDATE - 90 THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) / 90 AS VENDA_MEDIA_DIARIA,
             SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1) AND CAB.DTENTSAI < TRUNC(SYSDATE, 'MM') THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M1,
             SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) AND CAB.DTENTSAI < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -1) THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M2,
             SUM(CASE WHEN CAB.DTENTSAI >= ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -3) AND CAB.DTENTSAI < ADD_MONTHS(TRUNC(SYSDATE, 'MM'), -2) THEN CASE WHEN TOP.GOLDEV = -1 THEN -ITE.QTDNEG ELSE ITE.QTDNEG END ELSE 0 END) AS QTD_M3
@@ -1224,63 +1236,124 @@ def obter_dados_estoque_previsao(force=False):
           AND CAB.CODVEND NOT IN (SELECT CODVEND FROM TGFVEN WHERE APELIDO = 'MULTIMAQ REPRES')
         GROUP BY ITE.CODPROD
     ),
-    EST_TOTAL AS (
+    EST_POR_EMP AS (
         SELECT 
-            CODEMP, 
-            CODPROD, 
-            CASE WHEN CODPARC > 0 THEN 'Terceiros' ELSE 'Próprio' END AS EM_PODER, 
-            SUM(NVL(ESTOQUE, 0)) AS SALDO
+            CODEMP,
+            CODPROD,
+            SUM(NVL(ESTOQUE, 0))    AS SALDO_ESTQ,
+            SUM(NVL(RESERVADO, 0))  AS SALDO_RESV
         FROM TGFEST
-        WHERE ESTOQUE <> 0
-          AND TIPO = 'P'
-        GROUP BY CODEMP, CODPROD, CASE WHEN CODPARC > 0 THEN 'Terceiros' ELSE 'Próprio' END
-        HAVING SUM(NVL(ESTOQUE, 0)) > 0
+        WHERE TIPO = 'P' AND CODPARC = 0
+        GROUP BY CODEMP, CODPROD
+    ),
+    PROD_BASE AS (
+        SELECT DISTINCT
+            P.CODPROD,
+            P.DESCRPROD,
+            P.MARCA,
+            P.DESCRGRUPOPROD AS CATEGORIA,
+            P.GRUPO_SINTETICO,
+            P.GRUPO_ANALITICO,
+            P.GRUPO_PAI AS TIPO_GRUPO
+        FROM VW_MQ_TGFPRO_POWER_BI P
+        WHERE P.DESCRGRUPOPROD NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO', 'SPARE PARTS')
+          AND P.DESCRGRUPOPROD NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
+          AND P.DESCRGRUPOPROD NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
+          AND P.MARCA <> 'TERMIX'
     )
     SELECT 
-        EST.CODPROD,
-        PROD.DESCRPROD AS NOME_PRODUTO,
-        PROD.MARCA,
-        EMP.CODEMP,
-        EMP.RAZAOABREV AS NOME_EMPRESA,
-        PROD.DESCRGRUPOPROD AS CATEGORIA,
-        PROD.GRUPO_SINTETICO,
-        PROD.GRUPO_ANALITICO,
-        EST.SALDO AS SALDO_ESTOQUE,
-        NVL(VM.QTD_VENDAS_MES, 0) AS QTD_VENDAS_MES,
-        NVL(VM.MEDIA_VENDA_TRIMESTRE, 0) AS MEDIA_VENDA_TRIMESTRE,
+        PB.CODPROD,
+        PB.DESCRPROD      AS NOME_PRODUTO,
+        PB.MARCA,
+        PB.CATEGORIA,
+        PB.GRUPO_SINTETICO,
+        PB.GRUPO_ANALITICO,
+        PB.TIPO_GRUPO,
+        NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E JOIN VMQ_TSIEMP EMP ON E.CODEMP = EMP.CODEMP
+             WHERE E.CODPROD = PB.CODPROD
+               AND EMP.RAZAOABREV NOT IN ('EKOS - SP','GLOBRAL - SP','QUALITY MATRIZ','QUALITY - MATRIZ','MCM RSCP'))
+             , 0) AS SALDO_EMPRESA,
+        NVL((SELECT SUM(E.SALDO_RESV) FROM EST_POR_EMP E JOIN VMQ_TSIEMP EMP ON E.CODEMP = EMP.CODEMP
+             WHERE E.CODPROD = PB.CODPROD
+               AND EMP.RAZAOABREV NOT IN ('EKOS - SP','GLOBRAL - SP','QUALITY MATRIZ','QUALITY - MATRIZ','MCM RSCP'))
+             , 0) AS SALDO_RESV_EMPRESA,
+        NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E JOIN VMQ_TSIEMP EMP ON E.CODEMP = EMP.CODEMP
+             WHERE E.CODPROD = PB.CODPROD AND EMP.RAZAOABREV LIKE '%MCM%')
+             , 0) AS SALDO_MCM,
+        NVL(VM.QTD_VENDAS_MES,    0) AS QTD_VENDAS_MES,
         NVL(VM.VENDA_MEDIA_DIARIA, 0) AS VENDA_MEDIA_DIARIA,
-        NVL(VM.QTD_M1, 0) AS QTD_M1,
-        NVL(VM.QTD_M2, 0) AS QTD_M2,
-        NVL(VM.QTD_M3, 0) AS QTD_M3,
-        PROD.GRUPO_PAI AS TIPO_GRUPO,
-        EST.EM_PODER
-    FROM EST_TOTAL EST
-    JOIN VMQ_TSIEMP EMP ON EST.CODEMP = EMP.CODEMP
-    JOIN VW_MQ_TGFPRO_POWER_BI PROD ON EST.CODPROD = PROD.CODPROD
-    LEFT JOIN VENDA_MEDIA VM ON EST.CODPROD = VM.CODPROD
-    WHERE EMP.RAZAOABREV NOT IN ('EKOS - SP', 'GLOBRAL - SP', 'QUALITY MATRIZ', 'QUALITY - MATRIZ')
-      AND PROD.DESCRGRUPOPROD NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO', 'SPARE PARTS')
-      AND PROD.DESCRGRUPOPROD NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
-      AND PROD.DESCRGRUPOPROD NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
-      AND PROD.MARCA <> 'TERMIX'
-    ORDER BY PROD.DESCRPROD ASC
+        NVL(VM.QTD_M1,  0) AS QTD_M1,
+        NVL(VM.QTD_M2,  0) AS QTD_M2,
+        NVL(VM.QTD_M3,  0) AS QTD_M3
+    FROM PROD_BASE PB
+    LEFT JOIN VENDA_MEDIA VM ON PB.CODPROD = VM.CODPROD
+    WHERE NVL(VM.QTD_VENDAS_MES, 0) > 0
+       OR NVL(VM.QTD_M1, 0) > 0
+       OR NVL(VM.QTD_M2, 0) > 0
+       OR NVL(VM.QTD_M3, 0) > 0
+       OR NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E WHERE E.CODPROD = PB.CODPROD), 0) > 0
+    ORDER BY PB.DESCRPROD ASC
     """
     try:
         df = pd.read_sql(query, conn)
     finally:
         conn.close()
 
+    # Calcular campos derivados no Python
     def calc_dias(row):
-        if row['VENDA_MEDIA_DIARIA'] > 0:
-            return round(row['SALDO_ESTOQUE'] / row['VENDA_MEDIA_DIARIA'])
-        else:
-            return 9999
+        vmd = float(row['VENDA_MEDIA_DIARIA']) if row['VENDA_MEDIA_DIARIA'] else 0
+        saldo = float(row['SALDO_EMPRESA']) if row['SALDO_EMPRESA'] else 0
+        if vmd > 0:
+            return int(round(saldo / vmd))
+        return 9999
 
-    df['DIAS_COBERTURA'] = df.apply(calc_dias, axis=1)
+    df['SALDO_EMPRESA']     = pd.to_numeric(df['SALDO_EMPRESA'], errors='coerce').fillna(0)
+    df['SALDO_MCM']         = pd.to_numeric(df['SALDO_MCM'], errors='coerce').fillna(0)
+    df['SALDO_RESV_EMPRESA']= pd.to_numeric(df['SALDO_RESV_EMPRESA'], errors='coerce').fillna(0)
+    df['QTD_VENDAS_MES']    = pd.to_numeric(df['QTD_VENDAS_MES'], errors='coerce').fillna(0)
+    df['VENDA_MEDIA_DIARIA']= pd.to_numeric(df['VENDA_MEDIA_DIARIA'], errors='coerce').fillna(0)
+    df['QTD_M1']            = pd.to_numeric(df['QTD_M1'], errors='coerce').fillna(0)
+    df['QTD_M2']            = pd.to_numeric(df['QTD_M2'], errors='coerce').fillna(0)
+    df['QTD_M3']            = pd.to_numeric(df['QTD_M3'], errors='coerce').fillna(0)
+
+    df['DIAS_COBERTURA']    = df.apply(calc_dias, axis=1)
+    # SIRO = saldo reservado da empresa (itens em pedido)
+    df['SIRO_ESTOQUE']      = df['SALDO_RESV_EMPRESA'].round(0).astype(int)
+    # TT A TRANSFERIR = necessidade de reposição da empresa vinda do MCM
+    # Se dias de cobertura < 30 e MCM tem estoque: sugerir transferência
+    def calc_tt(row):
+        dias = row['DIAS_COBERTURA']
+        vmd  = float(row['VENDA_MEDIA_DIARIA'])
+        estq = float(row['SALDO_EMPRESA'])
+        mcm  = float(row['SALDO_MCM'])
+        if dias == 9999 or vmd == 0 or mcm <= 0:
+            return 0
+        # Quantidade para atingir 60 dias de estoque
+        ideal = round(vmd * 60)
+        necessidade = max(0, ideal - estq)
+        return min(int(necessidade), int(mcm))
+
+    df['TT_TRANSFERIR'] = df.apply(calc_tt, axis=1)
     df = df.fillna('')
+
+    # Adicionar labels dos meses para o frontend
+    meta = {
+        'label_ma': label_ma,
+        'label_m1': label_m1,
+        'label_m2': label_m2,
+        'label_m3': label_m3
+    }
+
     data = df.to_dict('records')
+    # Converter numpy types para Python nativos
+    for row in data:
+        for k, v in row.items():
+            if hasattr(v, 'item'):
+                row[k] = v.item()
+
     cached_estoque_previsao['data'] = data
     cached_estoque_previsao['timestamp'] = time.time()
+    cached_estoque_previsao['meta'] = meta
     return data
 
 @app.route('/api/estoque_previsao')
@@ -1288,7 +1361,8 @@ def api_estoque_previsao():
     try:
         force = request.args.get('refresh') == '1'
         data = obter_dados_estoque_previsao(force=force)
-        return jsonify({'success': True, 'data': data})
+        meta = cached_estoque_previsao.get('meta', {})
+        return jsonify({'success': True, 'data': data, 'meta': meta})
     except Exception as e:
         import traceback
         traceback.print_exc()

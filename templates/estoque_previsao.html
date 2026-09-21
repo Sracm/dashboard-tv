@@ -3,163 +3,455 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel TV - Previsão de Estoque</title>
-    
+    <title>Painel TV - Análise de Demanda e Reabastecimento</title>
+
     <!-- Google Fonts: Montserrat (MQ Design System) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/paises.css') }}?v=5">
+
+    <style>
+        /* ─── Reset e base ─── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:       #0d0f14;
+            --panel:    #14171f;
+            --border:   #1e2330;
+            --gold:     #f5c518;
+            --gold-dim: #b89010;
+            --red:      #e53935;
+            --yellow:   #ffb300;
+            --green:    #43a047;
+            --blue:     #1565c0;
+            --text:     #e2e8f0;
+            --muted:    #64748b;
+            --header-h: 44px;
+            --filter-h: 52px;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 12px;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ─── Header + nav tabs ─── */
+        .top-bar {
+            background: #0a0c11;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            height: var(--header-h);
+            flex-shrink: 0;
+            gap: 2px;
+            overflow-x: auto;
+        }
+        .top-bar::-webkit-scrollbar { height: 3px; }
+        .top-bar::-webkit-scrollbar-thumb { background: var(--gold); border-radius: 2px; }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 6px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+            border-radius: 4px 4px 0 0;
+            transition: color .2s, background .2s;
+            letter-spacing: .3px;
+        }
+        .tab-btn:hover { color: var(--text); background: rgba(255,255,255,.04); }
+        .tab-btn.active {
+            color: var(--gold);
+            background: rgba(245,197,24,.08);
+            border-bottom: 2px solid var(--gold);
+        }
+        .tab-btn.active .tab-icon { color: var(--gold); }
+
+        /* ─── Filtros ─── */
+        .filter-bar {
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            height: var(--filter-h);
+            flex-shrink: 0;
+            gap: 8px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+        .filter-bar::-webkit-scrollbar { height: 3px; }
+
+        .ms-wrap { position: relative; }
+        .ms-btn {
+            background: #1a1e28;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+            transition: border-color .2s;
+        }
+        .ms-btn:hover { border-color: var(--gold); }
+        .ms-btn .arrow { font-size: 8px; margin-left: 3px; color: var(--muted); }
+
+        .ms-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            background: #1a1e28;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            z-index: 999;
+            min-width: 200px;
+            max-height: 260px;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0,0,0,.5);
+        }
+        .ms-menu label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 10px;
+            color: var(--text);
+            transition: background .15s;
+        }
+        .ms-menu label:hover { background: rgba(245,197,24,.08); }
+        .ms-menu .ms-head {
+            padding: 6px 10px;
+            border-bottom: 1px solid var(--border);
+            font-weight: 700;
+            color: var(--gold);
+        }
+        .search-flt {
+            background: #1a1e28;
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 11px;
+            padding: 5px 10px 5px 28px;
+            border-radius: 4px;
+            outline: none;
+            min-width: 200px;
+            transition: border-color .2s;
+        }
+        .search-flt:focus { border-color: var(--gold); }
+        .search-wrap { position: relative; }
+        .search-wrap .fa-search { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 10px; }
+
+        .btn-refresh {
+            background: rgba(245,197,24,.12);
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background .2s;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+        .btn-refresh:hover { background: rgba(245,197,24,.22); }
+
+        /* ─── Título central ─── */
+        .page-title {
+            background: var(--panel);
+            text-align: center;
+            padding: 6px 0;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .page-title h1 {
+            color: var(--gold);
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* ─── KPI strip ─── */
+        .kpi-strip {
+            display: flex;
+            gap: 8px;
+            padding: 6px 10px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .kpi-box {
+            background: #1a1e28;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 120px;
+        }
+        .kpi-box.kpi-red { border-color: var(--red); }
+        .kpi-box.kpi-yellow { border-color: var(--yellow); }
+        .kpi-box.kpi-green { border-color: var(--green); }
+        .kpi-label { font-size: 9px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+        .kpi-val { font-size: 18px; font-weight: 800; color: var(--text); }
+        .kpi-box.kpi-red .kpi-val { color: var(--red); }
+        .kpi-box.kpi-yellow .kpi-val { color: var(--yellow); }
+        .kpi-box.kpi-green .kpi-val { color: var(--green); }
+        .kpi-sub { font-size: 8px; color: var(--muted); }
+
+        /* ─── Tabela ─── */
+        .tbl-wrap {
+            flex: 1;
+            overflow: auto;
+            padding: 0;
+        }
+        .tbl-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+        .tbl-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .tbl-wrap::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        thead th {
+            background: #0e1118;
+            color: var(--gold);
+            font-weight: 700;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+            padding: 7px 8px;
+            border-bottom: 2px solid var(--gold-dim);
+            border-right: 1px solid var(--border);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        thead th:last-child { border-right: none; }
+        thead .th-sub { display: block; font-size: 8px; color: var(--muted); font-weight: 400; letter-spacing: 0; text-transform: none; margin-top: 1px; }
+
+        tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+        tbody tr:hover { background: rgba(255,255,255,.03); }
+        tbody tr.critical { background: rgba(229,57,53,.08); }
+        tbody tr.warning  { background: rgba(255,179,0,.06); }
+        tbody tr.transfer { background: rgba(21,101,192,.07); }
+
+        td {
+            padding: 5px 8px;
+            border-right: 1px solid var(--border);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+        td:last-child { border-right: none; }
+        td.td-left { text-align: left; white-space: normal; min-width: 220px; max-width: 300px; }
+
+        .prod-code { font-size: 9px; color: var(--muted); }
+        .prod-name { font-weight: 600; color: var(--text); line-height: 1.3; }
+        .prod-tag  { font-size: 9px; color: #4a6fa5; margin-top: 1px; }
+
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+        .center { text-align: center; }
+
+        /* Badge de dias de cobertura */
+        .badge-dias {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 10px;
+        }
+        .badge-ok      { background: #1b5e20; color: #a5d6a7; }
+        .badge-warn    { background: #e65100; color: #ffcc80; }
+        .badge-critic  { background: #b71c1c; color: #ef9a9a; animation: pulse 1.5s infinite; }
+        .badge-gray    { background: #263238; color: #90a4ae; }
+        .badge-transfer { background: #0d47a1; color: #90caf9; }
+
+        @keyframes pulse {
+            0%,100% { opacity:1; } 50% { opacity:.6; }
+        }
+
+        .loading-row td { text-align: center; padding: 40px; color: var(--muted); }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
 </head>
 <body>
-    <div class="dashboard-container">
-        <!-- Header Unificado -->
-        <header class="header">
-            <div class="header-top">
-                <div class="nav-tabs-container">
-                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
-                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
-                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
-                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
-                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
-                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
-                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn">Distribuição</button>
-                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn">E-commerce MQ</button>
-                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
-                    <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
-                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
-                    <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn">E-com. Parlux</button>
-                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
-                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn">Regional Sul</button>
-                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
-                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
-                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
-                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
-                    <button onclick="navigateTab('/estoque')" class="tab-btn active">Estoque/Previsão</button>
-                </div>
-            </div>
-
-            <div class="header-bottom executive-filters">
-                <div class="filters-row-executive" style="display: flex; gap: 15px; flex-wrap: wrap; width: 100%; align-items: center;">
-                    
-                    <!-- MultiSelect Empresa -->
-                    <div class="multiselect-wrapper" id="empresa-multiselect">
-                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('empresa')">
-                            <span class="ms-icon">🏢</span>
-                            <span id="empresa-select-label">Todas as Empresas</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="empresa-select-menu" style="display: none;">
-                            <div class="ms-header">
-                                <label><input type="checkbox" id="empresa-select-all" checked onchange="toggleAllCustom('empresa', this.checked)"> Selecionar Todas</label>
-                            </div>
-                            <div class="ms-options" id="empresa-options"></div>
-                        </div>
-                    </div>
-
-                    <!-- MultiSelect Categoria -->
-                    <div class="multiselect-wrapper" id="categoria-multiselect">
-                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('categoria')">
-                            <span class="ms-icon">🏷️</span>
-                            <span id="categoria-select-label">Todas as Categorias</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="categoria-select-menu" style="display: none;">
-                            <div class="ms-header">
-                                <label><input type="checkbox" id="categoria-select-all" checked onchange="toggleAllCustom('categoria', this.checked)"> Selecionar Todas</label>
-                            </div>
-                            <div class="ms-options" id="categoria-options"></div>
-                        </div>
-                    </div>
-
-                    <!-- MultiSelect Sintetico -->
-                    <div class="multiselect-wrapper" id="sintetico-multiselect">
-                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('sintetico')">
-                            <span class="ms-icon">📦</span>
-                            <span id="sintetico-select-label">Todos Sintéticos</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="sintetico-select-menu" style="display: none;">
-                            <div class="ms-header">
-                                <label><input type="checkbox" id="sintetico-select-all" checked onchange="toggleAllCustom('sintetico', this.checked)"> Selecionar Todos</label>
-                            </div>
-                            <div class="ms-options" id="sintetico-options"></div>
-                        </div>
-                    </div>
-
-                    <!-- MultiSelect Analitico -->
-                    <div class="multiselect-wrapper" id="analitico-multiselect">
-                        <button type="button" class="multiselect-btn" onclick="toggleCustomDropdown('analitico')">
-                            <span class="ms-icon">📊</span>
-                            <span id="analitico-select-label">Todos Analíticos</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="analitico-select-menu" style="display: none;">
-                            <div class="ms-header">
-                                <label><input type="checkbox" id="analitico-select-all" checked onchange="toggleAllCustom('analitico', this.checked)"> Selecionar Todos</label>
-                            </div>
-                            <div class="ms-options" id="analitico-options"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="search-box executive-search">
-                        <span class="search-icon">🔍</span>
-                        <input type="text" id="table-search" placeholder="Buscar por produto..." onkeyup="filterTable()">
-                    </div>
-
-                    <button onclick="fetchData()" class="btn-refresh executive-refresh" style="margin-left: auto;">
-                        <i class="fas fa-sync-alt"></i> Atualizar
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Executive KPIs -->
-        <section class="kpi-section">
-            <div class="kpi-cards">
-                <div class="kpi-card">
-                    <div class="kpi-title">Total de Produtos</div>
-                    <div class="kpi-value" id="kpi-produtos">0</div>
-                </div>
-                <div class="kpi-card">
-                    <div class="kpi-title">Saldo Total em Estoque</div>
-                    <div class="kpi-value" id="kpi-saldo">0 und</div>
-                </div>
-                <div class="kpi-card critic-card">
-                    <div class="kpi-title">Produtos em Estado Crítico</div>
-                    <div class="kpi-value" id="kpi-criticos">0</div>
-                    <div class="kpi-subtitle">Cobertura <= 10 dias</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Conteúdo Principal - Tabela -->
-        <main class="main-content">
-            <div class="table-container">
-                <table class="exec-table" id="table-estoque">
-                    <thead>
-                        <tr id="table-header-row">
-                            <th>Produto</th>
-                            <th class="col-vendas">Qtd Vendas (Mês Atual)</th>
-                            <th class="col-vendas">Média Vendas (Trimestre)</th>
-                            <th class="col-vendas">Venda Média Diária</th>
-                            <th class="col-saldo">Saldo (Estoque)</th>
-                            <th class="col-dias">Dias de Cobertura (Previsão)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-body">
-                        <!-- Linhas geradas dinamicamente via JS -->
-                    </tbody>
-                </table>
-            </div>
-        </main>
+    <!-- ══════════ TABS ══════════ -->
+    <div class="top-bar">
+        <button onclick="navigateTab('/tv')"                   class="tab-btn">Mensal(%)</button>
+        <button onclick="navigateTab('/acumulado')"            class="tab-btn">Acumulado(%)</button>
+        <button onclick="navigateTab('/trimestre')"            class="tab-btn">Trimestre</button>
+        <button onclick="navigateTab('/todos_canais')"         class="tab-btn">Todos os Canais</button>
+        <button onclick="navigateTab('/categorias')"           class="tab-btn">Categorias</button>
+        <button onclick="navigateTab('/marcas')"               class="tab-btn">Marcas</button>
+        <button onclick="navigateTab('/canal/distribuicao')"   class="tab-btn">Distribuição</button>
+        <button onclick="navigateTab('/canal/ecommerce_mq')"   class="tab-btn">E-commerce MQ</button>
+        <button onclick="navigateTab('/canal/varejo_sp')"      class="tab-btn">Varejo SP</button>
+        <button onclick="navigateTab('/canal/comex')"          class="tab-btn">Comex</button>
+        <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+        <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn">E-com. Parlux</button>
+        <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+        <button onclick="navigateTab('/canal/regional_sul')"   class="tab-btn">Regional Sul</button>
+        <button onclick="navigateTab('/empresa')"              class="tab-btn">Empresa</button>
+        <button onclick="navigateTab('/diario_canal')"         class="tab-btn">Diário Canal</button>
+        <button onclick="navigateTab('/diario_marcas')"        class="tab-btn">Diário Marcas</button>
+        <button onclick="navigateTab('/paises')"               class="tab-btn">Países</button>
+        <button onclick="navigateTab('/estoque')"              class="tab-btn active">
+            <span class="tab-icon">📦</span> Estoque/Previsão
+        </button>
     </div>
 
-    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=10"></script>
+    <!-- ══════════ FILTROS ══════════ -->
+    <div class="filter-bar">
+
+        <!-- Empresa -->
+        <div class="ms-wrap" id="ms-empresa">
+            <button class="ms-btn" onclick="toggleDrop('empresa')">
+                🏢 <span id="lbl-empresa">Todas Empresas</span> <span class="arrow">▼</span>
+            </button>
+            <div class="ms-menu" id="menu-empresa">
+                <div class="ms-head"><label><input type="checkbox" id="all-empresa" checked onchange="toggleAll('empresa',this.checked)"> Selecionar Todas</label></div>
+                <div id="opts-empresa"></div>
+            </div>
+        </div>
+
+        <!-- Marca -->
+        <div class="ms-wrap" id="ms-marca">
+            <button class="ms-btn" onclick="toggleDrop('marca')">
+                ✨ <span id="lbl-marca">Todas Marcas</span> <span class="arrow">▼</span>
+            </button>
+            <div class="ms-menu" id="menu-marca">
+                <div class="ms-head"><label><input type="checkbox" id="all-marca" checked onchange="toggleAll('marca',this.checked)"> Selecionar Todas</label></div>
+                <div id="opts-marca"></div>
+            </div>
+        </div>
+
+        <!-- Grupo Geral (Categoria) -->
+        <div class="ms-wrap" id="ms-categoria">
+            <button class="ms-btn" onclick="toggleDrop('categoria')">
+                📁 <span id="lbl-categoria">Todos Grupos</span> <span class="arrow">▼</span>
+            </button>
+            <div class="ms-menu" id="menu-categoria">
+                <div class="ms-head"><label><input type="checkbox" id="all-categoria" checked onchange="toggleAll('categoria',this.checked)"> Selecionar Todos</label></div>
+                <div id="opts-categoria"></div>
+            </div>
+        </div>
+
+        <!-- Grupo Sintético -->
+        <div class="ms-wrap" id="ms-sintetico">
+            <button class="ms-btn" onclick="toggleDrop('sintetico')">
+                📦 <span id="lbl-sintetico">Todos Sintéticos</span> <span class="arrow">▼</span>
+            </button>
+            <div class="ms-menu" id="menu-sintetico">
+                <div class="ms-head"><label><input type="checkbox" id="all-sintetico" checked onchange="toggleAll('sintetico',this.checked)"> Selecionar Todos</label></div>
+                <div id="opts-sintetico"></div>
+            </div>
+        </div>
+
+        <!-- Busca código/produto -->
+        <div class="search-wrap">
+            <i class="fas fa-search"></i>
+            <input type="text" class="search-flt" id="search-input" placeholder="Cód ou produto..." oninput="filterTable()">
+        </div>
+
+        <!-- Botão atualizar -->
+        <button class="btn-refresh" id="btn-refresh" onclick="fetchData()">
+            <i class="fas fa-sync-alt"></i> Atualizar
+        </button>
+    </div>
+
+    <!-- ══════════ TÍTULO ══════════ -->
+    <div class="page-title">
+        <h1>INDICADORES — Análise de Demanda e Reabastecimento</h1>
+    </div>
+
+    <!-- ══════════ KPIs ══════════ -->
+    <div class="kpi-strip">
+        <div class="kpi-box">
+            <span class="kpi-label">Total Produtos</span>
+            <span class="kpi-val" id="kpi-total">—</span>
+        </div>
+        <div class="kpi-box kpi-green">
+            <span class="kpi-label">Estoque Empresa</span>
+            <span class="kpi-val" id="kpi-estq-emp">—</span>
+            <span class="kpi-sub">und</span>
+        </div>
+        <div class="kpi-box">
+            <span class="kpi-label">Estoque MCM</span>
+            <span class="kpi-val" id="kpi-estq-mcm">—</span>
+            <span class="kpi-sub">und</span>
+        </div>
+        <div class="kpi-box kpi-red">
+            <span class="kpi-label">Críticos (≤10 dias)</span>
+            <span class="kpi-val" id="kpi-criticos">—</span>
+        </div>
+        <div class="kpi-box kpi-yellow">
+            <span class="kpi-label">Atenção (≤30 dias)</span>
+            <span class="kpi-val" id="kpi-atencao">—</span>
+        </div>
+        <div class="kpi-box">
+            <span class="kpi-label">Transferência Sugerida</span>
+            <span class="kpi-val" id="kpi-transfer">—</span>
+            <span class="kpi-sub">und (MCM→Empresa)</span>
+        </div>
+    </div>
+
+    <!-- ══════════ TABELA ══════════ -->
+    <div class="tbl-wrap">
+        <table id="tbl-estoque">
+            <thead>
+                <tr>
+                    <th style="width:36px">COD</th>
+                    <th class="td-left">PRODUTO <span class="th-sub">Marca / Categoria / Sintético</span></th>
+                    <th class="num" id="th-ma">VENDA <span class="th-sub">Mês Atual</span></th>
+                    <th class="num" id="th-m1">VENDA <span class="th-sub">Mês -1</span></th>
+                    <th class="num" id="th-m2">VENDA <span class="th-sub">Mês -2</span></th>
+                    <th class="num" id="th-m3">VENDA <span class="th-sub">Mês -3</span></th>
+                    <th class="num">CONSUMO <span class="th-sub">Média Diária</span></th>
+                    <th class="num">ESTOQUE <span class="th-sub">Empresa (und)</span></th>
+                    <th class="center">DIAS ESTQ <span class="th-sub">Cobertura</span></th>
+                    <th class="num">ESTOQUE MCM <span class="th-sub">(und)</span></th>
+                    <th class="num">SIRO <span class="th-sub">Reservado</span></th>
+                    <th class="center">TT TRANSFERIR <span class="th-sub">Sugestão (cxs)</span></th>
+                </tr>
+            </thead>
+            <tbody id="tbl-body">
+                <tr class="loading-row">
+                    <td colspan="12"><span class="spinner"></span> Carregando dados...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=20"></script>
 </body>
 </html>

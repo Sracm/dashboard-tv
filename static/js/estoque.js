@@ -1,276 +1,286 @@
-let estoqueData = [];
+/* ════════════════════════════════════════════════════════════════
+   estoque.js  —  Análise de Demanda e Reabastecimento
+   Dashboard TV · MQ Hair
+   ════════════════════════════════════════════════════════════════ */
 
+'use strict';
+
+let estoqueData  = [];
+let metaLabels   = { label_ma: 'Mês Atual', label_m1: 'M-1', label_m2: 'M-2', label_m3: 'M-3' };
+
+// ── Navegação ──────────────────────────────────────────────────
 function navigateTab(path) {
-    if (path === '/tv' || path === '/') {
-        window.location.href = '/tv';
-        return;
-    }
-    window.location.href = path;
+    window.location.href = path === '/tv' ? '/tv' : path;
 }
 
-// Funções de formatação
-function formatNumber(num) {
-    if (num === null || num === undefined || isNaN(num)) return '0';
-    return Number(num).toLocaleString('pt-BR');
+// ── Formatação ─────────────────────────────────────────────────
+function fmtN(n) {
+    if (n === null || n === undefined || n === '' || isNaN(Number(n))) return '—';
+    const v = Number(n);
+    if (v === 0) return '0';
+    return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+}
+function fmtF(n, dec = 1) {
+    if (n === null || n === undefined || n === '' || isNaN(Number(n))) return '—';
+    return Number(n).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-function formatFloat(num) {
-    if (num === null || num === undefined || isNaN(num)) return '0,00';
-    return Number(num).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// ── Dropdown genérico ──────────────────────────────────────────
+function toggleDrop(type) {
+    const menu = document.getElementById('menu-' + type);
+    if (!menu) return;
+    const isOpen = menu.style.display === 'block';
+    // fechar todos
+    ['empresa', 'marca', 'categoria', 'sintetico'].forEach(t => {
+        const m = document.getElementById('menu-' + t);
+        if (m) m.style.display = 'none';
+    });
+    if (!isOpen) menu.style.display = 'block';
 }
 
-// Lógica de MultiSelect customizado
-function toggleCustomDropdown(filterType) {
-    const menu = document.getElementById(filterType + '-select-menu');
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-}
-
-function toggleAllCustom(filterType, isChecked) {
-    const container = document.getElementById(filterType + '-options');
-    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = isChecked);
-    updateSelectLabel(filterType);
+function toggleAll(type, checked) {
+    const container = document.getElementById('opts-' + type);
+    if (!container) return;
+    container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = checked);
+    updateLabel(type);
     filterTable();
 }
 
-function updateSelectLabel(filterType) {
-    const container = document.getElementById(filterType + '-options');
-    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-    const checked = Array.from(checkboxes).filter(cb => cb.checked);
-    const label = document.getElementById(filterType + '-select-label');
-    
-    let prefix = '';
-    if (filterType === 'empresa') prefix = 'Empresas';
-    if (filterType === 'categoria') prefix = 'Categorias';
-    if (filterType === 'sintetico') prefix = 'Sintéticos';
-    if (filterType === 'analitico') prefix = 'Analíticos';
-
-    if (checked.length === checkboxes.length && checkboxes.length > 0) {
-        label.textContent = 'Todos(as) ' + prefix;
+function updateLabel(type) {
+    const container = document.getElementById('opts-' + type);
+    const label     = document.getElementById('lbl-' + type);
+    if (!container || !label) return;
+    const all    = container.querySelectorAll('input[type="checkbox"]');
+    const checked = Array.from(all).filter(c => c.checked);
+    const labels = {
+        empresa:   'Todas Empresas',
+        marca:     'Todas Marcas',
+        categoria: 'Todos Grupos',
+        sintetico: 'Todos Sintéticos'
+    };
+    if (checked.length === all.length && all.length > 0) {
+        label.textContent = labels[type] || 'Todos';
     } else if (checked.length === 0) {
-        label.textContent = 'Nenhum selecionado';
+        label.textContent = 'Nenhum';
     } else if (checked.length === 1) {
-        label.textContent = checked[0].value;
+        label.textContent = checked[0].value.slice(0, 22);
     } else {
-        label.textContent = checked.length + ' Selecionados';
+        label.textContent = checked.length + ' selecionados';
     }
 }
 
-function getSelectedValues(filterType) {
-    const container = document.getElementById(filterType + '-options');
+function getSelected(type) {
+    const container = document.getElementById('opts-' + type);
     if (!container) return [];
-    const checked = Array.from(container.querySelectorAll('input[type="checkbox"]:checked'));
-    return checked.map(cb => cb.value);
+    return Array.from(container.querySelectorAll('input:checked')).map(c => c.value);
 }
 
 // Fechar menus ao clicar fora
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.multiselect-wrapper')) {
-        ['empresa', 'categoria', 'sintetico', 'analitico'].forEach(type => {
-            const menu = document.getElementById(type + '-select-menu');
-            if (menu) menu.style.display = 'none';
+document.addEventListener('click', e => {
+    if (!e.target.closest('.ms-wrap')) {
+        ['empresa', 'marca', 'categoria', 'sintetico'].forEach(t => {
+            const m = document.getElementById('menu-' + t);
+            if (m) m.style.display = 'none';
         });
     }
 });
 
-function renderTable(data) {
-    try {
-        const tbody = document.getElementById('table-body');
-        const searchInput = document.getElementById('table-search');
-        const filterText = searchInput ? searchInput.value.toLowerCase() : '';
-        
-        const selEmpresas = getSelectedValues('empresa');
-        const selCategorias = getSelectedValues('categoria');
-        const selSinteticos = getSelectedValues('sintetico');
-        const selAnaliticos = getSelectedValues('analitico');
-        
-        if (!tbody) {
-            console.error("table-body não encontrado!");
-            return;
-        }
-        tbody.innerHTML = '';
-    
-        // Filtrar dados
-        let filteredData = data.filter(row => {
-            const matchEmpresa = selEmpresas.length === 0 || selEmpresas.includes(row.NOME_EMPRESA);
-            const matchCat = selCategorias.length === 0 || selCategorias.includes(row.CATEGORIA || 'SEM CATEGORIA');
-            const matchSint = selSinteticos.length === 0 || selSinteticos.includes(row.GRUPO_SINTETICO || 'SEM GRUPO');
-            const matchAnalitico = selAnaliticos.length === 0 || selAnaliticos.includes(row.GRUPO_ANALITICO || 'SEM GRUPO');
-            
-            const matchText = (row.NOME_PRODUTO && row.NOME_PRODUTO.toLowerCase().includes(filterText)) ||
-                              (row.NOME_EMPRESA && row.NOME_EMPRESA.toLowerCase().includes(filterText)) ||
-                              (row.CATEGORIA && row.CATEGORIA.toLowerCase().includes(filterText));
-                              
-            return matchEmpresa && matchCat && matchSint && matchAnalitico && matchText;
-        });
-
-        // Atualizar KPIs
-        const kpiProdutos = document.getElementById('kpi-produtos');
-        const kpiSaldo = document.getElementById('kpi-saldo');
-        const kpiCriticos = document.getElementById('kpi-criticos');
-        
-        if (kpiProdutos) kpiProdutos.textContent = formatNumber(filteredData.length);
-        
-        let totalSaldo = 0;
-        let totalCriticos = 0;
-        
-        if (filteredData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">Nenhum dado encontrado</td></tr>';
-            if (kpiSaldo) kpiSaldo.textContent = '0 und';
-            if (kpiCriticos) kpiCriticos.textContent = '0';
-            return;
-        }
-
-        filteredData.forEach(row => {
-            totalSaldo += (row.SALDO_ESTOQUE || 0);
-            
-            const dias = row.DIAS_COBERTURA;
-            let previsaoHtml = '';
-            let previsaoClass = '';
-
-            if (dias === 9999 || dias > 3000) {
-                previsaoHtml = '<span class="badge" style="background:#6c757d; color:#fff;">S/ Vendas Recentes</span>';
-                previsaoClass = '';
-            } else if (dias <= 10) {
-                previsaoHtml = `<span class="badge" style="background:#dc3545; color:#fff; animation: pulse 1.5s infinite;">Crítico: ${dias} dias</span>`;
-                previsaoClass = 'critic-row';
-                totalCriticos++;
-            } else if (dias <= 30) {
-                previsaoHtml = `<span class="badge" style="background:#ffc107; color:#000;">Atenção: ${dias} dias</span>`;
-            } else {
-                previsaoHtml = `<span class="badge" style="background:#28a745; color:#fff;">Seguro: ${dias} dias</span>`;
-            }
-
-            const tr = document.createElement('tr');
-            if (previsaoClass) tr.classList.add(previsaoClass);
-            
-            tr.innerHTML = `
-                <td style="text-align: left; font-weight: 500;">
-                    <div style="font-size: 0.85em; color: #a0a0a0;">Cód: ${row.CODPROD} | Marca: ${row.MARCA || '-'} | Cat: ${row.CATEGORIA || '-'}</div>
-                    ${row.NOME_PRODUTO}
-                    <div style="font-size: 0.80em; color: #777;">Sintético: ${row.GRUPO_SINTETICO || '-'} | Analítico: ${row.GRUPO_ANALITICO || '-'}</div>
-                </td>
-                <td style="text-align: right; color: #f8f9fa;">${formatNumber(row.QTD_VENDAS_MES)} und</td>
-                <td style="text-align: right; color: #f8f9fa;">${formatFloat(row.MEDIA_VENDA_TRIMESTRE)} und</td>
-                <td style="text-align: right; color: #0dcaf0;">${formatFloat(row.VENDA_MEDIA_DIARIA)} und/dia</td>
-                <td style="text-align: right; font-weight: bold;">${formatNumber(row.SALDO_ESTOQUE)} und</td>
-                <td style="text-align: center;">${previsaoHtml}</td>
-            `;
-            tbody.appendChild(tr);
-        });
-        
-        if (kpiSaldo) kpiSaldo.textContent = formatNumber(totalSaldo) + ' und';
-        if (kpiCriticos) kpiCriticos.textContent = formatNumber(totalCriticos);
-
-    } catch (e) {
-        console.error("Erro em renderTable:", e);
-    }
-}
-
-function buildFilterOptions(filterType, data, fieldName) {
-    const container = document.getElementById(filterType + '-options');
-    const selectAllCb = document.getElementById(filterType + '-select-all');
+// ── Preencher dropdowns ────────────────────────────────────────
+function buildDropdown(type, data, field) {
+    const container  = document.getElementById('opts-' + type);
+    const allCb      = document.getElementById('all-' + type);
     if (!container) return;
-    
-    // Obter os valores selecionados atuais
-    const currentSelected = getSelectedValues(filterType);
-    const hadSelection = currentSelected.length > 0;
-    
-    // Extrair valores unicos
-    const uniqueVals = [...new Set(data.map(item => item[fieldName] || (fieldName === 'NOME_EMPRESA' ? '' : 'SEM CATEGORIA/GRUPO')))].filter(Boolean).sort();
-    
+
+    const prev = getSelected(type);
+    const hadPrev = prev.length > 0;
+
+    const vals = [...new Set(data.map(r => r[field] || 'SEM GRUPO'))].filter(Boolean).sort();
     container.innerHTML = '';
-    
-    uniqueVals.forEach(val => {
-        const label = document.createElement('label');
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = val;
-        
-        // Se já tínhamos seleção, mantém. Se for o primeiro load, vem tudo marcado
-        if (hadSelection) {
-            cb.checked = currentSelected.includes(val);
-        } else {
-            cb.checked = true;
-        }
-        
+
+    vals.forEach(v => {
+        const lbl = document.createElement('label');
+        const cb  = document.createElement('input');
+        cb.type  = 'checkbox';
+        cb.value = v;
+        cb.checked = hadPrev ? prev.includes(v) : true;
         cb.onchange = () => {
-            updateSelectLabel(filterType);
+            const allChecked = Array.from(container.querySelectorAll('input')).every(c => c.checked);
+            if (allCb) allCb.checked = allChecked;
+            updateLabel(type);
             filterTable();
-            // Verificar se deve desmarcar o "Select All"
-            const allChecked = Array.from(container.querySelectorAll('input[type="checkbox"]')).every(c => c.checked);
-            if (selectAllCb) selectAllCb.checked = allChecked;
         };
-        
-        label.appendChild(cb);
-        label.appendChild(document.createTextNode(' ' + val));
-        container.appendChild(label);
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(' ' + v));
+        container.appendChild(lbl);
     });
-    
-    updateSelectLabel(filterType);
+
+    updateLabel(type);
 }
 
-function updateAllDropdowns(data) {
-    buildFilterOptions('empresa', data, 'NOME_EMPRESA');
-    buildFilterOptions('categoria', data, 'CATEGORIA');
-    buildFilterOptions('sintetico', data, 'GRUPO_SINTETICO');
-    buildFilterOptions('analitico', data, 'GRUPO_ANALITICO');
+function buildAllDropdowns(data) {
+    buildDropdown('empresa',   data, 'NOME_EMPRESA');
+    buildDropdown('marca',     data, 'MARCA');
+    buildDropdown('categoria', data, 'CATEGORIA');
+    buildDropdown('sintetico', data, 'GRUPO_SINTETICO');
+}
+
+// ── Actualizar cabeçalhos com labels dinâmicos ─────────────────
+function updateHeaderLabels() {
+    const th_ma = document.getElementById('th-ma');
+    const th_m1 = document.getElementById('th-m1');
+    const th_m2 = document.getElementById('th-m2');
+    const th_m3 = document.getElementById('th-m3');
+    if (th_ma) th_ma.innerHTML = `VENDA <span class="th-sub">${metaLabels.label_ma}</span>`;
+    if (th_m1) th_m1.innerHTML = `VENDA <span class="th-sub">${metaLabels.label_m1}</span>`;
+    if (th_m2) th_m2.innerHTML = `VENDA <span class="th-sub">${metaLabels.label_m2}</span>`;
+    if (th_m3) th_m3.innerHTML = `VENDA <span class="th-sub">${metaLabels.label_m3}</span>`;
+}
+
+// ── Renderizar tabela ──────────────────────────────────────────
+function renderTable(data) {
+    const tbody     = document.getElementById('tbl-body');
+    if (!tbody) return;
+
+    const search    = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const selEmp    = getSelected('empresa');
+    const selMarca  = getSelected('marca');
+    const selCat    = getSelected('categoria');
+    const selSint   = getSelected('sintetico');
+
+    const filtered = data.filter(row => {
+        const empresa   = row.NOME_EMPRESA || '';
+        const marca     = row.MARCA        || '';
+        const cat       = row.CATEGORIA    || 'SEM GRUPO';
+        const sint      = row.GRUPO_SINTETICO || 'SEM GRUPO';
+        const codprod   = String(row.CODPROD || '');
+        const produto   = row.NOME_PRODUTO || '';
+
+        const matchEmp  = selEmp.length  === 0 || selEmp.includes(empresa);
+        const matchMrk  = selMarca.length === 0 || selMarca.includes(marca);
+        const matchCat  = selCat.length  === 0 || selCat.includes(cat);
+        const matchSint = selSint.length === 0 || selSint.includes(sint);
+        const matchTxt  = !search || codprod.includes(search) || produto.toLowerCase().includes(search) || marca.toLowerCase().includes(search);
+
+        return matchEmp && matchMrk && matchCat && matchSint && matchTxt;
+    });
+
+    // ── KPIs ──
+    let totalEstqEmp  = 0;
+    let totalEstqMcm  = 0;
+    let totalCriticos = 0;
+    let totalAtencao  = 0;
+    let totalTransfer = 0;
+
+    filtered.forEach(r => {
+        totalEstqEmp  += Number(r.SALDO_EMPRESA)  || 0;
+        totalEstqMcm  += Number(r.SALDO_MCM)      || 0;
+        totalTransfer += Number(r.TT_TRANSFERIR)   || 0;
+        const dias = Number(r.DIAS_COBERTURA);
+        if (dias <= 10 && dias !== 9999)  totalCriticos++;
+        else if (dias <= 30 && dias !== 9999) totalAtencao++;
+    });
+
+    const setKpi = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setKpi('kpi-total',    fmtN(filtered.length));
+    setKpi('kpi-estq-emp', fmtN(totalEstqEmp));
+    setKpi('kpi-estq-mcm', fmtN(totalEstqMcm));
+    setKpi('kpi-criticos', fmtN(totalCriticos));
+    setKpi('kpi-atencao',  fmtN(totalAtencao));
+    setKpi('kpi-transfer', fmtN(totalTransfer));
+
+    // ── Linhas ──
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="12">Nenhum resultado para os filtros aplicados.</td></tr>';
+        return;
+    }
+
+    const rows = filtered.map(row => {
+        const dias = Number(row.DIAS_COBERTURA);
+        const saldoEmp = Number(row.SALDO_EMPRESA) || 0;
+        const saldoMcm = Number(row.SALDO_MCM)     || 0;
+        const tt       = Number(row.TT_TRANSFERIR)  || 0;
+
+        // Badge dias
+        let badgeClass, badgeText, trClass = '';
+        if (dias === 9999 || Number(row.VENDA_MEDIA_DIARIA) === 0) {
+            badgeClass = 'badge-gray'; badgeText = 'S/ Venda';
+        } else if (dias <= 10) {
+            badgeClass = 'badge-critic'; badgeText = `⚠ ${dias}d`; trClass = 'critical';
+        } else if (dias <= 30) {
+            badgeClass = 'badge-warn';   badgeText = `${dias}d`;   trClass = 'warning';
+        } else {
+            badgeClass = 'badge-ok';     badgeText = `${dias}d`;
+        }
+
+        // Badge transferência
+        const ttBadge = tt > 0
+            ? `<span class="badge-dias badge-transfer">${fmtN(tt)}</span>`
+            : '<span style="color:#374151">—</span>';
+
+        return `<tr class="${trClass}">
+            <td class="num prod-code">${row.CODPROD || ''}</td>
+            <td class="td-left">
+                <div class="prod-name">${row.NOME_PRODUTO || '—'}</div>
+                <div class="prod-tag">${row.MARCA || ''} · ${row.CATEGORIA || ''} · ${row.GRUPO_SINTETICO || ''}</div>
+            </td>
+            <td class="num">${fmtN(row.QTD_VENDAS_MES)}</td>
+            <td class="num">${fmtN(row.QTD_M1)}</td>
+            <td class="num">${fmtN(row.QTD_M2)}</td>
+            <td class="num">${fmtN(row.QTD_M3)}</td>
+            <td class="num" style="color:#90caf9">${fmtF(row.VENDA_MEDIA_DIARIA, 2)}</td>
+            <td class="num" style="font-weight:700">${fmtN(saldoEmp)}</td>
+            <td class="center"><span class="badge-dias ${badgeClass}">${badgeText}</span></td>
+            <td class="num" style="color:#a5d6a7">${fmtN(saldoMcm)}</td>
+            <td class="num" style="color:#ffcc80">${fmtN(row.SIRO_ESTOQUE)}</td>
+            <td class="center">${ttBadge}</td>
+        </tr>`;
+    });
+
+    tbody.innerHTML = rows.join('');
 }
 
 function filterTable() {
     renderTable(estoqueData);
 }
 
-function updateUpdateTimes() {
-    const now = new Date();
-    const elLast = document.getElementById('last-update');
-    if (elLast) elLast.textContent = `Última atualização: ${now.toLocaleTimeString()}`;
-    
-    const next = new Date(now.getTime() + 10 * 60000);
-    const elNext = document.getElementById('next-update');
-    if (elNext) elNext.textContent = `Próxima atualização em: ${next.toLocaleTimeString().slice(0, 5)}`;
-}
-
-function updateClock() {
-    const now = new Date();
-    const elClock = document.getElementById('clock');
-    const elDate = document.getElementById('date');
-    if (elClock) elClock.textContent = now.toLocaleTimeString();
-    if (elDate) elDate.textContent = now.toLocaleDateString('pt-BR');
-}
-
-setInterval(updateClock, 1000);
-updateClock();
-
+// ── Fetch ──────────────────────────────────────────────────────
 async function fetchData() {
-    const btn = document.querySelector('.btn-refresh');
+    const btn = document.getElementById('btn-refresh');
     if (btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Atualizando...';
 
+    const tbody = document.getElementById('tbl-body');
+    if (tbody && estoqueData.length === 0) {
+        tbody.innerHTML = '<tr class="loading-row"><td colspan="12"><span class="spinner"></span> Carregando dados do banco...</td></tr>';
+    }
+
     try {
-        const response = await fetch('/api/estoque_previsao');
-        const result = await response.json();
-        
-        if (result.success) {
-            // Se for o primeiro load, carrega dropdowns
-            const isFirstLoad = estoqueData.length === 0;
-            estoqueData = result.data;
-            
-            if (isFirstLoad) {
-                updateAllDropdowns(estoqueData);
-            }
+        const res  = await fetch('/api/estoque_previsao');
+        const json = await res.json();
+
+        if (json.success) {
+            if (json.meta) metaLabels = json.meta;
+            updateHeaderLabels();
+
+            const isFirst = estoqueData.length === 0;
+            estoqueData = json.data || [];
+
+            if (isFirst) buildAllDropdowns(estoqueData);
             renderTable(estoqueData);
-            updateUpdateTimes();
         } else {
-            console.error('Erro ao buscar dados:', result.error);
+            console.error('API error:', json.error);
+            if (tbody) tbody.innerHTML = `<tr class="loading-row"><td colspan="12" style="color:#ef9a9a">Erro ao carregar dados: ${json.error}</td></tr>`;
         }
-    } catch (error) {
-        console.error('Erro de rede:', error);
+    } catch (err) {
+        console.error('Fetch error:', err);
+        if (tbody) tbody.innerHTML = `<tr class="loading-row"><td colspan="12" style="color:#ef9a9a">Erro de rede. Tente novamente.</td></tr>`;
     } finally {
         if (btn) btn.innerHTML = '<i class="fas fa-sync-alt"></i> Atualizar';
     }
 }
 
+// ── Init ───────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     fetchData();
-    setInterval(fetchData, 10 * 60000);
+    // Atualizar a cada 15 minutos
+    setInterval(fetchData, 15 * 60 * 1000);
 });
