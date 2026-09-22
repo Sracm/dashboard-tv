@@ -94,7 +94,7 @@
             flex-shrink: 0;
             gap: 8px;
             flex-wrap: nowrap;
-            overflow-x: auto;
+            /* overflow-x: auto removido - causava clipping dos dropdowns */
         }
         .filter-bar::-webkit-scrollbar { height: 3px; }
 
@@ -120,17 +120,15 @@
 
         .ms-menu {
             display: none;
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
+            position: fixed;   /* fixed evita clipping por overflow do pai */
             background: #1a1e28;
             border: 1px solid var(--border);
             border-radius: 6px;
-            z-index: 999;
-            min-width: 200px;
-            max-height: 260px;
+            z-index: 9999;
+            min-width: 210px;
+            max-height: 280px;
             overflow-y: auto;
-            box-shadow: 0 8px 24px rgba(0,0,0,.5);
+            box-shadow: 0 8px 24px rgba(0,0,0,.6);
         }
         .ms-menu label {
             display: flex;
@@ -302,6 +300,11 @@
         .loading-row td { text-align: center; padding: 40px; color: var(--muted); }
         .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Cabeçalho de categoria ── */
+        .cat-header td { border-bottom: 1px solid #1e2330 !important; }
+        .cat-header:hover { background: #111520 !important; }
+        .cat-header td:first-child { border-left: 3px solid transparent; }
     </style>
 </head>
 <body>
@@ -430,18 +433,18 @@
         <table id="tbl-estoque">
             <thead>
                 <tr>
-                    <th style="width:36px">COD</th>
-                    <th class="td-left">PRODUTO <span class="th-sub">Marca / Categoria / Sintético</span></th>
-                    <th class="num" id="th-ma">VENDA <span class="th-sub">Mês Atual</span></th>
-                    <th class="num" id="th-m1">VENDA <span class="th-sub">Mês -1</span></th>
-                    <th class="num" id="th-m2">VENDA <span class="th-sub">Mês -2</span></th>
-                    <th class="num" id="th-m3">VENDA <span class="th-sub">Mês -3</span></th>
-                    <th class="num">CONSUMO <span class="th-sub">Média Diária</span></th>
-                    <th class="num">ESTOQUE <span class="th-sub">Empresa (und)</span></th>
-                    <th class="center">DIAS ESTQ <span class="th-sub">Cobertura</span></th>
-                    <th class="num">ESTOQUE MCM <span class="th-sub">(und)</span></th>
-                    <th class="num">SIRO <span class="th-sub">Reservado</span></th>
-                    <th class="center">TT TRANSFERIR <span class="th-sub">Sugestão (cxs)</span></th>
+                    <th style="width:36px; cursor:pointer;" onclick="setSort('CODPROD')">COD <span class="sort-icon" id="sort-CODPROD"></span></th>
+                    <th class="td-left" style="cursor:pointer;" onclick="setSort('NOME_PRODUTO')">PRODUTO <span class="th-sub">Marca / Categoria / Sintético</span> <span class="sort-icon" id="sort-NOME_PRODUTO"></span></th>
+                    <th class="num" id="th-ma" style="cursor:pointer;" onclick="setSort('QTD_VENDAS_MES')">VENDA <span class="th-sub">Mês Atual</span> <span class="sort-icon" id="sort-QTD_VENDAS_MES"></span></th>
+                    <th class="num" id="th-m1" style="cursor:pointer;" onclick="setSort('QTD_M1')">VENDA <span class="th-sub">Mês -1</span> <span class="sort-icon" id="sort-QTD_M1"></span></th>
+                    <th class="num" id="th-m2" style="cursor:pointer;" onclick="setSort('QTD_M2')">VENDA <span class="th-sub">Mês -2</span> <span class="sort-icon" id="sort-QTD_M2"></span></th>
+                    <th class="num" id="th-m3" style="cursor:pointer;" onclick="setSort('QTD_M3')">VENDA <span class="th-sub">Mês -3</span> <span class="sort-icon" id="sort-QTD_M3"></span></th>
+                    <th class="num" style="cursor:pointer;" onclick="setSort('MEDIA_CONSUMO')">CONSUMO <span class="th-sub">Média Diária</span> <span class="sort-icon" id="sort-MEDIA_CONSUMO"></span></th>
+                    <th class="num" style="cursor:pointer;" onclick="setSort('SALDO_EMPRESA')">ESTOQUE <span class="th-sub">Empresa (und)</span> <span class="sort-icon" id="sort-SALDO_EMPRESA"></span></th>
+                    <th class="center" style="cursor:pointer;" onclick="setSort('DIAS_COBERTURA')">DIAS ESTQ <span class="th-sub">Cobertura</span> <span class="sort-icon" id="sort-DIAS_COBERTURA"></span></th>
+                    <th class="num" style="cursor:pointer;" onclick="setSort('SALDO_MCM')">ESTOQUE MCM <span class="th-sub">(und)</span> <span class="sort-icon" id="sort-SALDO_MCM"></span></th>
+                    <th class="num" onclick="setSort('SIRO_ESTOQUE')" style="cursor:pointer;">Giro de Estoque <span class="th-sub">Reservado</span> <span class="sort-icon" id="sort-SIRO_ESTOQUE"></span></th>
+                    <th class="center" style="cursor:pointer;" onclick="setSort('TT_TRANSFERIR')">TT TRANSFERIR <span class="th-sub">Sugestão (cxs)</span> <span class="sort-icon" id="sort-TT_TRANSFERIR"></span></th>
                 </tr>
             </thead>
             <tbody id="tbl-body">
@@ -452,6 +455,6 @@
         </table>
     </div>
 
-    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=20"></script>
+    <script src="{{ url_for('static', filename='js/estoque.js') }}?v=28"></script>
 </body>
 </html>

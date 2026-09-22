@@ -1434,11 +1434,13 @@ def obter_dados_estoque_previsao(force=False):
         NVL(VM.QTD_M3,  0) AS QTD_M3
     FROM PROD_BASE PB
     LEFT JOIN VENDA_MEDIA VM ON PB.CODPROD = VM.CODPROD
-    WHERE NVL(VM.QTD_VENDAS_MES, 0) > 0
-       OR NVL(VM.QTD_M1, 0) > 0
-       OR NVL(VM.QTD_M2, 0) > 0
-       OR NVL(VM.QTD_M3, 0) > 0
-       OR NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E WHERE E.CODPROD = PB.CODPROD), 0) > 0
+    WHERE (
+        NVL(VM.QTD_VENDAS_MES, 0) > 0
+        OR NVL(VM.QTD_M1, 0) > 0
+        OR NVL(VM.QTD_M2, 0) > 0
+        OR NVL(VM.QTD_M3, 0) > 0
+        OR NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E WHERE E.CODPROD = PB.CODPROD), 0) > 0
+    )
     ORDER BY PB.DESCRPROD ASC
     """
     try:
