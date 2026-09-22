@@ -704,7 +704,7 @@ def api_empresa_tv():
             real_sel_ant += d_ant.get("realizado", 0.0)
             meta_sel_ant += d_ant.get("meta", 0.0)
         pct_sel_ant = round((real_sel_ant / meta_sel_ant * 100), 1) if meta_sel_ant > 0 else 0.0
-        yoy_acum = round(((real_sel / real_sel_ant) - 1) * 100, 1) if real_sel_ant > 0 else (100.0 if real_sel > 0 else 0.0)
+        yoy_acum = mt.arredondar(mt.divide_seguro(real_sel, real_sel_ant), 1)
 
         # 2. MÊS ATUAL: Sempre o mês atual do calendário real (não responsivo ao filtro de meses)
         now = datetime.now()
@@ -722,8 +722,8 @@ def api_empresa_tv():
 
         real_ant_m = d_mes_ant.get("realizado", 0.0)
         real_ant_y = d_ano_ant.get("realizado", 0.0)
-        mom_mes = round(((real_mes / real_ant_m) - 1) * 100, 1) if real_ant_m > 0 else (100.0 if real_mes > 0 else 0.0)
-        yoy_mes = round(((real_mes / real_ant_y) - 1) * 100, 1) if real_ant_y > 0 else (100.0 if real_mes > 0 else 0.0)
+        mom_mes = mt.arredondar(mt.divide_seguro(real_mes, real_ant_m), 1)
+        yoy_mes = mt.arredondar(mt.divide_seguro(real_mes, real_ant_y), 1)
 
         return jsonify({
             "success": True,
@@ -968,12 +968,12 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
                 v_prev = float(vlrs.get((prev_a, prev_m), {}).get(item, 0.0))
 
                 delta_r_m = (r_prev - r_m) if (r_prev is not None and r_m is not None) else None
-                mom_m = round(((v_m / v_prev) - 1) * 100, 1) if v_prev > 0 else (100.0 if v_m > 0 else 0.0)
+                mom_m = mt.arredondar(mt.divide_seguro(v_m, v_prev), 1)
 
                 v_yoy = float(vlrs.get((ano_ref - 1, m), {}).get(item, 0.0))
                 tot_yoy = totals.get((ano_ref - 1, m), 0.0)
                 s_yoy = round((v_yoy / tot_yoy * 100), 1) if tot_yoy > 0 else 0.0
-                yoy_m = round(((v_m / v_yoy) - 1) * 100, 1) if v_yoy > 0 else (100.0 if v_m > 0 else 0.0)
+                yoy_m = mt.arredondar(mt.divide_seguro(v_m, v_yoy), 1)
 
                 meses_dados[m] = {
                     "faturamento": round(v_m, 2),
@@ -990,16 +990,16 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
             delta_rank = (r_ref_prev - rank) if (r_ref_prev is not None) else None
 
             v_ref_prev = float(vlrs.get((ano_ant, mes_ant), {}).get(item, 0.0))
-            mom = round(((vlr_atual / v_ref_prev) - 1) * 100, 1) if v_ref_prev > 0 else (100.0 if vlr_atual > 0 else 0.0)
+            mom = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_prev), 1)
 
             v_ref_yoy = float(vlrs.get((ano_yoy, mes_ref), {}).get(item, 0.0))
-            yoy = round(((vlr_atual / v_ref_yoy) - 1) * 100, 1) if v_ref_yoy > 0 else (100.0 if vlr_atual > 0 else 0.0)
+            yoy = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_yoy), 1)
 
             if rank <= 2:
                 status = "Líder"
-            elif mom >= 15.0 or (delta_rank is not None and delta_rank >= 2):
+            elif (mom is not None and mom >= 15.0) or (delta_rank is not None and delta_rank >= 2):
                 status = "Expansão"
-            elif mom <= -15.0 or (delta_rank is not None and delta_rank <= -2):
+            elif (mom is not None and mom <= -15.0) or (delta_rank is not None and delta_rank <= -2):
                 status = "Atenção"
             else:
                 status = "Estável"
@@ -1246,12 +1246,12 @@ def obter_dados_paises(mes, ano):
             v_prev = float(vlrs.get((prev_a, prev_m), {}).get(item, 0.0))
 
             delta_r_m = (r_prev - r_m) if (r_prev is not None and r_m is not None) else None
-            mom_m = round(((v_m / v_prev) - 1) * 100, 1) if v_prev > 0 else (100.0 if v_m > 0 else 0.0)
+            mom_m = mt.arredondar(mt.divide_seguro(v_m, v_prev), 1)
 
             v_yoy = float(vlrs.get((ano_ref - 1, m), {}).get(item, 0.0))
             tot_yoy = totals.get((ano_ref - 1, m), 0.0)
             s_yoy = round((v_yoy / tot_yoy * 100), 2) if tot_yoy > 0 else 0.0
-            yoy_m = round(((v_m / v_yoy) - 1) * 100, 1) if v_yoy > 0 else (100.0 if v_m > 0 else 0.0)
+            yoy_m = mt.arredondar(mt.divide_seguro(v_m, v_yoy), 1)
 
             meses_dados[m] = {
                 "faturamento": round(v_m, 2),
@@ -1268,16 +1268,16 @@ def obter_dados_paises(mes, ano):
         delta_rank = (r_ref_prev - rank) if (r_ref_prev is not None and rank != 999) else None
 
         v_ref_prev = float(vlrs.get((ano_ant_m, mes_ant), {}).get(item, 0.0))
-        mom = round(((vlr_atual / v_ref_prev) - 1) * 100, 1) if v_ref_prev > 0 else (100.0 if vlr_atual > 0 else 0.0)
+        mom = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_prev), 1)
 
         v_ref_yoy = float(vlrs.get((ano_yoy, mes_ref), {}).get(item, 0.0))
-        yoy = round(((vlr_atual / v_ref_yoy) - 1) * 100, 1) if v_ref_yoy > 0 else (100.0 if vlr_atual > 0 else 0.0)
+        yoy = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_yoy), 1)
 
         if rank <= 2:
             status = "Líder"
-        elif mom >= 15.0 or (delta_rank is not None and delta_rank >= 2):
+        elif (mom is not None and mom >= 15.0) or (delta_rank is not None and delta_rank >= 2):
             status = "Expansão"
-        elif mom <= -15.0 or (delta_rank is not None and delta_rank <= -2):
+        elif (mom is not None and mom <= -15.0) or (delta_rank is not None and delta_rank <= -2):
             status = "Atenção"
         else:
             status = "Estável"

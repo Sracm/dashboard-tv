@@ -128,6 +128,11 @@ def divide_seguro(numerador, denominador, alternativo=None):
     return (num - den) / den * 100.0
 
 
+def arredondar(valor, casas=1):
+    """Arredonda preservando None — usado nas medidas que podem nao ter base."""
+    return None if valor is None else round(valor, casas)
+
+
 def somar_periodo(df, inicio, fim, col_data=COL_DATA, col_valor=COL_VALOR):
     """Soma o valor no intervalo fechado [inicio, fim].
 
