@@ -309,6 +309,15 @@ def calcular_medidas_tempo_canais(mes, ano, hoje=None, force_refresh=False):
     df_ant = obter_vendas_diarias(ano - 1, force_refresh)
     _, df_setores = carregar_metas_e_setores(mes, ano)
 
+    # Meta acumulada do ano: metas CHEIAS de janeiro ate o mes do corte, mesmo
+    # criterio do velocimetro, que confronta o realizado parcial do mes com a
+    # meta inteira daquele mes.
+    meta_ytd = {}
+    for m in range(1, corte.month + 1):
+        df_metas_m, _ = carregar_metas_e_setores(m, ano)
+        for canal, valor in calcular_meta_por_canal(df_metas_m).items():
+            meta_ytd[canal] = meta_ytd.get(canal, 0.0) + valor
+
     ini_mtd, fim_mtd = mt.periodo_mes_atual(corte)
     ini_mom, fim_mom = mt.periodo_mes_anterior(corte, parcial)
     ini_yoy, fim_yoy = mt.periodo_ano_anterior_mes(corte, parcial)
@@ -331,8 +340,11 @@ def calcular_medidas_tempo_canais(mes, ano, hoje=None, force_refresh=False):
         v_yoy = mes_ano_ant.get(canal, 0.0)
         v_ytd = ytd[canal]
         v_ytda = ytd_ant.get(canal, 0.0)
+        v_meta_ytd = meta_ytd.get(canal, 0.0)
         medidas[canal] = {
             "mtd": round(v_mtd, 2),
+            "meta_ytd": round(v_meta_ytd, 2),
+            "ytd_pct": round(v_ytd / v_meta_ytd * 100, 1) if v_meta_ytd > 0 else None,
             "mes_anterior": round(v_mom, 2),
             "mes_ano_anterior": round(v_yoy, 2),
             "ytd": round(v_ytd, 2),
@@ -438,6 +450,8 @@ def api_vendas_tv():
                 "mes_ano_anterior": med.get("mes_ano_anterior", 0.0),
                 "ytd": med.get("ytd", 0.0),
                 "ytd_anterior": med.get("ytd_anterior", 0.0),
+                "meta_ytd": med.get("meta_ytd", 0.0),
+                "ytd_pct": med.get("ytd_pct"),
                 "mom": None if med.get("mom") is None else round(med["mom"], 1),
                 "yoy": None if med.get("yoy") is None else round(med["yoy"], 1),
                 "ytd_yoy": None if med.get("ytd_yoy") is None else round(med["ytd_yoy"], 1),

@@ -802,3 +802,47 @@ body {
     font-size: 0.93rem;
     padding: 4px 11px 4px 8px;
 }
+
+/* ------------------------------------------------------------ */
+/* Card do velocimetro: a tabela ganha COLUNA PROPRIA.           */
+/* Antes era position:absolute e cobria ~155px do grafico — o    */
+/* ponteiro sumia atras dela nos canais com percentual alto.     */
+/* ------------------------------------------------------------ */
+.gauge-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: center;
+}
+
+.gauge-title {
+    grid-column: 1 / -1;
+    grid-row: 1;
+}
+
+.gauge-chart {
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    height: 100%;
+}
+
+.comparisons-container,
+.comparison-container {
+    position: static;
+    grid-column: 2;
+    grid-row: 2;
+    transform: none;
+    right: auto;
+    top: auto;
+    padding-right: 6px;
+}
+
+.gauge-card.empresa-card .comparisons-container,
+.gauge-card.empresa-card .comparison-container {
+    right: auto;
+    top: auto;
+    transform: none;
+    padding-right: 24px;
+}

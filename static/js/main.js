@@ -60,7 +60,7 @@ function resetarTodasMetasTocadasDoMes(mes, ano) {
 // Função para formatar as opções do Gauge
 function getGaugeOption(percent, name) {
     const isEmpresa = name && name.toUpperCase() === 'EMPRESA';
-    const centerX = isEmpresa ? '50%' : '44%';
+    const centerX = '50%';
 
     return {
         series: [
@@ -178,6 +178,17 @@ function formatarMoedaCompacta(valor) {
     return `${sinal}R$ ${abs.toFixed(0)}`;
 }
 
+function formatarPercentualMeta(valor) {
+    if (valor === null || valor === undefined || Number.isNaN(valor)) {
+        return '<span class="trend-neutral">—</span>';
+    }
+    const v = Number(valor);
+    let classe = 'val-danger';
+    if (v >= 100) classe = 'val-success';
+    else if (v >= 80) classe = 'val-warning';
+    return `<span class="badge-value ${classe}">${v.toFixed(1)}%</span>`;
+}
+
 function formatarDataCurta(iso) {
     if (!iso) return '';
     const [a, m, d] = iso.split('-');
@@ -212,8 +223,9 @@ function renderTabelaIndicadores(equipe, contexto) {
         <tbody>
             ${linha('MoM', variacao(equipe.mom), `${intervalo('mtd')} vs ${intervalo('mes_anterior')}`)}
             ${linha('YoY', variacao(equipe.yoy), `${intervalo('mtd')} vs ${intervalo('mes_ano_anterior')}`)}
-            ${linha('YTD', `<span class="kpi-moeda">${formatarMoedaCompacta(equipe.ytd)}</span>`, intervalo('ytd'))}
-            ${linha('YTD YoY', variacao(equipe.ytd_yoy), `${intervalo('ytd')} vs ${intervalo('ytd_anterior')}`)}
+            ${linha('YTD', variacao(equipe.ytd_yoy),
+                `Receita projetada acumulada: ${intervalo('ytd')} = ${formatarMoedaCompacta(equipe.ytd)}` +
+                ` · ${intervalo('ytd_anterior')} = ${formatarMoedaCompacta(equipe.ytd_anterior)}`)}
         </tbody>
     </table>`;
 }
@@ -271,6 +283,7 @@ function renderCharts(data, mes, ano, contexto) {
         const compContainer = document.getElementById(`comp-${index}`);
         if (compContainer) {
             compContainer.innerHTML = renderTabelaIndicadores(equipe, contexto);
+            charts[chartId].resize();
         }
     });
 
