@@ -3,10 +3,12 @@ import time
 import oracledb
 import pandas as pd
 from flask import Flask, render_template, jsonify, request, redirect
-from datetime import datetime
+from datetime import datetime, date
 import threading
 import os
 from dotenv import load_dotenv
+
+import metricas_tempo as mt
 
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)
@@ -119,73 +121,112 @@ def carregar_metas_e_setores(mes, ano):
     
     return df_metas_filtradas, df_setores
 
-def calcular_metricas_painel(df_vendas, df_metas, df_setores):
-    # Merge vendas com BASE SETORES para associar cada vendedor ao seu respectivo SETOR
-    df_vendas_setor = pd.merge(df_vendas, df_setores[['CODVEND', 'SETOR', 'VENDEDOR']], on='CODVEND', how='left')
+CANAIS_PAINEL = [
+    "VAREJO ESPECIALIZADO - SP",
+    "VAREJO ESPECIALIZADO REG.",
+    "DISTRIBUIÇÃO",
+    "COMEX",
+    "E-COMMERCE",
+    "E-COMMERCE - PARLUX",
+    "EMPRESA",
+]
 
-    # 1. VAREJO ESPECIALIZADO - SP (SETOR == 'SP')
-    v_sp = float(df_vendas_setor[df_vendas_setor['SETOR'] == 'SP']['TOTAL_PREV'].sum()) if 'SETOR' in df_vendas_setor else 0.0
-    m_sp = float(df_metas[df_metas['SETOR'] == 'SP']['META'].sum()) if 'SETOR' in df_metas else 0.0
-    p_sp = (v_sp / m_sp * 100) if m_sp > 0 else 0.0
+SETORES_REG = ['NO - ND', 'RJ - MG - ES', 'SUL']
+SETORES_DIST = ['DISTRIBUIÇÃO', 'VAGNER LUZ DA S']
 
-    # 2. VAREJO ESPECIALIZADO REG. ('NO - ND', 'RJ - MG - ES', 'SUL')
-    reg_setores = ['NO - ND', 'RJ - MG - ES', 'SUL']
-    v_reg = float(df_vendas_setor[df_vendas_setor['SETOR'].isin(reg_setores)]['TOTAL_PREV'].sum()) if 'SETOR' in df_vendas_setor else 0.0
-    m_reg = float(df_metas[df_metas['SETOR'].isin(reg_setores)]['META'].sum()) if 'SETOR' in df_metas else 0.0
-    p_reg = (v_reg / m_reg * 100) if m_reg > 0 else 0.0
 
-    # 3. DISTRIBUIÇÃO ('DISTRIBUIÇÃO', 'VAGNER LUZ DA S')
-    dist_setores = ['DISTRIBUIÇÃO', 'VAGNER LUZ DA S']
-    v_dist = float(df_vendas_setor[df_vendas_setor['SETOR'].isin(dist_setores)]['TOTAL_PREV'].sum()) if 'SETOR' in df_vendas_setor else 0.0
-    m_dist = float(df_metas[df_metas['SETOR'].isin(dist_setores)]['META'].sum()) if 'SETOR' in df_metas else 0.0
-    p_dist = (v_dist / m_dist * 100) if m_dist > 0 else 0.0
+def calcular_realizado_por_canal(df_vendas, df_setores):
+    """Realizado (TOTAL_PREV) por canal para QUALQUER recorte de vendas.
 
-    # 4. COMEX ('COMEX')
-    v_comex = float(df_vendas_setor[df_vendas_setor['SETOR'] == 'COMEX']['TOTAL_PREV'].sum()) if 'SETOR' in df_vendas_setor else 0.0
-    m_comex = float(df_metas[df_metas['SETOR'] == 'COMEX']['META'].sum()) if 'SETOR' in df_metas else 0.0
-    p_comex = (v_comex / m_comex * 100) if m_comex > 0 else 0.0
+    Única fonte da segmentação de canais: as medidas de tempo (YTD/YoY/MoM) e o
+    percentual de meta passam exatamente pelas mesmas regras, o que elimina a
+    chance de um indicador divergir do outro.
+    """
+    vazio = {c: 0.0 for c in CANAIS_PAINEL}
+    vazio["E-COMMERCE - MQ"] = 0.0
+    if df_vendas is None or len(df_vendas) == 0 or 'TOTAL_PREV' not in df_vendas.columns:
+        return vazio
 
-    # 5. E-COMMERCE (SETOR == 'E-COMMERCE', MARCA != 'PARLUX', METAS VENDEDOR != 'LOJA VTEX PARLUX')
-    if 'SETOR' in df_vendas_setor and 'MARCA' in df_vendas_setor:
-        mask_ecom_v = (df_vendas_setor['SETOR'] == 'E-COMMERCE') & (df_vendas_setor['MARCA'] != 'PARLUX')
-        v_ecom = float(df_vendas_setor[mask_ecom_v]['TOTAL_PREV'].sum())
+    df = pd.merge(df_vendas, df_setores[['CODVEND', 'SETOR', 'VENDEDOR']], on='CODVEND', how='left')
+    if 'SETOR' not in df.columns:
+        return vazio
+
+    def soma(mask):
+        return float(df[mask]['TOTAL_PREV'].sum())
+
+    v_sp = soma(df['SETOR'] == 'SP')
+    v_reg = soma(df['SETOR'].isin(SETORES_REG))
+    v_dist = soma(df['SETOR'].isin(SETORES_DIST))
+    v_comex = soma(df['SETOR'] == 'COMEX')
+
+    if 'MARCA' in df.columns:
+        v_ecom = soma((df['SETOR'] == 'E-COMMERCE') & (df['MARCA'] != 'PARLUX'))
+        v_parlux = soma((df['SETOR'] == 'E-COMMERCE') & (df['MARCA'] == 'PARLUX'))
     else:
         v_ecom = 0.0
-    if 'SETOR' in df_metas and 'VENDEDOR' in df_metas:
-        mask_ecom_m = (df_metas['SETOR'] == 'E-COMMERCE') & (df_metas['VENDEDOR'] != 'LOJA VTEX PARLUX')
-        m_ecom = float(df_metas[mask_ecom_m]['META'].sum())
-    else:
-        m_ecom = 0.0
-    p_ecom = (v_ecom / m_ecom * 100) if m_ecom > 0 else 0.0
-
-    # 6. E-COMMERCE - PARLUX (SETOR == 'E-COMMERCE' E MARCA == 'PARLUX' — exatamente como o Power BI)
-    if 'SETOR' in df_vendas_setor and 'MARCA' in df_vendas_setor:
-        mask_parlux_v = (df_vendas_setor['SETOR'] == 'E-COMMERCE') & (df_vendas_setor['MARCA'] == 'PARLUX')
-        v_parlux = float(df_vendas_setor[mask_parlux_v]['TOTAL_PREV'].sum())
-    else:
         v_parlux = 0.0
-    if 'VENDEDOR' in df_metas:
-        mask_parlux_m = df_metas['VENDEDOR'] == 'LOJA VTEX PARLUX'
-        m_parlux = float(df_metas[mask_parlux_m]['META'].sum())
-    else:
-        m_parlux = 0.0
-    p_parlux = (v_parlux / m_parlux * 100) if m_parlux > 0 else 0.0
 
-    # 7. EMPRESA (Total geral de todas as vendas e todas as metas)
-    v_empresa = float(df_vendas['TOTAL_PREV'].sum()) if 'TOTAL_PREV' in df_vendas else 0.0
-    m_empresa = float(df_metas['META'].sum()) if 'META' in df_metas else 0.0
-    p_empresa = (v_empresa / m_empresa * 100) if m_empresa > 0 else 0.0
+    v_empresa = float(df_vendas['TOTAL_PREV'].sum())
 
     return {
-        "VAREJO ESPECIALIZADO - SP": {"percentual": round(p_sp, 1), "realizado": v_sp, "meta": m_sp},
-        "VAREJO ESPECIALIZADO REG.": {"percentual": round(p_reg, 1), "realizado": v_reg, "meta": m_reg},
-        "DISTRIBUIÇÃO": {"percentual": round(p_dist, 1), "realizado": v_dist, "meta": m_dist},
-        "COMEX": {"percentual": round(p_comex, 1), "realizado": v_comex, "meta": m_comex},
-        "E-COMMERCE": {"percentual": round(p_ecom, 1), "realizado": v_ecom, "meta": m_ecom},
-        "E-COMMERCE - MQ": {"percentual": round(p_ecom, 1), "realizado": v_ecom, "meta": m_ecom},
-        "E-COMMERCE - PARLUX": {"percentual": round(p_parlux, 1), "realizado": v_parlux, "meta": m_parlux},
-        "EMPRESA": {"percentual": round(p_empresa, 1), "realizado": v_empresa, "meta": m_empresa}
+        "VAREJO ESPECIALIZADO - SP": v_sp,
+        "VAREJO ESPECIALIZADO REG.": v_reg,
+        "DISTRIBUIÇÃO": v_dist,
+        "COMEX": v_comex,
+        "E-COMMERCE": v_ecom,
+        "E-COMMERCE - MQ": v_ecom,
+        "E-COMMERCE - PARLUX": v_parlux,
+        "EMPRESA": v_empresa,
     }
+
+
+def calcular_meta_por_canal(df_metas):
+    vazio = {c: 0.0 for c in CANAIS_PAINEL}
+    vazio["E-COMMERCE - MQ"] = 0.0
+    if df_metas is None or len(df_metas) == 0 or 'META' not in df_metas.columns or 'SETOR' not in df_metas.columns:
+        return vazio
+
+    def soma(mask):
+        return float(df_metas[mask]['META'].sum())
+
+    m_sp = soma(df_metas['SETOR'] == 'SP')
+    m_reg = soma(df_metas['SETOR'].isin(SETORES_REG))
+    m_dist = soma(df_metas['SETOR'].isin(SETORES_DIST))
+    m_comex = soma(df_metas['SETOR'] == 'COMEX')
+
+    if 'VENDEDOR' in df_metas.columns:
+        m_ecom = soma((df_metas['SETOR'] == 'E-COMMERCE') & (df_metas['VENDEDOR'] != 'LOJA VTEX PARLUX'))
+        m_parlux = soma(df_metas['VENDEDOR'] == 'LOJA VTEX PARLUX')
+    else:
+        m_ecom = 0.0
+        m_parlux = 0.0
+
+    m_empresa = float(df_metas['META'].sum())
+
+    return {
+        "VAREJO ESPECIALIZADO - SP": m_sp,
+        "VAREJO ESPECIALIZADO REG.": m_reg,
+        "DISTRIBUIÇÃO": m_dist,
+        "COMEX": m_comex,
+        "E-COMMERCE": m_ecom,
+        "E-COMMERCE - MQ": m_ecom,
+        "E-COMMERCE - PARLUX": m_parlux,
+        "EMPRESA": m_empresa,
+    }
+
+
+def calcular_metricas_painel(df_vendas, df_metas, df_setores):
+    realizados = calcular_realizado_por_canal(df_vendas, df_setores)
+    metas = calcular_meta_por_canal(df_metas)
+
+    resultado = {}
+    for canal in realizados:
+        v = realizados[canal]
+        m = metas.get(canal, 0.0)
+        pct = (v / m * 100) if m > 0 else 0.0
+        resultado[canal] = {"percentual": round(pct, 1), "realizado": v, "meta": m}
+    return resultado
+
 
 def carregar_vendas_ano(ano):
     data_inicio = f"01/01/{ano}"
@@ -194,8 +235,11 @@ def carregar_vendas_ano(ano):
     opt_sql = RAW_SQL_BASE.replace('WHERE TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER', 'WHERE ' + d_filter + 'TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER')
     opt_sql = opt_sql.replace("WHERE tgfcab.tipmov='P'", 'WHERE ' + d_filter + "tgfcab.tipmov='P'")
 
+    # Granularidade DIARIA: sem o dia nao e possivel recortar MTD/YTD na data
+    # de corte, e toda comparacao YoY/MoM de mes em andamento fica distorcida.
     final_query = f"""
-    SELECT TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) as MES,
+    SELECT TRUNC(V.DTENTSAI) as DATA,
+           TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) as MES,
            V.CODVEND, 
            P.MARCA,
            SUM(V.vendas) as TOTAL_VENDAS, 
@@ -205,7 +249,7 @@ def carregar_vendas_ano(ano):
         {opt_sql}
     ) V
     LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.codprod) = TO_CHAR(P.CODPROD)
-    GROUP BY TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, P.MARCA
+    GROUP BY TRUNC(V.DTENTSAI), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, P.MARCA
     """
     conn = get_db_connection()
     try:
@@ -215,10 +259,102 @@ def carregar_vendas_ano(ano):
     for c in ['TOTAL_VENDAS', 'TOTAL_FAT', 'TOTAL_PREV']:
         if c in df_ano.columns:
             df_ano[c] = pd.to_numeric(df_ano[c], errors='coerce').fillna(0.0)
+    if 'DATA' in df_ano.columns:
+        df_ano['DATA'] = pd.to_datetime(df_ano['DATA'], errors='coerce')
     return df_ano
 
 cached_painel_results = {}
 anos_carregados_no_cache = set()
+
+# Vendas diarias cruas por ano: base das medidas de tempo (YTD/YoY/MoM).
+cached_vendas_diarias = {}
+
+
+def obter_vendas_diarias(ano, force_refresh=False):
+    """DataFrame de vendas diarias do ano, com cache de 30 min."""
+    now_ts = time.time()
+    if not force_refresh and ano in cached_vendas_diarias:
+        df, ts = cached_vendas_diarias[ano]
+        if now_ts - ts < 1800:
+            return df
+    try:
+        df = carregar_vendas_ano(ano)
+    except Exception as e:
+        print(f"[MEDIDAS] Erro ao carregar vendas diarias de {ano}: {e}")
+        df = pd.DataFrame(columns=['DATA', 'MES', 'CODVEND', 'MARCA', 'TOTAL_VENDAS', 'TOTAL_FAT', 'TOTAL_PREV'])
+    cached_vendas_diarias[ano] = (df, now_ts)
+    return df
+
+
+def _realizado_intervalo(df, inicio, fim, df_setores):
+    """Realizado por canal no intervalo fechado [inicio, fim]."""
+    if df is None or len(df) == 0 or 'DATA' not in df.columns:
+        return calcular_realizado_por_canal(None, df_setores)
+    datas = pd.to_datetime(df['DATA'], errors='coerce')
+    mask = (datas >= pd.Timestamp(inicio)) & (datas <= pd.Timestamp(fim))
+    return calcular_realizado_por_canal(df[mask], df_setores)
+
+
+def calcular_medidas_tempo_canais(mes, ano, hoje=None, force_refresh=False):
+    """YTD, YoY e MoM por canal, com periodos sempre equivalentes.
+
+    Toda a aritmetica de calendario vive em metricas_tempo.py (validado por
+    tests/test_metricas_tempo.py); aqui apenas somamos o realizado de cada
+    canal nos intervalos que aquele modulo define.
+    """
+    corte = mt.data_corte_contexto(mes, ano, hoje)
+    parcial = mt.mes_esta_parcial(corte)
+
+    df_atual = obter_vendas_diarias(ano, force_refresh)
+    df_ant = obter_vendas_diarias(ano - 1, force_refresh)
+    _, df_setores = carregar_metas_e_setores(mes, ano)
+
+    ini_mtd, fim_mtd = mt.periodo_mes_atual(corte)
+    ini_mom, fim_mom = mt.periodo_mes_anterior(corte, parcial)
+    ini_yoy, fim_yoy = mt.periodo_ano_anterior_mes(corte, parcial)
+    ini_ytd, fim_ytd = mt.periodo_ytd(corte)
+    ini_ytda, fim_ytda = mt.periodo_ytd_ano_anterior(corte, parcial)
+
+    # Janeiro compara com dezembro do ano anterior: o MoM sai do outro DataFrame.
+    df_mom = df_atual if fim_mom.year == ano else df_ant
+
+    mtd = _realizado_intervalo(df_atual, ini_mtd, fim_mtd, df_setores)
+    mes_ant = _realizado_intervalo(df_mom, ini_mom, fim_mom, df_setores)
+    mes_ano_ant = _realizado_intervalo(df_ant, ini_yoy, fim_yoy, df_setores)
+    ytd = _realizado_intervalo(df_atual, ini_ytd, fim_ytd, df_setores)
+    ytd_ant = _realizado_intervalo(df_ant, ini_ytda, fim_ytda, df_setores)
+
+    medidas = {}
+    for canal in mtd:
+        v_mtd = mtd[canal]
+        v_mom = mes_ant.get(canal, 0.0)
+        v_yoy = mes_ano_ant.get(canal, 0.0)
+        v_ytd = ytd[canal]
+        v_ytda = ytd_ant.get(canal, 0.0)
+        medidas[canal] = {
+            "mtd": round(v_mtd, 2),
+            "mes_anterior": round(v_mom, 2),
+            "mes_ano_anterior": round(v_yoy, 2),
+            "ytd": round(v_ytd, 2),
+            "ytd_anterior": round(v_ytda, 2),
+            "mom": mt.divide_seguro(v_mtd, v_mom),
+            "yoy": mt.divide_seguro(v_mtd, v_yoy),
+            "ytd_yoy": mt.divide_seguro(v_ytd, v_ytda),
+        }
+
+    contexto = {
+        "corte": corte.isoformat(),
+        "parcial": parcial,
+        "dias": corte.day,
+        "periodos": {
+            "mtd": [ini_mtd.isoformat(), fim_mtd.isoformat()],
+            "mes_anterior": [ini_mom.isoformat(), fim_mom.isoformat()],
+            "mes_ano_anterior": [ini_yoy.isoformat(), fim_yoy.isoformat()],
+            "ytd": [ini_ytd.isoformat(), fim_ytd.isoformat()],
+            "ytd_anterior": [ini_ytda.isoformat(), fim_ytda.isoformat()],
+        },
+    }
+    return medidas, contexto
 
 def carregar_ano_completo_no_cache(ano, force=False):
     now_ts = time.time()
@@ -228,7 +364,7 @@ def carregar_ano_completo_no_cache(ano, force=False):
             return
     try:
         print(f"[CACHE] Carregando vendas do ano {ano} completo no Oracle...")
-        df_ano = carregar_vendas_ano(ano)
+        df_ano = obter_vendas_diarias(ano, force_refresh=force)
         for m in range(1, 13):
             df_m = df_ano[df_ano['MES'] == m].copy() if len(df_ano) > 0 and 'MES' in df_ano else pd.DataFrame(columns=['CODVEND', 'MARCA', 'TOTAL_VENDAS', 'TOTAL_FAT', 'TOTAL_PREV'])
             df_metas_m, df_setores = carregar_metas_e_setores(m, ano)
@@ -268,40 +404,25 @@ def api_vendas_tv():
     try:
         mes = int(request.args.get('mes', datetime.now().month))
         ano = int(request.args.get('ano', datetime.now().year))
-        
+
         mes_ant_m = 12 if mes == 1 else mes - 1
         ano_ant_m = ano - 1 if mes == 1 else ano
-        
-        mes_ant_y = mes
-        ano_ant_y = ano - 1
-        
+
         dados_atual = obter_dados_painel(mes, ano)
         dados_mes_ant = obter_dados_painel(mes_ant_m, ano_ant_m)
-        dados_ano_ant = obter_dados_painel(mes_ant_y, ano_ant_y)
-        
+        dados_ano_ant = obter_dados_painel(mes, ano - 1)
+
+        medidas, contexto = calcular_medidas_tempo_canais(mes, ano)
+
         equipes = []
-        setores = [
-            "VAREJO ESPECIALIZADO - SP",
-            "VAREJO ESPECIALIZADO REG.",
-            "DISTRIBUIÇÃO",
-            "COMEX",
-            "E-COMMERCE",
-            "E-COMMERCE - PARLUX",
-            "EMPRESA"
-        ]
-        
-        for setor in setores:
+        for setor in CANAIS_PAINEL:
+            if setor == "E-COMMERCE - MQ":
+                continue
             atual = dados_atual.get(setor, {"percentual": 0, "realizado": 0, "meta": 0})
             ant_m = dados_mes_ant.get(setor, {"percentual": 0, "realizado": 0, "meta": 0})
             ant_y = dados_ano_ant.get(setor, {"percentual": 0, "realizado": 0, "meta": 0})
-            
-            real_atual = atual['realizado']
-            real_ant_m = ant_m['realizado']
-            real_ant_y = ant_y['realizado']
-            
-            mom = ((real_atual / real_ant_m) - 1) * 100 if real_ant_m > 0 else (100 if real_atual > 0 else 0)
-            yoy = ((real_atual / real_ant_y) - 1) * 100 if real_ant_y > 0 else (100 if real_atual > 0 else 0)
-            
+            med = medidas.get(setor, {})
+
             display_name = "E-COMMERCE - MQ" if setor == "E-COMMERCE" else setor
             equipes.append({
                 "name": display_name,
@@ -310,16 +431,42 @@ def api_vendas_tv():
                 "meta": atual['meta'],
                 "prev_month_percent": ant_m['percentual'],
                 "prev_year_percent": ant_y['percentual'],
-                "mom": round(mom, 1),
-                "yoy": round(yoy, 1)
+                # Medidas de tempo com periodos equivalentes. None = sem base de
+                # comparacao; a UI mostra "—" em vez de inventar um percentual.
+                "mtd": med.get("mtd", 0.0),
+                "mes_anterior": med.get("mes_anterior", 0.0),
+                "mes_ano_anterior": med.get("mes_ano_anterior", 0.0),
+                "ytd": med.get("ytd", 0.0),
+                "ytd_anterior": med.get("ytd_anterior", 0.0),
+                "mom": None if med.get("mom") is None else round(med["mom"], 1),
+                "yoy": None if med.get("yoy") is None else round(med["yoy"], 1),
+                "ytd_yoy": None if med.get("ytd_yoy") is None else round(med["ytd_yoy"], 1),
             })
-            
-        return jsonify({"success": True, "data": equipes})
-        
+
+        return jsonify({"success": True, "data": equipes, "contexto": contexto})
+
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/auditoria_medidas')
+def api_auditoria_medidas():
+    """Laudo de auditoria: mostra os intervalos e valores-base de cada medida.
+
+    Permite conferir na tela, canal a canal, de onde saiu cada percentual.
+    """
+    try:
+        mes = int(request.args.get('mes', datetime.now().month))
+        ano = int(request.args.get('ano', datetime.now().year))
+        medidas, contexto = calcular_medidas_tempo_canais(mes, ano)
+        return jsonify({"success": True, "contexto": contexto, "medidas": medidas})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
 
 @app.route('/acumulado')
 def dashboard_acumulado():
@@ -1884,7 +2031,10 @@ def aquecer_cache_background():
 threading.Thread(target=aquecer_cache_background, daemon=True).start()
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5050, debug=False, threaded=True)
+    # PORT permite subir uma segunda instancia (homologacao) sem derrubar a
+    # que estiver no ar atendendo as TVs.
+    porta = int(os.getenv('PORT', '5050'))
+    app.run(host='0.0.0.0', port=porta, debug=False, threaded=True)
 
 
 

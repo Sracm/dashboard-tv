@@ -153,8 +153,73 @@ function obterChaveCanal(nome) {
     return null;
 }
 
+// ---------------------------------------------------------------------------
+// Indicadores de tempo exibidos dentro de cada velocímetro
+// ---------------------------------------------------------------------------
+
+// null/undefined = não há base de comparação no período anterior.
+// Nunca exibir 0% ou +100% nesse caso: seria um número inventado.
+function formatarVariacao(valor) {
+    if (valor === null || valor === undefined || Number.isNaN(valor)) {
+        return { texto: '—', icone: '', classe: 'trend-neutral' };
+    }
+    const v = Number(valor);
+    if (v > 0) return { texto: `+${v.toFixed(1)}%`, icone: '▲', classe: 'trend-up' };
+    if (v < 0) return { texto: `${v.toFixed(1)}%`, icone: '▼', classe: 'trend-down' };
+    return { texto: '0,0%', icone: '➖', classe: 'trend-neutral' };
+}
+
+function formatarMoedaCompacta(valor) {
+    const v = Number(valor) || 0;
+    const sinal = v < 0 ? '-' : '';
+    const abs = Math.abs(v);
+    if (abs >= 1e6) return `${sinal}R$ ${(abs / 1e6).toFixed(1).replace('.', ',')} mi`;
+    if (abs >= 1e3) return `${sinal}R$ ${(abs / 1e3).toFixed(0)} mil`;
+    return `${sinal}R$ ${abs.toFixed(0)}`;
+}
+
+function formatarDataCurta(iso) {
+    if (!iso) return '';
+    const [a, m, d] = iso.split('-');
+    return `${d}/${m}`;
+}
+
+function renderTabelaIndicadores(equipe, contexto) {
+    const linha = (rotulo, conteudo, titulo) => `
+        <tr title="${titulo || ''}">
+            <th class="kpi-rotulo">${rotulo}</th>
+            <td class="kpi-valor">${conteudo}</td>
+        </tr>`;
+
+    const variacao = (valor) => {
+        const f = formatarVariacao(valor);
+        return `<span class="${f.classe}">${f.icone} ${f.texto}</span>`;
+    };
+
+    const p = (contexto && contexto.periodos) || {};
+    const intervalo = (chave) => {
+        const per = p[chave];
+        return per ? `${formatarDataCurta(per[0])} a ${formatarDataCurta(per[1])}` : '';
+    };
+
+    const cabecalho = contexto
+        ? `<caption class="kpi-caption">até ${formatarDataCurta(contexto.corte)}` +
+          `${contexto.parcial ? ` · ${contexto.dias} dias` : ' · mês fechado'}</caption>`
+        : '';
+
+    return `<table class="kpi-table">
+        ${cabecalho}
+        <tbody>
+            ${linha('MoM', variacao(equipe.mom), `${intervalo('mtd')} vs ${intervalo('mes_anterior')}`)}
+            ${linha('YoY', variacao(equipe.yoy), `${intervalo('mtd')} vs ${intervalo('mes_ano_anterior')}`)}
+            ${linha('YTD', `<span class="kpi-moeda">${formatarMoedaCompacta(equipe.ytd)}</span>`, intervalo('ytd'))}
+            ${linha('YTD YoY', variacao(equipe.ytd_yoy), `${intervalo('ytd')} vs ${intervalo('ytd_anterior')}`)}
+        </tbody>
+    </table>`;
+}
+
 // Renderizar os Gráficos
-function renderCharts(data, mes, ano) {
+function renderCharts(data, mes, ano, contexto) {
     const container = document.getElementById('gauges-container');
     if (!container) return;
     
@@ -200,61 +265,12 @@ function renderCharts(data, mes, ano) {
 
         charts[chartId].setOption(getGaugeOption(equipe.percent, equipe.name));
         
-        // Atualizar comparativos (Mês Ant., MoM, Ano Ant., YoY)
+        // Tabela de indicadores de tempo (MoM, YoY, YTD) dentro do velocímetro.
+        // Todos os percentuais vêm prontos do backend, onde os períodos já foram
+        // recortados em intervalos equivalentes — o JS apenas formata.
         const compContainer = document.getElementById(`comp-${index}`);
         if (compContainer) {
-            const mom = equipe.mom || 0;
-            const yoy = equipe.yoy || 0;
-            const prevMonth = equipe.prev_month_percent !== undefined ? equipe.prev_month_percent : 0;
-            const prevYear = equipe.prev_year_percent !== undefined ? equipe.prev_year_percent : 0;
-            
-            const renderTrendBadge = (label, diff) => {
-                let trendIcon = '';
-                let trendClass = '';
-                let diffStr = '';
-                
-                if (diff > 0) {
-                    trendIcon = '▲';
-                    trendClass = 'trend-up';
-                    diffStr = `+${diff.toFixed(1)}%`;
-                } else if (diff < 0) {
-                    trendIcon = '▼';
-                    trendClass = 'trend-down';
-                    diffStr = `${diff.toFixed(1)}%`;
-                } else {
-                    trendIcon = '➖';
-                    trendClass = 'trend-neutral';
-                    diffStr = `0.0%`;
-                }
-                
-                return `<div class="comparison-badge">
-                            <span class="badge-label">${label}:</span>
-                            <span class="${trendClass}">${trendIcon} ${diffStr}</span>
-                        </div>`;
-            };
-
-            const renderValueBadge = (label, val) => {
-                const valNum = Number(val) || 0;
-                let valColorClass = 'val-neutral';
-                if (valNum >= 100) {
-                    valColorClass = 'val-success';
-                } else if (valNum >= 80) {
-                    valColorClass = 'val-warning';
-                } else if (valNum > 0) {
-                    valColorClass = 'val-danger';
-                }
-                
-                return `<div class="comparison-badge">
-                            <span class="badge-label">${label}:</span>
-                            <span class="badge-value ${valColorClass}">${valNum.toFixed(1)}%</span>
-                        </div>`;
-            };
-            
-            compContainer.innerHTML = 
-                renderValueBadge('Mês Ant', prevMonth) +
-                renderTrendBadge('MoM', mom) +
-                renderValueBadge('Ano Ant', prevYear) +
-                renderTrendBadge('YoY', yoy);
+            compContainer.innerHTML = renderTabelaIndicadores(equipe, contexto);
         }
     });
 
@@ -353,7 +369,7 @@ async function fetchData() {
         if (json.success) {
             window.currentVendasData = json.data;
             verificarOscilacao(json.data, month, year);
-            renderCharts(json.data, month, year);
+            renderCharts(json.data, month, year, json.contexto);
             
             // Atualizar data de última atualização
             const now = new Date();

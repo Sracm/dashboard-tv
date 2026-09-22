@@ -731,3 +731,74 @@ body {
  } 
   
  
+/* ============================================================ */
+/* Tabela de indicadores de tempo dentro do velocímetro         */
+/* MoM / YoY / YTD — períodos equivalentes (ver metricas_tempo) */
+/* ============================================================ */
+.kpi-table {
+    border-collapse: collapse;
+    background: rgba(12, 12, 12, 0.85);
+    border: 1px solid rgba(203, 151, 39, 0.35);
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: var(--font-main);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    min-width: 128px;
+}
+
+.kpi-table .kpi-caption {
+    caption-side: top;
+    padding: 3px 8px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: #CB9727;
+    background: rgba(203, 151, 39, 0.12);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.kpi-table tr + tr {
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.kpi-table .kpi-rotulo {
+    padding: 3px 6px 3px 8px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #BBBBBB;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.kpi-table .kpi-valor {
+    padding: 3px 8px 3px 6px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.kpi-table .kpi-moeda {
+    color: #E8E8E8;
+}
+
+.gauge-card.empresa-card .kpi-table {
+    min-width: 158px;
+}
+
+.gauge-card.empresa-card .kpi-table .kpi-caption {
+    font-size: 0.74rem;
+}
+
+.gauge-card.empresa-card .kpi-table .kpi-rotulo {
+    font-size: 0.78rem;
+    padding: 4px 8px 4px 11px;
+}
+
+.gauge-card.empresa-card .kpi-table .kpi-valor {
+    font-size: 0.93rem;
+    padding: 4px 11px 4px 8px;
+}
