@@ -363,7 +363,7 @@ function verificarOscilacao(data, mes, ano) {
 let lastPeriodLoaded = '';
 
 // Buscar dados da API
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     try {
         const month = document.getElementById('filter-month').value;
         const year = document.getElementById('filter-year').value;
@@ -375,7 +375,10 @@ async function fetchData() {
         }
         lastPeriodLoaded = currentPeriod;
         
-        const url = `/api/vendas_tv?mes=${month}&ano=${year}`;
+        let url = `/api/vendas_tv?mes=${month}&ano=${year}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
         const response = await fetch(url);
         const json = await response.json();
         
@@ -440,7 +443,7 @@ async function manualRefresh() {
         btn.disabled = true;
         btn.innerHTML = '⏳ Atualizando...';
     }
-    await fetchData();
+    await fetchData(true);
     if (btn) {
         btn.disabled = false;
         btn.innerHTML = '🔄 Atualizar';
@@ -936,7 +939,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateCountdownDisplay();
         } else {
             countdownSeconds = 600;
-            fetchData();
+            fetchData(true);
         }
     }, 1000);
 });

@@ -44,56 +44,20 @@
 
             <div class="header-bottom">
                 <div class="filters-row">
-                    <div class="multiselect-wrapper" id="month-multiselect">
-                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
-                            <span class="ms-icon">📅</span>
-                            <span id="month-select-label">Meses: Mai a Ago (4)</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="month-select-menu">
-                            <div class="ms-header">
-                                <div class="ms-title-row">
-                                    <span class="ms-title">Filtrar Meses na Tabela</span>
-                                    <span class="ms-selected-count" id="ms-count-badge">4 sel.</span>
-                                </div>
-                                <div class="ms-quick-actions">
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(true, event)">Todos</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(3, event)">Últ. 3</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(6, event)">Últ. 6</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(false, event)">Limpar</button>
-                                </div>
-                            </div>
-                            <div class="ms-grid" id="month-checkbox-grid">
-                                <!-- Checkboxes gerados dinamicamente -->
-                            </div>
-                        </div>
-                        <input type="hidden" id="filter-month" value="8">
-                    </div>
-
-                    <!-- Filtro Multiselect de Marcas -->
-                    <div class="multiselect-wrapper" id="brand-multiselect">
-                        <button type="button" class="multiselect-btn" id="brand-select-btn" onclick="toggleBrandDropdown(event)" title="Filtrar marcas exibidas na tabela">
-                            <span class="ms-icon">🏷️</span>
-                            <span id="brand-select-label">Marcas: Principais (7)</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="brand-select-menu" style="width: 290px;">
-                            <div class="ms-header">
-                                <div class="ms-title-row">
-                                    <span class="ms-title">Filtrar Marcas na Tabela</span>
-                                    <span class="ms-selected-count" id="brand-count-badge">7 sel.</span>
-                                </div>
-                                <div class="ms-quick-actions">
-                                    <button type="button" class="ms-action-btn" onclick="selectDefaultBrands(event)">Padrão (7)</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectAllBrands(true, event)">Todas</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectAllBrands(false, event)">Limpar</button>
-                                </div>
-                            </div>
-                            <div class="ms-grid" id="brand-checkbox-grid" style="grid-template-columns: 1fr; max-height: 280px; overflow-y: auto; gap: 4px;">
-                                <!-- Checkboxes gerados dinamicamente via JS -->
-                            </div>
-                        </div>
-                    </div>
+                    <select id="filter-month" onchange="fetchData()" title="A tabela consolida de 01/01 até o fim do mês escolhido (ou até hoje, se for o mês corrente)">
+                        <option value="1">Acumulado até Janeiro</option>
+                        <option value="2">Acumulado até Fevereiro</option>
+                        <option value="3">Acumulado até Março</option>
+                        <option value="4">Acumulado até Abril</option>
+                        <option value="5">Acumulado até Maio</option>
+                        <option value="6">Acumulado até Junho</option>
+                        <option value="7">Acumulado até Julho</option>
+                        <option value="8">Acumulado até Agosto</option>
+                        <option value="9">Acumulado até Setembro</option>
+                        <option value="10">Acumulado até Outubro</option>
+                        <option value="11">Acumulado até Novembro</option>
+                        <option value="12">Acumulado até Dezembro</option>
+                    </select>
                     <select id="filter-year" onchange="fetchData()">
                         <option value="2024">2024</option>
                         <option value="2025">2025</option>
@@ -162,7 +126,7 @@
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
-    <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260916_4"></script>
+    <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260922_2"></script>
 </body>
 </html>
 

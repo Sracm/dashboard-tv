@@ -57,7 +57,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     
     const nextUpdateEl = document.getElementById('next-update');
@@ -186,7 +186,7 @@ function renderCards(dadosEquipes) {
 
 let lastPeriodLoaded = '';
 
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     const mes = document.getElementById('filter-month').value;
     const ano = document.getElementById('filter-year').value;
     
@@ -197,7 +197,11 @@ async function fetchData() {
     lastPeriodLoaded = currentPeriod;
     
     try {
-        const response = await fetch(`/api/vendas_tv?mes=${mes}&ano=${ano}`);
+        let url = `/api/vendas_tv?mes=${mes}&ano=${ano}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const response = await fetch(url);
         const json = await response.json();
         
         if (json.success && json.data) {
@@ -218,7 +222,7 @@ function manualRefresh() {
     const y = document.getElementById('filter-year').value;
     resetarTodasMetasTocadasDoMes(m, y);
     nextUpdateSeconds = 600;
-    fetchData();
+    fetchData(true);
 }
 
 // ─── SISTEMA DE FILA SEQUENCIAL DE ÁUDIOS DE META ───────────

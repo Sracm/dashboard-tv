@@ -19,7 +19,8 @@ function getDefault4Months() {
 }
 
 // Default para os ultimos 4 meses antes do mes atual
-let selectedMonths = getDefault4Months();
+// Mes de corte do acumulado, lido do seletor #filter-month.
+let selectedMonths = [];
 
 // Marcas padrão solicitadas
 const DEFAULT_BRANDS = [
@@ -85,132 +86,23 @@ function initFilters() {
     const yearEl = document.getElementById('filter-year');
     if (yearEl) yearEl.value = ano;
 
+    // Mes de corte: da URL, senao o mes corrente. A tabela consolida
+    // 01/01 ate o fim desse mes (ou ate hoje, se for o mes corrente).
     const mesParam = urlParams.get('mes');
-    if (mesParam && mesParam.includes(',')) {
-        const parsed = mesParam.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 1 && x <= 12);
-        if (parsed.length > 4 || parsed.includes(new Date().getMonth() + 1)) {
-            selectedMonths = getDefault4Months();
-        } else {
-            selectedMonths = parsed;
-        }
-    } else {
-        selectedMonths = getDefault4Months();
+    let mesCorte = parseInt(String(mesParam || '').split(',').pop());
+    if (isNaN(mesCorte) || mesCorte < 1 || mesCorte > 12) {
+        mesCorte = now.getMonth() + 1;
     }
-
-    initMonthMultiselect();
+    const monthEl = document.getElementById('filter-month');
+    if (monthEl) monthEl.value = String(mesCorte);
 }
 
-function initMonthMultiselect() {
-    const grid = document.getElementById('month-checkbox-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
 
-    for (let m = 1; m <= 12; m++) {
-        const isChecked = selectedMonths.includes(m);
-        const item = document.createElement('label');
-        item.className = `ms-item ${isChecked ? 'checked' : ''}`;
-        item.id = `ms-item-${m}`;
-        item.innerHTML = `
-            <input type="checkbox" class="ms-checkbox" value="${m}" ${isChecked ? 'checked' : ''} onchange="onMonthCheckChange(${m})">
-            <span>${nomesMeses[m]}</span>
-        `;
-        grid.appendChild(item);
-    }
-    updateMonthSelectLabel();
-}
 
-function toggleMonthDropdown(event) {
-    if (event) event.stopPropagation();
-    const wrapper = document.getElementById('month-multiselect');
-    if (wrapper) {
-        wrapper.classList.toggle('open');
-    }
-}
 
-function onMonthCheckChange(m) {
-    if (selectedMonths.includes(m)) {
-        selectedMonths = selectedMonths.filter(x => x !== m);
-    } else {
-        selectedMonths.push(m);
-        selectedMonths.sort((a, b) => a - b);
-    }
 
-    const item = document.getElementById(`ms-item-${m}`);
-    if (item) {
-        item.classList.toggle('checked', selectedMonths.includes(m));
-    }
 
-    updateMonthSelectLabel();
-    renderTable();
-}
 
-function selectAllMonths(all, event) {
-    if (event) event.stopPropagation();
-    if (all) {
-        selectedMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-    } else {
-        selectedMonths = [];
-    }
-    syncCheckboxUI();
-    updateMonthSelectLabel();
-    renderTable();
-}
-
-function selectLastNMonths(n, event) {
-    if (event) event.stopPropagation();
-    const refM = currentData?.mes || 8;
-    const startM = Math.max(1, refM - n + 1);
-    selectedMonths = [];
-    for (let m = startM; m <= refM; m++) {
-        selectedMonths.push(m);
-    }
-    syncCheckboxUI();
-    updateMonthSelectLabel();
-    renderTable();
-}
-
-function syncCheckboxUI() {
-    for (let m = 1; m <= 12; m++) {
-        const item = document.getElementById(`ms-item-${m}`);
-        if (item) {
-            const isChecked = selectedMonths.includes(m);
-            item.classList.toggle('checked', isChecked);
-            const chk = item.querySelector('input');
-            if (chk) chk.checked = isChecked;
-        }
-    }
-}
-
-function updateMonthSelectLabel() {
-    const labelEl = document.getElementById('month-select-label');
-    const badgeEl = document.getElementById('ms-count-badge');
-    const hiddenMonthEl = document.getElementById('filter-month');
-    const count = selectedMonths.length;
-
-    if (badgeEl) badgeEl.innerText = `${count} sel.`;
-
-    if (hiddenMonthEl && selectedMonths.length > 0) {
-        hiddenMonthEl.value = selectedMonths[selectedMonths.length - 1];
-    }
-
-    if (!labelEl) return;
-
-    if (count === 0) {
-        labelEl.innerText = 'Nenhum mês';
-    } else if (count === 12) {
-        labelEl.innerText = 'Todos os 12 meses';
-    } else if (count === 1) {
-        labelEl.innerText = nomesMeses[selectedMonths[0]];
-    } else if (count === 8 && selectedMonths.every((val, i) => val === i + 1)) {
-        labelEl.innerText = 'Jan a Ago (8)';
-    } else if (count <= 3) {
-        labelEl.innerText = selectedMonths.map(m => nomesMeses[m]).join(', ');
-    } else {
-        const first = nomesMeses[selectedMonths[0]];
-        const last = nomesMeses[selectedMonths[selectedMonths.length - 1]];
-        labelEl.innerText = `${first}..${last} (${count} meses)`;
-    }
-}
 
 document.addEventListener('click', (e) => {
     const wrapper = document.getElementById('month-multiselect');
@@ -372,6 +264,20 @@ function updateBrandSelectLabel() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// O multiselect de meses foi substituido por um seletor unico de mes de corte:
+// a tabela consolida 01/01 ate a data de corte, entao um intervalo de meses nao
+// delimitava mais nada. As funcoes abaixo ficam como no-op para nao quebrar
+// handlers remanescentes.
+// ---------------------------------------------------------------------------
+function initMonthMultiselect() {}
+function toggleMonthDropdown(event) { if (event) event.stopPropagation(); }
+function onMonthCheckChange() {}
+function selectAllMonths(all, event) { if (event) event.stopPropagation(); }
+function selectLastNMonths(n, event) { if (event) event.stopPropagation(); }
+function syncCheckboxUI() {}
+function updateMonthSelectLabel() {}
+
 function formatMoeda(val) {
     if (val === null || val === undefined || isNaN(val)) return 'R$ 0,00';
     return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -433,45 +339,57 @@ function switchMetric(met) {
     renderTable();
 }
 
+// ---------------------------------------------------------------------------
+// Tabela CONSOLIDADA: acumulado de 01/01 ate a data de corte, com as mesmas
+// tres medidas da guia Mensal (MoM, YoY, YTD). Substituiu a visao mes a mes.
+// Todos os percentuais vem prontos do backend, ja com periodos equivalentes.
+// ---------------------------------------------------------------------------
+
+function rotuloPeriodo() {
+    const c = currentData && currentData.contexto;
+    if (!c) return '';
+    const fim = c.periodos.ytd[1];
+    const partes = fim.split('-');
+    return `01/01 a ${partes[2]}/${partes[1]}${c.parcial ? ` · ${c.dias} dias` : ''}`;
+}
+
 function renderTableHeader() {
     const theadRow = document.getElementById('table-header-row');
     if (!theadRow || !currentData) return;
 
     const itemLabel = currentView === 'categoria' ? 'Categoria Analítica' : 'Marca';
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
+    const ano = currentData.ano;
+    const per = rotuloPeriodo();
 
-    let html = `
+    theadRow.innerHTML = `
         <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 220px;">${itemLabel} ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 200px; max-width: 280px;">${itemLabel} ↕</th>
+        <th class="sortable text-right" onclick="sortTable('faturamento')" style="border-left: 1px solid #475569; white-space: nowrap;" title="Receita projetada acumulada de ${per} de ${ano}">Acum. ${ano} ↕</th>
+        <th class="sortable text-right" onclick="sortTable('faturamento_ant')" style="white-space: nowrap;" title="Mesmo período de ${ano - 1}, cortado no mesmo dia">Acum. ${ano - 1} ↕</th>
+        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no acumulado do ano">Share ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no mesmo período do ano anterior">Share A-1 ↕</th>
+        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')" title="Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
+        <th class="col-mes-mom sortable text-center" onclick="sortTable('mom')" style="border-left: 1px solid #475569; white-space: nowrap;" title="MoM: mês corrente contra o mês anterior, no mesmo intervalo de dias">MoM ↕</th>
+        <th class="col-mes-yoy sortable text-center" onclick="sortTable('yoy')" style="white-space: nowrap;" title="YoY: mês corrente contra o mesmo mês do ano anterior, no mesmo intervalo de dias">YoY ↕</th>
+        <th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); white-space: nowrap;" title="YTD: acumulado de ${per} contra o mesmo período do ano anterior">YTD ↕</th>
+        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;">Status</th>
     `;
+}
 
-    meses.forEach(m => {
-        const isRef = m.num === mesRef;
-        const refClass = isRef ? 'active-month-th' : '';
-        const refTag = isRef ? ' <span class="ref-badge">M-1 Fechado</span>' : '';
+// Base irrisoria no periodo anterior gera percentual sem significado
+// (ex.: R$ 403 -> R$ 366 mil = +90.674%). Acima do piso mostra o selo "novo",
+// com os valores reais no tooltip.
+const BASE_MINIMA_COMPARAVEL = 5000;
 
-        // Mês Principal
-        html += `<th class="col-mes-header sortable text-right ${refClass}" onclick="sortTable('mes_${m.num}')" title="Faturamento e Share do mês de ${m.label}" style="border-left: 1px solid #475569; padding: 4px 2px; font-size: 0.8rem; white-space: nowrap;">${m.label}${refTag} ↕</th>`;
-        // Coluna MoM
-        html += `<th class="col-mes-mom text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="MoM (Month-over-Month): Crescimento percentual em relação ao mês imediatamente anterior">MoM</th>`;
-        // Coluna YoY
-        html += `<th class="col-mes-yoy text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="YoY (Year-over-Year): Crescimento percentual em relação ao mesmo mês do ano anterior">YoY</th>`;
-        
-        if (isRef) {
-            html += `<th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); font-size:0.8rem; padding: 4px 2px; white-space: nowrap;" title="YTD YoY (Year-to-Date Year-over-Year): Crescimento percentual do acumulado (Jan até M-1) em relação ao mesmo período do ano anterior">YTD YoY ↕</th>`;
-        }
-    });
-
-    html += `
-        <th class="col-share-periodo sortable text-right" onclick="sortTable('share_periodo')" title="Share Período: Participação % da marca no total do período analisado">Share Per. ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortTable('share_periodo_ant')" title="Share Ano Anterior (A-1): Participação % da marca no mesmo período do ano passado">Share A-1 ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')" title="Δ Share: Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
-        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;" title="Status de performance da marca">Status</th>
-    `;
-
-    theadRow.innerHTML = html;
+function pilulaVariacao(valor, base) {
+    if (valor === null || valor === undefined || Number.isNaN(valor)) {
+        return '<span class="cell-vazio">—</span>';
+    }
+    if (base !== undefined && base !== null && Math.abs(base) < BASE_MINIMA_COMPARAVEL) {
+        return `<span class="delta-badge new" style="font-size:0.72rem; padding:2px 5px;">★ novo</span>`;
+    }
+    const cls = valor > 0 ? 'positive' : (valor < 0 ? 'negative' : 'neutral');
+    return `<span class="pct-pill ${cls}" style="display:inline-block; margin:0; font-size:0.78rem; padding:2px 5px;">${formatPct(valor)}</span>`;
 }
 
 function renderMarcasTable() {
@@ -481,7 +399,7 @@ function renderMarcasTable() {
 
     let items = currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas];
 
-    // Filtrar apenas as marcas selecionadas no filtro de marcas (padrão: 7 principais)
+    // Respeita o multiselect de marcas (padrao: 7 principais)
     if (currentView === 'marca') {
         if (!selectedBrands || selectedBrands.length === 0) {
             items = [];
@@ -495,216 +413,64 @@ function renderMarcasTable() {
             });
         }
     }
-
     const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
     const ano = currentData.ano;
 
-    // Calcular faturamento do período e total geral do período selecionado (ano atual e ano anterior)
-    let totalPeriodoGeral = 0;
-    let totalPeriodoAntGeral = 0;
-
-    items.forEach(row => {
-        let fatItem = 0;
-        let fatItemAnt = 0;
-        selectedMonths.forEach(m => {
-            fatItem += (row.meses_dados?.[m]?.faturamento || 0);
-            fatItemAnt += (row.meses_dados?.[m]?.faturamento_ant || 0);
-        });
-        row.fat_periodo = fatItem;
-        row.fat_periodo_ant = fatItemAnt;
-        totalPeriodoGeral += fatItem;
-        totalPeriodoAntGeral += fatItemAnt;
-    });
-
-    items.forEach(row => {
-        let ytd_atual = 0;
-        let ytd_ant = 0;
-        for(let i=1; i<=mesRef; i++) {
-            ytd_atual += (row.meses_dados?.[i]?.faturamento || 0);
-            ytd_ant += (row.meses_dados?.[i]?.faturamento_ant || 0);
-        }
-        row.ytd_yoy_val = ytd_ant > 0 ? ((ytd_atual / ytd_ant) - 1) * 100 : (ytd_atual > 0 ? 100 : 0);
-    });
-
-    items.forEach(row => {
-        row.share_periodo = totalPeriodoGeral > 0 ? ((row.fat_periodo / totalPeriodoGeral) * 100) : 0;
-        row.share_periodo_ant = totalPeriodoAntGeral > 0 ? ((row.fat_periodo_ant / totalPeriodoAntGeral) * 100) : 0;
-        row.share_var = row.share_periodo - row.share_periodo_ant;
-    });
-
-    // Filtragem por busca
     const filtered = items.filter(it => it.item.toLowerCase().includes(searchTerm));
 
-    // Ordenação
     filtered.sort((a, b) => {
-        let valA, valB;
-        if (currentSort.column === 'share_periodo') {
-            valA = a.share_periodo ?? 0;
-            valB = b.share_periodo ?? 0;
-        } else if (currentSort.column === 'share_periodo_ant') {
-            valA = a.share_periodo_ant ?? 0;
-            valB = b.share_periodo_ant ?? 0;
-        } else if (currentSort.column === 'share_var') {
-            valA = a.share_var ?? 0;
-            valB = b.share_var ?? 0;
-        } else if (currentSort.column === 'ytd_yoy') {
-            valA = a.ytd_yoy_val ?? -Infinity;
-            valB = b.ytd_yoy_val ?? -Infinity;
-        } else if (currentSort.column.startsWith('mes_')) {
-            const mNum = parseInt(currentSort.column.replace('mes_', ''));
-            const dataA = a.meses_dados?.[mNum] || {};
-            const dataB = b.meses_dados?.[mNum] || {};
-
-            if (currentMetric === 'mom') {
-                valA = dataA.mom ?? -Infinity;
-                valB = dataB.mom ?? -Infinity;
-            } else if (currentMetric === 'yoy') {
-                valA = dataA.yoy ?? -Infinity;
-                valB = dataB.yoy ?? -Infinity;
-            } else {
-                valA = dataA.share ?? 0;
-                valB = dataB.share ?? 0;
-            }
-        } else {
-            valA = a[currentSort.column];
-            valB = b[currentSort.column];
-        }
-
+        let valA = a[currentSort.column];
+        let valB = b[currentSort.column];
+        // Sem base de comparação vai para o fim da lista, nunca para o topo.
         if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
-
         if (typeof valA === 'string') {
             return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
         return currentSort.asc ? valA - valB : valB - valA;
     });
 
-    const tbody = document.getElementById('table-body'); if (!tbody) return;
+    const tbody = document.getElementById('table-body');
     if (!tbody) return;
 
-    const totalCols = 3 + (meses.length * 3) + (meses.some(m => m.num === mesRef) ? 1 : 0) + 4;
-
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; padding: 30px; color: #8c93a0;">Nenhum registro encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado.</td></tr>`;
         return;
     }
 
-    if (meses.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="${totalCols}" class="text-center" style="padding: 40px; color: var(--gold-light); font-size: 0.85rem;">
-                    ⚠️ Nenhum mês selecionado no filtro. Marque os meses desejados no botão <strong>"📅 Filtrar Meses"</strong> acima.
-                </td>
-            </tr>
-        `;
-        return;
-    }
+    const per = rotuloPeriodo();
 
     tbody.innerHTML = filtered.map(row => {
-        let mesesHtml = '';
-        meses.forEach(m => {
-            const d = row.meses_dados?.[m.num] || {};
-            const share = d.share || 0;
-            const vlr = d.faturamento || 0;
-            const mom = d.mom;
-            const yoy = d.yoy;
-
-            const isRef = m.num === mesRef;
-            const refClass = isRef ? 'active-month-td' : '';
-            const shareNegCls = share < 0 ? 'negative' : '';
-
-            // Main column
-            let cellContent = (share !== 0 || vlr > 0) ? `
-                <div class="cell-month-box" style="flex-direction:row; justify-content:flex-end; padding:0; height:100%; border:none;">
-                    <span class="cell-month-main ${shareNegCls}" style="font-size:0.95rem; margin:0;">${share.toFixed(1)}%</span>
-                </div>
-            ` : '<span class="cell-vazio">—</span>';
-            mesesHtml += `<td class="col-mes-val text-right ${refClass}" style="border-left: 1px solid #475569; padding:4px 2px;">${cellContent}</td>`;
-
-            // MoM column
-            let momBadge = '<span class="cell-vazio">—</span>';
-            if (mom !== null && mom !== undefined && vlr > 0) {
-                const momCls = mom > 0 ? 'positive' : (mom < 0 ? 'negative' : 'neutral');
-                momBadge = `<span class="pct-pill ${momCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(mom)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${momBadge}</td>`;
-
-            // YoY column
-            let yoyBadge = '<span class="cell-vazio">—</span>';
-            if (yoy !== null && yoy !== undefined && vlr > 0) {
-                const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
-                yoyBadge = `<span class="pct-pill ${yoyCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(yoy)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${yoyBadge}</td>`;
-
-            // YTD YoY (only after M-1)
-            if (isRef) {
-                let ytdBadge = '<span class="cell-vazio">—</span>';
-                if (row.fat_periodo > 0 || row.fat_periodo_ant > 0) {
-                    const ytdCls = row.ytd_yoy_val > 0 ? 'positive' : (row.ytd_yoy_val < 0 ? 'negative' : 'neutral');
-                    ytdBadge = `<span class="pct-pill ${ytdCls}" style="display:inline-block; margin:0; font-weight:bold; border:1px solid currentColor; font-size:0.75rem; padding: 2px 4px;">${formatPct(row.ytd_yoy_val)}</span>`;
-                }
-                mesesHtml += `<td class="text-center" style="vertical-align:middle; background: rgba(255,193,7,0.05); padding:4px 2px;">${ytdBadge}</td>`;
-            }
-        });
-
-        const sharePerVal = row.share_periodo || 0;
-        const shareAntVal = row.share_periodo_ant || 0;
-        const diffPp = row.share_var ?? (sharePerVal - shareAntVal);
+        const diffPp = row.share_var ?? 0;
         const diffSign = diffPp > 0 ? '+' : '';
         const diffArrow = diffPp > 0 ? '▲' : (diffPp < 0 ? '▼' : '—');
         const diffCls = diffPp > 0 ? 'up' : (diffPp < 0 ? 'down negative' : 'equal');
 
-        const sharePerNegCls = sharePerVal < 0 ? 'negative' : '';
-        const shareAntNegCls = shareAntVal < 0 ? 'negative' : '';
-
-        const sharePerHtml = `
-            <td class="col-share-periodo text-right" title="Share no período filtrado (${selectedMonths.length} meses): ${sharePerVal.toFixed(1)}% (${formatMoeda(row.fat_periodo)})">
-                <div class="cell-share-periodo">
-                    <span class="share-periodo-val ${sharePerNegCls}">${sharePerVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        const shareAntHtml = `
-            <td class="col-share-ant text-right" title="Share no mesmo período do ano anterior (${selectedMonths.length} meses): ${shareAntVal.toFixed(1)}% (${formatMoeda(row.fat_periodo_ant)})\nVariação de Share: ${diffSign}${diffPp.toFixed(1)} p.p.">
-                <div class="cell-share-ant">
-                    <span class="share-ant-val ${shareAntNegCls}">${shareAntVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        const shareVarHtml = `
-            <td class="col-share-var text-right" title="Comparativo de Share (Período Atual vs Ano Anterior): ${diffSign}${diffPp.toFixed(1)} p.p. (${sharePerVal.toFixed(1)}% vs ${shareAntVal.toFixed(1)}%)">
-                <div class="cell-share-var">
-                    <span class="var-share-pill ${diffCls}">${diffArrow} ${diffSign}${diffPp.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
+        const tipMoM = `Mês corrente: ${formatMoeda(row.mtd)} · mês anterior (mesmo intervalo): ${formatMoeda(row.mes_anterior)}`;
+        const tipYoY = `Mês corrente: ${formatMoeda(row.mtd)} · mesmo mês de ${ano - 1}: ${formatMoeda(row.mes_ano_anterior)}`;
+        const tipYTD = `${per}: ${formatMoeda(row.faturamento)} · mesmo período de ${ano - 1}: ${formatMoeda(row.faturamento_ant)}`;
 
         return `
             <tr>
                 <td class="col-rank text-center">${renderRankBadge(row.rank)}</td>
-                <td class="col-item text-left" title="${row.item}" style="min-width: 180px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${row.item}</td>
-                ${mesesHtml}
-                ${sharePerHtml}
-                ${shareAntHtml}
-                ${shareVarHtml}
-                <td class="col-status text-center" style="min-width: 90px; white-space: nowrap;">${renderStatusTag(row.status)}</td>
+                <td class="col-item text-left" title="${row.item}" style="min-width:200px; max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${row.item}</td>
+                <td class="text-right" style="border-left:1px solid #475569; white-space:nowrap;" title="${per} de ${ano}">${formatMoeda(row.faturamento)}</td>
+                <td class="text-right" style="white-space:nowrap; color:#9aa3b2;" title="Mesmo período de ${ano - 1}">${formatMoeda(row.faturamento_ant)}</td>
+                <td class="col-share-periodo text-right"><span class="share-periodo-val">${row.share.toFixed(1)}%</span></td>
+                <td class="col-share-ant text-right"><span class="share-ant-val">${row.share_ant.toFixed(1)}%</span></td>
+                <td class="col-share-var text-right"><span class="var-share-pill ${diffCls}">${diffArrow} ${diffSign}${diffPp.toFixed(1)}%</span></td>
+                <td class="col-mes-mom text-center" style="border-left:1px solid #475569;" title="${tipMoM}">${pilulaVariacao(row.mom, row.mes_anterior)}</td>
+                <td class="col-mes-yoy text-center" title="${tipYoY}">${pilulaVariacao(row.yoy, row.mes_ano_anterior)}</td>
+                <td class="col-ytd-yoy text-center" style="background: rgba(255,193,7,0.05);" title="${tipYTD}">${pilulaVariacao(row.ytd_yoy, row.faturamento_ant)}</td>
+                <td class="col-status text-center" style="min-width:90px; white-space:nowrap;">${renderStatusTag(row.status)}</td>
             </tr>
         `;
     }).join('');
 
-    // Atualizar stats badge
     const totalItensEl = document.getElementById('total-itens');
     const totalFatEl = document.getElementById('total-faturamento');
     if (totalItensEl) totalItensEl.innerText = filtered.length;
-    if (totalFatEl && currentData) {
-        totalFatEl.innerText = `${formatMoeda(currentData.total_faturamento)} [${currentData.mes_nome || 'M-1'}]`;
-    }
+    if (totalFatEl) totalFatEl.innerText = `${formatMoeda(currentData.total_faturamento)} [${per}]`;
 }
 
 function renderCanaisTableHeader() {
@@ -1012,8 +778,8 @@ function filterTable() {
 }
 
 async function fetchData(forceRefresh = false) {
-    const hiddenMonthEl = document.getElementById('filter-month');
-    const refMes = (selectedMonths && selectedMonths.length > 0) ? selectedMonths[selectedMonths.length - 1] : (hiddenMonthEl?.value || 8);
+    const monthEl = document.getElementById('filter-month');
+    const refMes = parseInt(monthEl?.value) || (new Date().getMonth() + 1);
     const ano = document.getElementById('filter-year')?.value || 2026;
 
     try {

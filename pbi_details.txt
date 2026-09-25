@@ -1,0 +1,341 @@
+﻿
+=================== PORT 49686 : c577d89c-29b0-48fd-b329-1ecbc014c49d ===================
+--- TABLES ---
+
+TABLE_NAME                                             
+----------                                             
+$BASE SETORES                                          
+$CALENDARIO                                            
+$Consulta1                                             
+$Consulta1 (2)                                         
+$Data e Hora da ultima Atualização                     
+$DateTableTemplate_76df600d-2640-4663-957d-4cfa702ce522
+$LocalDateTable_0683e400-6ebb-49ef-b0ef-0a0246cd4d88   
+$LocalDateTable_0e8c73c8-4742-42e8-a020-5a07ba147b46   
+$LocalDateTable_235bf0cd-411d-4f27-ba47-dc9bed31c3e2   
+$LocalDateTable_41579a8a-f62c-440e-a0c4-d68cce6e4915   
+$LocalDateTable_416af256-fc18-41ba-bde3-1570d691d17f   
+$LocalDateTable_6e34acd8-e1ed-49db-9a48-cef7d9767688   
+$LocalDateTable_76287c2f-1ef8-405c-9472-9d3a1589b0d8   
+$LocalDateTable_97cf3ea9-6566-4ffa-a06d-c4162df6fe33   
+$LocalDateTable_a60953d2-021a-47db-bb0d-fb1e7a8c9e24   
+$LocalDateTable_b964e299-f366-47e8-9b4f-2e7fc0c16291   
+$LocalDateTable_ba80103f-5036-4fe9-aad3-0ec6b6bb1521   
+$LocalDateTable_e992829f-de55-4070-82da-d2ccab3665c9   
+$LocalDateTable_ee9b4a91-2664-4a72-a2f5-2e2e445f33c7   
+$MEDIDAS                                               
+$MEDIDAS PROJEÇÕES                                     
+$SO PARLUX                                             
+$Tabela                                                
+$TABELA FERIADO                                        
+$TABELA FERIADO (2)                                    
+$TABELA METAS MQ GERAL                                 
+$TABELA METAS MQ GERAL (2)                             
+$TABELAS DE DIAS                                       
+$TODOS - PARLUX                                        
+$VW_MQ_TGFPRO_POWER_BI                                 
+
+
+
+--- ALL MEASURES ---
+
+MEASUREGROUP_NAME MEASURE_NAME                                  EXPRESSION                                             
+----------------- ------------                                  ----------                                             
+CALENDARIO        ecomerce mq                                   BLANK()                                                
+MEDIDAS           VALOR FATURADO                                SUM(Consulta1[TOTALFAT])                               
+MEDIDAS           VALOR PREVISTO                                SUM(Consulta1[TOTALPREVISTO])                          
+MEDIDAS           SOMA METAS                                    SUM('TABELA METAS MQ GERAL'[META])                     
+MEDIDAS           (%) META                                      IFERROR(  [VALOR PREVISTO]/[SOMA METAS],"")            
+MEDIDAS           FAROL                                         SWITCH(                                                
+                                                                                TRUE(),                                
+                                                                                [(%) META] < 0.80, "🟠",               
+                                                                                [(%) META] > 0.99,"🟢",                
+                                                                                ISBLANK([(%) META]),"","🟡"            
+                                                                               )                                       
+MEDIDAS           100%                                          1.0                                                    
+MEDIDAS           FALTA                                         [VALOR PREVISTO]- [SOMA METAS]                         
+MEDIDAS           % FALTA                                       IFERROR(  ( [VALOR PREVISTO]-[SOMA METAS])/[SOMA       
+                                                                METAS],"")                                             
+MEDIDAS           VALOR MAXIMO                                  1.2* [SOMA METAS]                                      
+MEDIDAS           GAUCE MAX                                     1.0                                                    
+MEDIDAS           GAUCE MIN                                     0                                                      
+MEDIDAS           GAUCE TARGET                                  0.70                                                   
+MEDIDAS           GAUCE TARGET2                                 0.89                                                   
+MEDIDAS           GAUCE TARGET3                                 0.1                                                    
+MEDIDAS           RECEITA PROJETADA (-) META                    [VALOR PREVISTO] - [SOMA METAS]                        
+MEDIDAS           EMPRESA                                       "EMPRESA"                                              
+MEDIDAS           VALOR FATURADO (-) META                       [VALOR FATURADO]- [SOMA METAS]                         
+MEDIDAS           (%) META REAL                                 IFERROR(  [VALOR FATURADO]/[SOMA METAS],"")            
+MEDIDAS           % FALTA REAL                                  IFERROR(  ( [VALOR FATURADO]-[SOMA METAS])/[SOMA       
+                                                                METAS],"")                                             
+MEDIDAS           TT VLR. ACUMULADO PREVISTO                    CALCULATE([VALOR PREVISTO], ALL('BASE SETORES'[SETOR]))
+MEDIDAS           (%) REPRES.                                   [VALOR PREVISTO]/[TT VLR. ACUMULADO PREVISTO]          
+MEDIDAS           SOMA METAS2                                   SUM('TABELA METAS MQ GERAL'[META])                     
+MEDIDAS           CONDICAO                                      IF([VALOR PREVISTO] IN {-0,100000000} || [VALOR        
+                                                                PREVISTO] <>0,1,0)                                     
+MEDIDAS           TT ABSOLUTO RECEITA PROJETADA                 CALCULATE([VALOR PREVISTO], ALL('Consulta1'[DIA]))     
+MEDIDAS           SOMA CONDICAO                                 DISTINCTCOUNT(CALENDARIO[DIA])                         
+MEDIDAS           META DIA                                      [SOMA METAS2]/[TT DIAS TT]                             
+MEDIDAS           REALIZADO DIA                                 ( [TT ABSOLUTO RECEITA PROJETADA])/[TT ABSOLUTO DIAS   
+                                                                TRABALHO]                                              
+MEDIDAS           DIFERENCA META                                [META DIA]-[REALIZADO DIA]                             
+MEDIDAS           CONTAGEM DIA UTEIS                            DISTINCTCOUNT(Consulta1[DTENTSAI])                     
+MEDIDAS           TT DIAS UTEIS                                 CALCULATE([CONTAGEM DIA UTEIS], ALL('CALENDARIO'[DIA]))
+MEDIDAS           CONTAGEM DIA TOTAL                            COUNT(CALENDARIO[DIA])                                 
+MEDIDAS           TT DIAS TT                                    CALCULATE([CONTAGEM DIA TOTAL], ALL('CALENDARIO        
+                                                                PROJECAO'[DIA]))                                       
+MEDIDAS           TT ABSOLUTO DIAS TRABALHO                     CALCULATE([CONTAGEM DIA UTEIS], ALL('Consulta1'[DIA])) 
+MEDIDAS           MOSTRAR DIA COM VALOR                         IF([VALOR PREVISTO] >1,1,IF([VALOR PREVISTO]=-1,1,0))  
+MEDIDAS           DIFERENCA REALIZADO                           [VALOR PREVISTO]-[META DIA]                            
+MEDIDAS           DIAS RESTANTES MES                            [CONTAGEM DIA TOTAL]-[TT ABSOLUTO DIAS TRABALHO]       
+MEDIDAS           TOTAL FALTA A REALIZAR P NATER META           [SOMA METAS]-[TT ABSOLUTO RECEITA PROJETADA]           
+MEDIDAS           NOVA META DIA                                 [TOTAL FALTA A REALIZAR P NATER META]/[DIAS RESTANTES  
+                                                                MES]                                                   
+MEDIDAS           MOSTRAR                                       IF( [VALOR PREVISTO] = 0, [NOVA META DIA], [VALOR      
+                                                                PREVISTO] )                                            
+MEDIDAS           CONDICIONAL                                   if( ISBLANK( MIN(Consulta1[DIA DA SEMANA]) ) &&        
+                                                                min(Consulta1[DTENTSAI]) <= TODAY(),                   
+                                                                                    "oculta", "mostra" )               
+MEDIDAS           META 2023                                     CALCULATE(SUM('TABELA METAS MQ                         
+                                                                GERAL'[META]),CALENDARIO[ANO]=2023)                    
+MEDIDAS           META 2024                                     CALCULATE( SUM('TABELA METAS MQ                        
+                                                                GERAL'[META]),CALENDARIO[ANO]=2024)                    
+MEDIDAS           TT ABSOLUTO PREVISTO                          CALCULATE([VALOR PREVISTO], ALLSELECTED('BASE          
+                                                                SETORES'[SETOR]))                                      
+MEDIDAS           % PREVISTO                                    [VALOR PREVISTO]/[TT ABSOLUTO PREVISTO]                
+MEDIDAS           FATURAMENTO SO PARLUX                         SUM('SO PARLUX'[TOTALFAT])                             
+MEDIDAS           FATURAMENTO TODOS - PARLUX                    SUM('TODOS - PARLUX'[TOTALFAT])                        
+MEDIDAS           GERAL                                         "EMPRESA"                                              
+MEDIDAS           TOTAL COMEX                                   "TOTAL COMEX"                                          
+MEDIDAS           MetaAtingida                                  IF(SUM('Consulta1'[TOTALFAT]) >=SUM('TABELA METAS MQ   
+                                                                GERAL'[META]), 1, 0)                                   
+MEDIDAS           Piscar                                        IF(MOD(SECOND(NOW()), 2) = 0, 1, 0)                    
+MEDIDAS           MostrarIcone                                  IF([MetaAtingida] = 1 && [Piscar] = 1, 1, 0)           
+MEDIDAS           TT GERAL METAS                                CALCULATE([SOMA METAS], ALLSELECTED('BASE              
+                                                                SETORES'[SETOR]))                                      
+MEDIDAS           TT GERAL FATURADO                             CALCULATE([VALOR FATURADO], ALLSELECTED('BASE          
+                                                                SETORES'[SETOR]))                                      
+MEDIDAS           TT GERAL VLR PROJETADO                        CALCULATE([VALOR PREVISTO], ALLSELECTED('BASE          
+                                                                SETORES'[SETOR]))                                      
+MEDIDAS           % TT GERAL                                    [SOMA METAS]/[TT GERAL METAS]                          
+MEDIDAS           % TT GERAL FATURADO                           [VALOR FATURADO]/[TT GERAL FATURADO]                   
+MEDIDAS           % TT GERAL PROJETADO                          [VALOR PREVISTO]/[TT GERAL VLR PROJETADO]              
+MEDIDAS           FALTA REALIZ                                  [VALOR FATURADO]- [SOMA METAS]                         
+MEDIDAS           (%) META REALIZ                               IFERROR(  [VALOR FATURADO]/[SOMA METAS],"")            
+MEDIDAS           Cor Farol Meta                                VAR Valor = [RECEITA PROJETADA (-) META]               
+                                                                RETURN                                                 
+                                                                    SWITCH ( TRUE(),                                   
+                                                                        ISBLANK(Valor), "#808080", -- Cinza se não     
+                                                                houver dados                                           
+                                                                        Valor < 0, "#FF0000",      -- Vermelho para    
+                                                                valores negativos                                      
+                                                                        "#008000"                  -- Verde para       
+                                                                valores positivos ou zero                              
+                                                                    )                                                  
+MEDIDAS PROJEÇÕES VLR. PROJETADO                                CALCULATE(  SUM('Consulta1                             
+                                                                (2)'[TOTALPREVISTO]),'Consulta1                        
+                                                                (2)'[DTENTSAI]<=TODAY())                               
+MEDIDAS PROJEÇÕES SOMA META                                     SUM('TABELA METAS MQ GERAL (2)'[META])                 
+MEDIDAS PROJEÇÕES TT DIAS TT.                                   CALCULATE([CONTAGEM DIA TOTAL], ALL('CALENDARIO        
+                                                                PROJECAO'[DIA]))                                       
+MEDIDAS PROJEÇÕES DIA TRABALHO                                  IF([VLR. PROJETADO] =0,0,1)                            
+MEDIDAS PROJEÇÕES DIA UTIL                                      SUM('CALENDARIO PROJECAO'[DIA UTIL])                   
+MEDIDAS PROJEÇÕES TT ABS PROJETADO                              CALCULATE([VLR. PROJETADO],ALLSELECTED('CALENDARIO     
+                                                                PROJECAO'))                                            
+MEDIDAS PROJEÇÕES DIAS RESTANTES MES P                          [CONTAGEM DIA TOTAL]-[TT ABSOLUTO DIAS TRABALHO]       
+MEDIDAS PROJEÇÕES CONTAGEM DIAS MES                             CALCULATE([DIA UTIL],ALLSELECTED('CALENDARIO           
+                                                                PROJECAO'))                                            
+MEDIDAS PROJEÇÕES CONTAGEM DIAS RESTANTES                       CALCULATE(CALCULATE([DIA UTIL],FILTER('CALENDARIO      
+                                                                PROJECAO','CALENDARIO PROJECAO'[Date]>=                
+                                                                TODAY())),ALLSELECTED('CALENDARIO PROJECAO'))          
+MEDIDAS PROJEÇÕES DIFERENCA                                     [SOMA META]-[TT ABS PROJETADO]                         
+MEDIDAS PROJEÇÕES NOVA META DIA PROJETADO                       IFERROR( [DIFERENCA]/[CONTAGEM DIAS RESTANTES],"")     
+MEDIDAS PROJEÇÕES MOSTRARVISUALIZAR                             IF([DIA UTIL]=0,BLANK(), IF( [VLR. PROJETADO] = 0,     
+                                                                [NOVA META DIA PROJETADO], [VLR. PROJETADO] ))         
+MEDIDAS PROJEÇÕES REALIZADO / REALIZAR                          IF(NOT(ISINSCOPE('CALENDARIO PROJECAO'[Date])),[SOMA   
+                                                                META],[MOSTRARVISUALIZAR])                             
+MEDIDAS PROJEÇÕES META MEDIA DIARIA                             IFERROR( [SOMA META]/[CONTAGEM DIAS MES],"")           
+MEDIDAS PROJEÇÕES REALIZADO MEDIO DIA                           IFERROR(    [TT ABS PROJETADO]/[DIAS TRAB],"")         
+MEDIDAS PROJEÇÕES DIFERENCA ENTRE REALIZADO E META MEDIA DIARIA [VLR. PROJETADO]-[META MEDIA DIARIA]                   
+MEDIDAS PROJEÇÕES VALOR MAXIMO PROJECAO                         1.2* [SOMA META]                                       
+MEDIDAS PROJEÇÕES (%) META PROJECAO                             IFERROR([VLR. PROJETADO]/ [SOMA META] ,"")             
+MEDIDAS PROJEÇÕES DIAS TRAB                                     [CONTAGEM DIAS MES]-[CONTAGEM DIAS RESTANTES]          
+MEDIDAS PROJEÇÕES MES ANTERIOR P                                CALCULATE(  CALCULATE(SUM('Consulta1                   
+                                                                (2)'[TOTALPREVISTO]),                                  
+                                                                                DATEADD('CALENDARIO                    
+                                                                PROJECAO'[Date],-1,MONTH)),FILTER('CALENDARIO          
+                                                                PROJECAO','CALENDARIO PROJECAO'[Date]<=[TESTE SOMA]))  
+MEDIDAS PROJEÇÕES TT ACUMULADO MES P                            CALCULATE([MES ANTERIOR P],                            
+                                                                                FILTER(ALLSELECTED('CALENDARIO         
+                                                                PROJECAO'[Date],'CALENDARIO PROJECAO'[Date]),          
+                                                                                'CALENDARIO PROJECAO'[Date] <=         
+                                                                MAX('CALENDARIO PROJECAO'[Date])))                     
+MEDIDAS PROJEÇÕES (%) FALTA P                                   IFERROR( ( [VLR. PROJETADO]-[SOMA META])/[SOMA         
+                                                                META],"")                                              
+MEDIDAS PROJEÇÕES TESTE SOMA                                    CALCULATE(MAX('Consulta1                               
+                                                                (2)'[DTENTSAI]),ALL('CALENDARIO PROJECAO'))            
+MEDIDAS PROJEÇÕES (%) VARIAÇÃO MES                              ( [VLR. PROJETADO]-[MES ANTERIOR P])/[MES ANTERIOR P]  
+MEDIDAS PROJEÇÕES (R$) VARIAÇÃO MES                             [VLR. PROJETADO]-[MES ANTERIOR P]                      
+MEDIDAS PROJEÇÕES TT PREVISTO 2                                 SUM('Consulta1 (2)'[TOTALPREVISTO])                    
+MEDIDAS PROJEÇÕES RECEITA PROJETADA - META                      [REALIZADO / REALIZAR] -[VLR. PROJETADO]               
+MEDIDAS PROJEÇÕES DIF REALIZADO DIA                             [TT PREVISTO 2]- [REALIZADO / REALIZAR]                
+MEDIDAS PROJEÇÕES VERDE                                         IF('MEDIDAS PROJEÇÕES'[VLR. PROJETADO]>=[MES ANTERIOR  
+                                                                P],1,0)                                                
+MEDIDAS PROJEÇÕES VERMELHO                                      IF([MES ANTERIOR P]>[VLR. PROJETADO],1,0)              
+MEDIDAS PROJEÇÕES MEDIA FAT PERIODO                             [VLR. PROJETADO]/10                                    
+                  __Default measure                             1                                                      
+
+
+
+
+=================== PORT 49689 : 075119f4-3a5b-4557-aa00-825110bd46e9 ===================
+--- TABLES ---
+
+TABLE_NAME                                             
+----------                                             
+$BASE SETORES                                          
+$CALENDARIO                                            
+$Consulta1                                             
+$Consulta1 (2)                                         
+$Data e Hora da ultima Atualização                     
+$DateTableTemplate_76df600d-2640-4663-957d-4cfa702ce522
+$LocalDateTable_0683e400-6ebb-49ef-b0ef-0a0246cd4d88   
+$LocalDateTable_0e8c73c8-4742-42e8-a020-5a07ba147b46   
+$LocalDateTable_41579a8a-f62c-440e-a0c4-d68cce6e4915   
+$LocalDateTable_416af256-fc18-41ba-bde3-1570d691d17f   
+$LocalDateTable_6e34acd8-e1ed-49db-9a48-cef7d9767688   
+$LocalDateTable_76287c2f-1ef8-405c-9472-9d3a1589b0d8   
+$LocalDateTable_97cf3ea9-6566-4ffa-a06d-c4162df6fe33   
+$LocalDateTable_a60953d2-021a-47db-bb0d-fb1e7a8c9e24   
+$LocalDateTable_b964e299-f366-47e8-9b4f-2e7fc0c16291   
+$LocalDateTable_e992829f-de55-4070-82da-d2ccab3665c9   
+$LocalDateTable_ee9b4a91-2664-4a72-a2f5-2e2e445f33c7   
+$MEDIDAS                                               
+$MEDIDAS PROJEÇÕES                                     
+$Tabela                                                
+$TABELA FERIADO                                        
+$TABELA FERIADO (2)                                    
+$TABELA METAS MQ GERAL                                 
+$TABELA METAS MQ GERAL (2)                             
+$TABELAS DE DIAS                                       
+$VW_MQ_TGFPRO_POWER_BI                                 
+
+
+
+--- ALL MEASURES ---
+
+MEASUREGROUP_NAME MEASURE_NAME                                  EXPRESSION                                             
+----------------- ------------                                  ----------                                             
+MEDIDAS           VALOR FATURADO                                SUM(Consulta1[TOTALFAT])                               
+MEDIDAS           VALOR PREVISTO                                SUM(Consulta1[TOTALPREVISTO])                          
+MEDIDAS           SOMA METAS                                    SUM('TABELA METAS MQ GERAL'[META])                     
+MEDIDAS           (%) META                                      IFERROR(  [VALOR PREVISTO]/[SOMA METAS],"")            
+MEDIDAS           FAROL                                         SWITCH(                                                
+                                                                                TRUE(),                                
+                                                                                [(%) META] < 0.80, "🟠",               
+                                                                                [(%) META] > 0.99,"🟢",                
+                                                                                ISBLANK([(%) META]),"","🟡"            
+                                                                               )                                       
+MEDIDAS           100%                                          1.0                                                    
+MEDIDAS           FALTA                                         [VALOR PREVISTO]- [SOMA METAS]                         
+MEDIDAS           % FALTA                                       IFERROR(  ( [VALOR PREVISTO]-[SOMA METAS])/[SOMA       
+                                                                METAS],"")                                             
+MEDIDAS           VALOR MAXIMO                                  1.2* [SOMA METAS]                                      
+MEDIDAS           GAUCE MAX                                     1.0                                                    
+MEDIDAS           GAUCE MIN                                     0                                                      
+MEDIDAS           GAUCE TARGET                                  0.70                                                   
+MEDIDAS           GAUCE TARGET2                                 0.89                                                   
+MEDIDAS           GAUCE TARGET3                                 0.1                                                    
+MEDIDAS           RECEITA PROJETADA (-) META                    [VALOR PREVISTO] - [SOMA METAS]                        
+MEDIDAS           EMPRESA                                       "EMPRESA"                                              
+MEDIDAS           VALOR FATURADO (-) META                       [VALOR FATURADO]- [SOMA METAS]                         
+MEDIDAS           (%) META REAL                                 IFERROR(  [VALOR FATURADO]/[SOMA METAS],"")            
+MEDIDAS           % FALTA REAL                                  IFERROR(  ( [VALOR FATURADO]-[SOMA METAS])/[SOMA       
+                                                                METAS],"")                                             
+MEDIDAS           TT VLR. ACUMULADO PREVISTO                    CALCULATE([VALOR PREVISTO], ALL('BASE SETORES'[SETOR]))
+MEDIDAS           (%) REPRES.                                   [VALOR PREVISTO]/[TT VLR. ACUMULADO PREVISTO]          
+MEDIDAS           SOMA METAS2                                   SUM('TABELA METAS MQ GERAL'[META])                     
+MEDIDAS           CONDICAO                                      IF([VALOR PREVISTO] IN {-0,100000000} || [VALOR        
+                                                                PREVISTO] <>0,1,0)                                     
+MEDIDAS           TT ABSOLUTO RECEITA PROJETADA                 CALCULATE([VALOR PREVISTO], ALL('Consulta1'[DIA]))     
+MEDIDAS           SOMA CONDICAO                                 DISTINCTCOUNT(CALENDARIO[DIA])                         
+MEDIDAS           META DIA                                      [SOMA METAS2]/[TT DIAS TT]                             
+MEDIDAS           REALIZADO DIA                                 ( [TT ABSOLUTO RECEITA PROJETADA])/[TT ABSOLUTO DIAS   
+                                                                TRABALHO]                                              
+MEDIDAS           DIFERENCA META                                [META DIA]-[REALIZADO DIA]                             
+MEDIDAS           CONTAGEM DIA UTEIS                            DISTINCTCOUNT(Consulta1[DTENTSAI])                     
+MEDIDAS           TT DIAS UTEIS                                 CALCULATE([CONTAGEM DIA UTEIS], ALL('CALENDARIO'[DIA]))
+MEDIDAS           CONTAGEM DIA TOTAL                            COUNT(CALENDARIO[DIA])                                 
+MEDIDAS           TT DIAS TT                                    CALCULATE([CONTAGEM DIA TOTAL], ALL('CALENDARIO        
+                                                                PROJECAO'[DIA]))                                       
+MEDIDAS           TT ABSOLUTO DIAS TRABALHO                     CALCULATE([CONTAGEM DIA UTEIS], ALL('Consulta1'[DIA])) 
+MEDIDAS           MOSTRAR DIA COM VALOR                         IF([VALOR PREVISTO] >1,1,IF([VALOR PREVISTO]=-1,1,0))  
+MEDIDAS           DIFERENCA REALIZADO                           [VALOR PREVISTO]-[META DIA]                            
+MEDIDAS           DIAS RESTANTES MES                            [CONTAGEM DIA TOTAL]-[TT ABSOLUTO DIAS TRABALHO]       
+MEDIDAS           TOTAL FALTA A REALIZAR P NATER META           [SOMA METAS]-[TT ABSOLUTO RECEITA PROJETADA]           
+MEDIDAS           NOVA META DIA                                 [TOTAL FALTA A REALIZAR P NATER META]/[DIAS RESTANTES  
+                                                                MES]                                                   
+MEDIDAS           MOSTRAR                                       IF( [VALOR PREVISTO] = 0, [NOVA META DIA], [VALOR      
+                                                                PREVISTO] )                                            
+MEDIDAS           CONDICIONAL                                   if( ISBLANK( MIN(Consulta1[DIA DA SEMANA]) ) &&        
+                                                                min(Consulta1[DTENTSAI]) <= TODAY(),                   
+                                                                                    "oculta", "mostra" )               
+MEDIDAS           META 2023                                     CALCULATE(SUM('TABELA METAS MQ                         
+                                                                GERAL'[META]),CALENDARIO[ANO]=2023)                    
+MEDIDAS           META 2024                                     CALCULATE(SUM('TABELA METAS MQ                         
+                                                                GERAL'[META]),CALENDARIO[ANO]=2024)                    
+MEDIDAS PROJEÇÕES VLR. PROJETADO                                CALCULATE(  SUM('Consulta1                             
+                                                                (2)'[TOTALPREVISTO]),'Consulta1                        
+                                                                (2)'[DTENTSAI]<=TODAY())                               
+MEDIDAS PROJEÇÕES SOMA META                                     SUM('TABELA METAS MQ GERAL (2)'[META])                 
+MEDIDAS PROJEÇÕES TT DIAS TT.                                   CALCULATE([CONTAGEM DIA TOTAL], ALL('CALENDARIO        
+                                                                PROJECAO'[DIA]))                                       
+MEDIDAS PROJEÇÕES DIA TRABALHO                                  IF([VLR. PROJETADO] =0,0,1)                            
+MEDIDAS PROJEÇÕES DIA UTIL                                      SUM('CALENDARIO PROJECAO'[DIA UTIL])                   
+MEDIDAS PROJEÇÕES TT ABS PROJETADO                              CALCULATE([VLR. PROJETADO],ALLSELECTED('CALENDARIO     
+                                                                PROJECAO'))                                            
+MEDIDAS PROJEÇÕES DIAS RESTANTES MES P                          [CONTAGEM DIA TOTAL]-[TT ABSOLUTO DIAS TRABALHO]       
+MEDIDAS PROJEÇÕES CONTAGEM DIAS MES                             CALCULATE([DIA UTIL],ALLSELECTED('CALENDARIO           
+                                                                PROJECAO'))                                            
+MEDIDAS PROJEÇÕES CONTAGEM DIAS RESTANTES                       CALCULATE(CALCULATE([DIA UTIL],FILTER('CALENDARIO      
+                                                                PROJECAO','CALENDARIO PROJECAO'[Date]>=                
+                                                                TODAY())),ALLSELECTED('CALENDARIO PROJECAO'))          
+MEDIDAS PROJEÇÕES DIFERENCA                                     [SOMA META]-[TT ABS PROJETADO]                         
+MEDIDAS PROJEÇÕES NOVA META DIA PROJETADO                       IFERROR( [DIFERENCA]/[CONTAGEM DIAS RESTANTES],"")     
+MEDIDAS PROJEÇÕES MOSTRARVISUALIZAR                             IF([DIA UTIL]=0,BLANK(), IF( [VLR. PROJETADO] = 0,     
+                                                                [NOVA META DIA PROJETADO], [VLR. PROJETADO] ))         
+MEDIDAS PROJEÇÕES REALIZADO / REALIZAR                          IF(NOT(ISINSCOPE('CALENDARIO PROJECAO'[Date])),[SOMA   
+                                                                META],[MOSTRARVISUALIZAR])                             
+MEDIDAS PROJEÇÕES META MEDIA DIARIA                             IFERROR( [SOMA META]/[CONTAGEM DIAS MES],"")           
+MEDIDAS PROJEÇÕES REALIZADO MEDIO DIA                           IFERROR(    [TT ABS PROJETADO]/[DIAS TRAB],"")         
+MEDIDAS PROJEÇÕES DIFERENCA ENTRE REALIZADO E META MEDIA DIARIA [VLR. PROJETADO]-[META MEDIA DIARIA]                   
+MEDIDAS PROJEÇÕES VALOR MAXIMO PROJECAO                         1.2* [SOMA META]                                       
+MEDIDAS PROJEÇÕES (%) META PROJECAO                             IFERROR([VLR. PROJETADO]/ [SOMA META] ,"")             
+MEDIDAS PROJEÇÕES DIAS TRAB                                     [CONTAGEM DIAS MES]-[CONTAGEM DIAS RESTANTES]          
+MEDIDAS PROJEÇÕES MES ANTERIOR P                                CALCULATE(  CALCULATE(SUM('Consulta1                   
+                                                                (2)'[TOTALPREVISTO]),                                  
+                                                                                DATEADD('CALENDARIO                    
+                                                                PROJECAO'[Date],-1,MONTH)),FILTER('CALENDARIO          
+                                                                PROJECAO','CALENDARIO PROJECAO'[Date]<=[TESTE SOMA]))  
+MEDIDAS PROJEÇÕES TT ACUMULADO MES P                            CALCULATE([MES ANTERIOR P],                            
+                                                                                FILTER(ALLSELECTED('CALENDARIO         
+                                                                PROJECAO'[Date],'CALENDARIO PROJECAO'[Date]),          
+                                                                                'CALENDARIO PROJECAO'[Date] <=         
+                                                                MAX('CALENDARIO PROJECAO'[Date])))                     
+MEDIDAS PROJEÇÕES (%) FALTA P                                   IFERROR( ( [VLR. PROJETADO]-[SOMA META])/[SOMA         
+                                                                META],"")                                              
+MEDIDAS PROJEÇÕES TESTE SOMA                                    CALCULATE(MAX('Consulta1                               
+                                                                (2)'[DTENTSAI]),ALL('CALENDARIO PROJECAO'))            
+MEDIDAS PROJEÇÕES (%) VARIAÇÃO MES                              ( [VLR. PROJETADO]-[MES ANTERIOR P])/[MES ANTERIOR P]  
+MEDIDAS PROJEÇÕES (R$) VARIAÇÃO MES                             [VLR. PROJETADO]-[MES ANTERIOR P]                      
+MEDIDAS PROJEÇÕES TT PREVISTO 2                                 SUM('Consulta1 (2)'[TOTALPREVISTO])                    
+MEDIDAS PROJEÇÕES RECEITA PROJETADA - META                      [REALIZADO / REALIZAR] -[VLR. PROJETADO]               
+MEDIDAS PROJEÇÕES DIF REALIZADO DIA                             [TT PREVISTO 2]- [REALIZADO / REALIZAR]                
+MEDIDAS PROJEÇÕES VERDE                                         IF('MEDIDAS PROJEÇÕES'[VLR. PROJETADO]>=[MES ANTERIOR  
+                                                                P],1,0)                                                
+MEDIDAS PROJEÇÕES VERMELHO                                      IF([MES ANTERIOR P]>[VLR. PROJETADO],1,0)              
+MEDIDAS PROJEÇÕES MEDIA FAT PERIODO                             [VLR. PROJETADO]/10                                    
+                  __Default measure                             1                                                      
+
+
+

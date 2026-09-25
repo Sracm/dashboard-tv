@@ -63,7 +63,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     
     const nextUpdateEl = document.getElementById('next-update');
@@ -464,12 +464,16 @@ function renderEmpresa() {
     }
 }
 
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     const meses = selectedMonths.join(',');
     const ano = document.getElementById('filter-year') ? document.getElementById('filter-year').value : '2026';
     
     try {
-        const response = await fetch(`/api/empresa_tv?meses=${meses}&ano=${ano}`);
+        let url = `/api/empresa_tv?meses=${meses}&ano=${ano}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const response = await fetch(url);
         const json = await response.json();
         
         if (json.success && json.data) {
@@ -489,7 +493,7 @@ async function fetchData() {
 function manualRefresh() {
     pararTodosAudios();
     nextUpdateSeconds = 600;
-    fetchData();
+    fetchData(true);
 }
 
 let sireneTimeout = null;

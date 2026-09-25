@@ -18,7 +18,8 @@ function getDefault4Months() {
 }
 
 // Default para os ultimos 4 meses antes do mes atual
-let selectedMonths = getDefault4Months();
+// Mes de corte do acumulado, lido do seletor #filter-month.
+let selectedMonths = [];
 
 function pararTodosAudios() {
     const audio = document.getElementById('victory-sound');
@@ -35,7 +36,12 @@ function navigateTab(path) {
     }
     const mes = document.getElementById('filter-month')?.value || 8;
     const ano = document.getElementById('filter-year')?.value || 2026;
-    window.location.href = `${path}?mes=${mes}&ano=${ano}`;
+    const marca = document.getElementById('filter-marca')?.value;
+    let target = `${path}?mes=${mes}&ano=${ano}`;
+    if (marca && marca !== 'TODAS') {
+        target += `&marca=${encodeURIComponent(marca)}`;
+    }
+    window.location.href = target;
 }
 
 window.addEventListener('beforeunload', () => pararTodosAudios());
@@ -51,7 +57,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     const nextEl = document.getElementById('next-update');
     if (nextEl) {
@@ -70,165 +76,341 @@ function initFilters() {
     const yearEl = document.getElementById('filter-year');
     if (yearEl) yearEl.value = ano;
 
+    // Mes de corte: da URL, senao o mes corrente. A tabela consolida
+    // 01/01 ate o fim desse mes (ou ate hoje, se for o mes corrente).
     const mesParam = urlParams.get('mes');
-    if (mesParam && mesParam.includes(',')) {
-        const parsed = mesParam.split(',').map(x => parseInt(x.trim())).filter(x => !isNaN(x) && x >= 1 && x <= 12);
-        // Se vier com muitos meses (ex: vindo de outra guia), forçar os últimos 4 meses sem contar o atual
-        if (parsed.length > 4 || parsed.includes(new Date().getMonth() + 1)) {
-            selectedMonths = getDefault4Months();
-        } else {
-            selectedMonths = parsed;
-        }
-    } else {
-        selectedMonths = getDefault4Months();
+    let mesCorte = parseInt(String(mesParam || '').split(',').pop());
+    if (isNaN(mesCorte) || mesCorte < 1 || mesCorte > 12) {
+        mesCorte = now.getMonth() + 1;
     }
+    const monthEl = document.getElementById('filter-month');
+    if (monthEl) monthEl.value = String(mesCorte);
 
-    initMonthMultiselect();
+    const marcaParam = urlParams.get('marca');
+    if (marcaParam) {
+        selectedMarcas = marcaParam.split(',').map(m => decodeURIComponent(m).trim()).filter(Boolean);
+    }
 }
 
-function initMonthMultiselect() {
-    const grid = document.getElementById('month-checkbox-grid');
+// ---------------------------------------------------------------------------
+// Filtro Multiselect de Marcas
+// ---------------------------------------------------------------------------
+let allAvailableMarcas = [];
+let selectedMarcas = [];
+
+function initMarcaMultiselect() {
+    if (!currentData) return;
+
+    if (currentData.marcas && currentData.marcas.length > 0) {
+        allAvailableMarcas = currentData.marcas.map(m => m.item).filter(Boolean);
+    }
+    if (allAvailableMarcas.length === 0) {
+        allAvailableMarcas = ['MQ PRO', 'PARLUX', 'FORCE BARB', 'MQ ESCOVAS', 'MQ BEAUTY', 'MQ TESOURA', 'MQ COMEX', 'FT1', 'DENMAN', 'TERMIX', 'OUTRAS'];
+    }
+
+    if (selectedMarcas.length === 0) {
+        selectedMarcas = [...allAvailableMarcas];
+    }
+
+    const grid = document.getElementById('marca-checkbox-grid');
     if (!grid) return;
     grid.innerHTML = '';
 
-    for (let m = 1; m <= 12; m++) {
-        const isChecked = selectedMonths.includes(m);
+    allAvailableMarcas.forEach((marca, idx) => {
+        const isChecked = selectedMarcas.includes(marca);
+
         const item = document.createElement('label');
         item.className = `ms-item ${isChecked ? 'checked' : ''}`;
-        item.id = `ms-item-${m}`;
+        item.id = `marca-item-${idx}`;
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '5px 8px';
+        item.style.cursor = 'pointer';
+
         item.innerHTML = `
-            <input type="checkbox" class="ms-checkbox" value="${m}" ${isChecked ? 'checked' : ''} onchange="onMonthCheckChange(${m})">
-            <span>${nomesMeses[m]}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" class="ms-checkbox" value="${escapeHtml(marca)}" ${isChecked ? 'checked' : ''} onchange="onMarcaCheckChange('${marca.replace(/'/g, "\\'")}', ${idx})">
+                <span style="font-weight:600; font-size:0.75rem;">${escapeHtml(marca)}</span>
+            </div>
         `;
         grid.appendChild(item);
-    }
-    updateMonthSelectLabel();
+    });
+
+    updateMarcaSelectLabel();
 }
 
-function toggleMonthDropdown(event) {
+function toggleMarcaDropdown(event) {
     if (event) event.stopPropagation();
-    const wrapper = document.getElementById('month-multiselect');
+    const wrapper = document.getElementById('marca-multiselect');
     if (wrapper) {
         wrapper.classList.toggle('open');
     }
 }
 
-function onMonthCheckChange(m) {
-    if (selectedMonths.includes(m)) {
-        selectedMonths = selectedMonths.filter(x => x !== m);
+function onMarcaCheckChange(marca, idx) {
+    const exists = selectedMarcas.includes(marca);
+    if (exists) {
+        selectedMarcas = selectedMarcas.filter(m => m !== marca);
     } else {
-        selectedMonths.push(m);
-        selectedMonths.sort((a, b) => a - b);
+        selectedMarcas.push(marca);
     }
 
-    const item = document.getElementById(`ms-item-${m}`);
+    const item = document.getElementById(`marca-item-${idx}`);
     if (item) {
-        item.classList.toggle('checked', selectedMonths.includes(m));
+        item.classList.toggle('checked', !exists);
     }
 
-    updateMonthSelectLabel();
-    renderTable();
+    updateMarcaSelectLabel();
+    fetchData();
 }
 
-function selectAllMonths(all, event) {
+function selectAllMarcas(all, event) {
     if (event) event.stopPropagation();
     if (all) {
-        selectedMonths = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        selectedMarcas = [...allAvailableMarcas];
     } else {
-        selectedMonths = [];
+        selectedMarcas = [];
     }
-    syncCheckboxUI();
-    updateMonthSelectLabel();
-    renderTable();
+    syncMarcaCheckboxUI();
+    updateMarcaSelectLabel();
+    fetchData();
 }
 
-function selectLastNMonths(n, event) {
-    if (event) event.stopPropagation();
-    const refM = currentData?.mes || 8;
-    const startM = Math.max(1, refM - n + 1);
-    selectedMonths = [];
-    for (let m = startM; m <= refM; m++) {
-        selectedMonths.push(m);
-    }
-    syncCheckboxUI();
-    updateMonthSelectLabel();
-    renderTable();
-}
-
-function syncCheckboxUI() {
-    for (let m = 1; m <= 12; m++) {
-        const item = document.getElementById(`ms-item-${m}`);
+function syncMarcaCheckboxUI() {
+    allAvailableMarcas.forEach((marca, idx) => {
+        const isChecked = selectedMarcas.includes(marca);
+        const item = document.getElementById(`marca-item-${idx}`);
         if (item) {
-            const isChecked = selectedMonths.includes(m);
             item.classList.toggle('checked', isChecked);
             const chk = item.querySelector('input');
             if (chk) chk.checked = isChecked;
         }
-    }
+    });
 }
 
-function updateMonthSelectLabel() {
-    const labelEl = document.getElementById('month-select-label');
-    const badgeEl = document.getElementById('ms-count-badge');
-    const hiddenMonthEl = document.getElementById('filter-month');
-    const count = selectedMonths.length;
-
-    if (badgeEl) badgeEl.innerText = `${count} sel.`;
-
-    if (hiddenMonthEl && selectedMonths.length > 0) {
-        hiddenMonthEl.value = selectedMonths[selectedMonths.length - 1];
-    }
-
+function updateMarcaSelectLabel() {
+    const labelEl = document.getElementById('marca-select-label');
+    const badgeEl = document.getElementById('marca-count-badge');
     if (!labelEl) return;
 
-    if (count === 0) {
-        labelEl.innerText = 'Nenhum mês';
-    } else if (count === 12) {
-        labelEl.innerText = 'Todos os 12 meses';
+    const total = allAvailableMarcas.length;
+    const count = selectedMarcas.length;
+
+    if (badgeEl) {
+        badgeEl.innerText = `${count} de ${total} sel.`;
+    }
+
+    if (count === total || count === 0) {
+        labelEl.innerText = 'Marcas: Todas';
     } else if (count === 1) {
-        labelEl.innerText = nomesMeses[selectedMonths[0]];
-    } else if (count === 8 && selectedMonths.every((val, i) => val === i + 1)) {
-        labelEl.innerText = 'Jan a Ago (8)';
-    } else if (count <= 3) {
-        labelEl.innerText = selectedMonths.map(m => nomesMeses[m]).join(', ');
+        labelEl.innerText = `Marca: ${selectedMarcas[0]}`;
     } else {
-        const first = nomesMeses[selectedMonths[0]];
-        const last = nomesMeses[selectedMonths[selectedMonths.length - 1]];
-        labelEl.innerText = `${first}..${last} (${count} meses)`;
+        labelEl.innerText = `Marcas (${count})`;
     }
 }
 
 document.addEventListener('click', (e) => {
-    const wrapper = document.getElementById('month-multiselect');
-    if (wrapper && wrapper.classList.contains('open')) {
-        if (!wrapper.contains(e.target)) {
-            wrapper.classList.remove('open');
+    const catWrapper = document.getElementById('cat-multiselect');
+    if (catWrapper && catWrapper.classList.contains('open')) {
+        if (!catWrapper.contains(e.target)) {
+            catWrapper.classList.remove('open');
+        }
+    }
+    const marcaWrapper = document.getElementById('marca-multiselect');
+    if (marcaWrapper && marcaWrapper.classList.contains('open')) {
+        if (!marcaWrapper.contains(e.target)) {
+            marcaWrapper.classList.remove('open');
         }
     }
 });
 
+
+
+
+
+
+
+
+// ---------------------------------------------------------------------------
+// Filtro Multiselect de Categorias:
+// Padrão: todas as categorias exceto "Spare Parts" e "Outros"
+// ---------------------------------------------------------------------------
+let allAvailableCategories = [];
+let selectedCategories = [];
+
+function formatCategoryName(name) {
+    if (!name) return '';
+    const n = String(name).trim();
+    const lower = n.toLowerCase();
+    if (lower.includes('diario') || lower.includes('diário')) {
+        return 'Escova/Diario';
+    }
+    if (lower.includes('secadora') || lower.includes('sec.')) {
+        return 'Escova Sec.';
+    }
+    return n;
+}
+
+function isDefaultCategory(catName) {
+    if (!catName) return false;
+    const c = String(catName).toLowerCase().trim();
+    // Exclui apenas "spare parts" e "outros"
+    if (c === 'spare parts' || c.includes('spare') || c === 'outros' || c.includes('outro')) {
+        return false;
+    }
+    return true;
+}
+
+function initCategoryMultiselect() {
+    if (!currentData || !currentData.categorias) return;
+
+    allAvailableCategories = currentData.categorias.map(c => c.item);
+
+    // Se selectedCategories estiver vazio, inicializa com padrão (sem Spare Parts e Outros)
+    if (selectedCategories.length === 0) {
+        selectedCategories = allAvailableCategories.filter(isDefaultCategory);
+    }
+
+    const grid = document.getElementById('cat-checkbox-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    allAvailableCategories.forEach((cat, idx) => {
+        const isChecked = selectedCategories.includes(cat);
+        const isDef = isDefaultCategory(cat);
+
+        const item = document.createElement('label');
+        item.className = `ms-item ${isChecked ? 'checked' : ''}`;
+        item.id = `cat-item-${idx}`;
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '5px 8px';
+        item.style.cursor = 'pointer';
+
+        item.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" class="ms-checkbox" value="${cat}" ${isChecked ? 'checked' : ''} onchange="onCategoryCheckChange('${cat.replace(/'/g, "\\'")}', ${idx})">
+                <span style="font-weight:600; font-size:0.75rem;">${formatCategoryName(cat)}</span>
+            </div>
+            ${isDef ? '<span style="font-size:0.60rem; color:var(--gold); font-weight:800; background:rgba(203,151,39,0.15); padding:1px 5px; border-radius:3px;">PADRÃO</span>' : '<span style="font-size:0.60rem; color:#64748b; font-weight:600;">OPCIONAL</span>'}
+        `;
+        grid.appendChild(item);
+    });
+
+    updateCategorySelectLabel();
+}
+
+function toggleCatDropdown(event) {
+    if (event) event.stopPropagation();
+    const wrapper = document.getElementById('cat-multiselect');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+}
+
+function onCategoryCheckChange(cat, idx) {
+    const exists = selectedCategories.includes(cat);
+    if (exists) {
+        selectedCategories = selectedCategories.filter(c => c !== cat);
+    } else {
+        selectedCategories.push(cat);
+    }
+
+    const item = document.getElementById(`cat-item-${idx}`);
+    if (item) {
+        item.classList.toggle('checked', !exists);
+    }
+
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function selectDefaultCategories(event) {
+    if (event) event.stopPropagation();
+    selectedCategories = allAvailableCategories.filter(isDefaultCategory);
+    syncCategoryCheckboxUI();
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function selectAllCategories(all, event) {
+    if (event) event.stopPropagation();
+    if (all) {
+        selectedCategories = [...allAvailableCategories];
+    } else {
+        selectedCategories = [];
+    }
+    syncCategoryCheckboxUI();
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function syncCategoryCheckboxUI() {
+    allAvailableCategories.forEach((cat, idx) => {
+        const isChecked = selectedCategories.includes(cat);
+        const item = document.getElementById(`cat-item-${idx}`);
+        if (item) {
+            item.classList.toggle('checked', isChecked);
+            const chk = item.querySelector('input');
+            if (chk) chk.checked = isChecked;
+        }
+    });
+}
+
+function updateCategorySelectLabel() {
+    const labelEl = document.getElementById('cat-select-label');
+    const badgeEl = document.getElementById('cat-count-badge');
+    const count = selectedCategories.length;
+    const total = allAvailableCategories.length;
+
+    if (badgeEl) badgeEl.innerText = `${count} sel.`;
+
+    if (!labelEl) return;
+    if (count === 0) {
+        labelEl.innerText = 'Categorias: Nenhuma';
+    } else if (count === total) {
+        labelEl.innerText = 'Categorias: Todas';
+    } else if (count === allAvailableCategories.filter(isDefaultCategory).length && allAvailableCategories.filter(isDefaultCategory).every(c => selectedCategories.includes(c))) {
+        labelEl.innerText = `Categorias: Principais (${count})`;
+    } else {
+        labelEl.innerText = `Categorias (${count})`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Funções auxiliares de formatação
+// ---------------------------------------------------------------------------
 function formatMoeda(val) {
     if (val === null || val === undefined || isNaN(val)) return 'R$ 0,00';
     return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatPct(val) {
-    if (val === null || val === undefined || isNaN(val)) return '—';
-    const sinal = val > 0 ? '+' : '';
-    return `${sinal}${Number(val).toFixed(1)}%`;
+function formatPp(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0 p.p.</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    return `<span class="var-share-pill equal ${subCls}">— 0,0 p.p.</span>`;
 }
 
-function renderDeltaBadge(delta) {
-    if (delta === null || delta === undefined) {
-        return `<span class="delta-badge new">★ NOVO</span>`;
+function formatEvol(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0%</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta > 0) {
-        return `<span class="delta-badge up">▲ +${delta}</span>`;
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta < 0) {
-        return `<span class="delta-badge down">▼ ${Math.abs(delta)}</span>`;
-    }
-    return `<span class="delta-badge equal">—</span>`;
+    return `<span class="var-share-pill equal ${subCls}">— 0,0%</span>`;
 }
 
 function renderRankBadge(rank) {
@@ -236,27 +418,6 @@ function renderRankBadge(rank) {
     if (rank === 2) return `<span class="rank-badge rank-2">2º</span>`;
     if (rank === 3) return `<span class="rank-badge rank-3">3º</span>`;
     return `<span class="rank-badge rank-other">${rank}º</span>`;
-}
-
-function renderStatusTag(status) {
-    const s = (status || 'Estável').toLowerCase();
-    let cls = 'estavel';
-    let tooltip = 'Estável: Variação de ranking e faturamento (MoM) sem oscilações drásticas.';
-
-    if (s.includes('líder') || s.includes('lider')) {
-        cls = 'lider';
-        tooltip = 'Líder: A categoria ou marca está no Top 2 em vendas.';
-    }
-    else if (s.includes('expansão') || s.includes('expansao')) {
-        cls = 'expansao';
-        tooltip = 'Expansão: Crescimento ≥ 15% (MoM) OU subiu 2+ posições no ranking.';
-    }
-    else if (s.includes('atenção') || s.includes('atencao')) {
-        cls = 'atencao';
-        tooltip = 'Atenção: Queda ≥ -15% (MoM) OU caiu 2+ posições no ranking.';
-    }
-
-    return `<span class="status-tag ${cls}" title="${tooltip}">${status}</span>`;
 }
 
 function switchMetric(met) {
@@ -268,45 +429,311 @@ function switchMetric(met) {
     renderTable();
 }
 
+function rotuloPeriodo() {
+    const c = currentData && currentData.contexto;
+    if (!c) return '';
+    const fim = c.periodos.ytd[1];
+    const partes = fim.split('-');
+    return `01/01 a ${partes[2]}/${partes[1]}${c.parcial ? ` · ${c.dias} dias` : ''}`;
+}
+
 function renderTableHeader() {
     const theadRow = document.getElementById('table-header-row');
     if (!theadRow || !currentData) return;
 
-    const itemLabel = currentView === 'categoria' ? 'Categoria Analítica' : 'Marca';
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
+    const itemLabel = currentView === 'categoria' ? 'Categoria' : 'Marca';
+    const ano = currentData.ano;
 
-    let html = `
+    theadRow.innerHTML = `
         <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 220px;">${itemLabel} ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 260px;">${itemLabel} ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no mesmo período do ano anterior">Share ${ano - 1} ↕</th>
+        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no acumulado do ano atual">Share ${ano} ↕</th>
+        <th class="col-share-pp sortable text-right" onclick="sortTable('evolucao_pp')" title="Variação em pontos percentuais (Share ${ano} - Share ${ano - 1})">Evolução p.p ↕</th>
+        <th class="col-share-var sortable text-right" onclick="sortTable('evolucao_share')" title="Evolução percentual: (Share ${ano} - Share ${ano - 1}) / Share ${ano - 1}">Evolução ↕</th>
     `;
+}
 
-    meses.forEach(m => {
-        const isRef = m.num === mesRef;
-        const refClass = isRef ? 'active-month-th' : '';
-        const refTag = isRef ? ' <span class="ref-badge">M-1 Fechado</span>' : '';
+let collapsedCategories = new Set();
 
-        // Mês Principal
-        html += `<th class="col-mes-header sortable text-right ${refClass}" onclick="sortTable('mes_${m.num}')" title="Faturamento e Share do mês de ${m.label}" style="border-left: 1px solid #475569; padding: 4px 2px; font-size: 0.8rem; white-space: nowrap;">${m.label}${refTag} ↕</th>`;
-        // Coluna MoM
-        html += `<th class="col-mes-mom text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="MoM (Month-over-Month): Crescimento percentual em relação ao mês imediatamente anterior">MoM</th>`;
-        // Coluna YoY
-        html += `<th class="col-mes-yoy text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="YoY (Year-over-Year): Crescimento percentual em relação ao mesmo mês do ano anterior">YoY</th>`;
-        
-        if (isRef) {
-            html += `<th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); font-size:0.8rem; padding: 4px 2px; white-space: nowrap;" title="YTD YoY (Year-to-Date Year-over-Year): Crescimento percentual do acumulado (Jan até M-1) em relação ao mesmo período do ano anterior">YTD YoY ↕</th>`;
-        }
+function toggleCategory(catName, event) {
+    if (event) event.stopPropagation();
+    if (collapsedCategories.has(catName)) {
+        collapsedCategories.delete(catName);
+    } else {
+        collapsedCategories.add(catName);
+    }
+    renderTable();
+}
+
+function expandAllCategories() {
+    collapsedCategories.clear();
+    renderTable();
+}
+
+function collapseAllCategories() {
+    if (!currentData) return;
+    const items = currentView === 'categoria' ? currentData.categorias : currentData.marcas;
+    items.forEach(c => collapsedCategories.add(c.item));
+    renderTable();
+}
+
+let currentDisplayMode = 'cards'; // 'cards' (padrão) ou 'table'
+
+function switchDisplayMode(mode) {
+    currentDisplayMode = mode;
+    const btnCards = document.getElementById('btn-mode-cards');
+    const btnTable = document.getElementById('btn-mode-table');
+    const containerCards = document.getElementById('container-cards');
+    const containerTable = document.getElementById('container-table');
+    const treeControls = document.getElementById('table-tree-controls');
+
+    if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+    if (btnTable) btnTable.classList.toggle('active', mode === 'table');
+
+    if (containerCards) containerCards.style.display = mode === 'cards' ? 'grid' : 'none';
+    if (containerTable) containerTable.style.display = mode === 'table' ? 'flex' : 'none';
+    if (treeControls) treeControls.style.display = mode === 'table' ? 'flex' : 'none';
+
+    if (mode === 'table') {
+        renderTable();
+    }
+}
+window.switchViewMode = switchDisplayMode;
+window.switchDisplayMode = switchDisplayMode;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function cleanProductName(name, cat) {
+    if (!name) return '';
+    let s = String(name).trim();
+
+    // Remove MQ do início
+    s = s.replace(/^MQ\s+/i, '');
+
+    // Se a categoria for Prancha, Secador, Modelador, etc., remove o prefixo redundante
+    s = s.replace(/^PRANCHA\s+/i, '');
+    s = s.replace(/^SECADOR\s+/i, '');
+    s = s.replace(/^MODELADOR\s+/i, '');
+    
+    // Maquinas
+    s = s.replace(/^MAQUINA\s+DE\s+CORTE\s+/i, 'CORTE ');
+    s = s.replace(/^MAQUINA\s+DE\s+ACABAMENTO\s+/i, 'ACAB. ');
+    s = s.replace(/^MAQUINA\s+/i, '');
+
+    // Tesouras
+    s = s.replace(/^TESOURAS?\s+SORTIDAS\s+/i, 'SORTIDAS ');
+    s = s.replace(/^TESOURAS?\s+/i, '');
+    s = s.replace(/^TES\s+/i, '');
+
+    // Escovas Secadoras / Alisadoras
+    s = s.replace(/^ESCOVA\s+SECADORA\s+/i, '');
+    s = s.replace(/^ESCOVA\s+ALISADORA\s+/i, 'ALISADORA ');
+    s = s.replace(/^ESCOVA\s+/i, '');
+    s = s.replace(/\s*-\s*ESCOVA\s+SECADORA.*$/i, '');
+    s = s.replace(/\s*-\s*ESCOVA\s+ALISADORA.*$/i, '');
+
+    // Sufixos redundantes de código/voltagem no final
+    s = s.replace(/\s*-\s*MQ\d+$/i, ''); // Ex: - MQ203, - MQ196
+    s = s.replace(/\s*-\s*BIVOLT$/i, ' BIV');
+    s = s.replace(/\s*BIVOLT$/i, ' BIV');
+    
+    // Encurtar termos longos de tesoura e produtos
+    s = s.replace(/DESBASTADEIRA/gi, 'DESBAST.');
+    s = s.replace(/SAND\s+FINISH/gi, 'SAND');
+    s = s.replace(/SHINE\s+STEEL/gi, 'SHINE');
+    s = s.replace(/TITANIUM/gi, 'TIT.');
+
+    return s.trim();
+}
+
+function getCategoryPriority(item) {
+    if (!item) return 99;
+    const s = String(item).toLowerCase();
+    if (s.includes('prancha')) return 1;
+    if (s.includes('secador')) return 2;
+    if (s.includes('maquina')) return 3;
+    if (s.includes('diario') || s.includes('diário')) return 4;
+    if (s.includes('modelador')) return 5;
+    if (s.includes('parlux')) return 6;
+    if (s.includes('secadora') || s.includes('sec.')) return 7;
+    if (s.includes('tesoura')) return 8;
+    return 99;
+}
+
+function renderCategoryCard(cat, rankNum) {
+    const anoAtual = currentData ? currentData.ano : 2026;
+    const anoAnt = anoAtual - 1;
+    const shareAnt = cat.share_ant ?? 0;
+    const shareAtual = cat.share ?? 0;
+    const catPp = shareAtual - shareAnt;
+    let catEvol = shareAnt > 0 ? ((shareAtual - shareAnt) / shareAnt) * 100 : (shareAtual > 0 ? 100.0 : 0.0);
+
+    // Se a evolução p.p for igual a 0.0 p.p, NÃO mostrar no card para não poluir
+    const showCatPp = Math.abs(catPp) >= 0.05;
+
+    // Filtrar produtos com evolução p.p != 0,0% (se a evolução p.p for 0,0%, não mostrar nome do produto e informações)
+    const prods = (cat.produtos || []).filter(p => {
+        const pShareAnt = p.share_ant ?? 0;
+        const pShareAtual = p.share ?? 0;
+        const pPp = pShareAtual - pShareAnt;
+        return Math.abs(pPp) >= 0.05;
     });
+    const topProds = prods.slice(0, 10);
 
-    html += `
-        <th class="col-share-periodo sortable text-right" onclick="sortTable('share_periodo')" title="Share Período: Participação % da categoria no total do período analisado">Share Per. ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortTable('share_periodo_ant')" title="Share Ano Anterior (A-1): Participação % da categoria no mesmo período do ano passado">Share A-1 ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')" title="Δ Share: Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
-        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;" title="Status de performance da categoria">Status</th>
+    const rankClass = rankNum === 1 ? 'rank-1-card' : '';
+    const rankBadge = renderRankBadge(rankNum);
+
+    const prodItemsHtml = topProds.length > 0 ? topProds.map((p, pIdx) => {
+        const pShareAnt = p.share_ant ?? 0;
+        const pShareAtual = p.share ?? 0;
+        const pPp = pShareAtual - pShareAnt;
+        const cleanName = cleanProductName(p.item, cat.item);
+
+        // Cálculo da Evolução % do share (ex: (28.7 - 25.6) / 25.6 = +12.1%)
+        let pEvol = p.evolucao_share;
+        if (pEvol === null || pEvol === undefined || isNaN(pEvol)) {
+            if (pShareAnt > 0) {
+                pEvol = ((pShareAtual - pShareAnt) / pShareAnt) * 100;
+            } else if (pShareAtual > 0) {
+                pEvol = 100.0;
+            } else {
+                pEvol = 0.0;
+            }
+        }
+
+        let evolClass = 'equal';
+        let evolText = '0,0%';
+        if (pEvol > 0.05) {
+            evolClass = 'up';
+            evolText = `+${pEvol.toFixed(1).replace('.', ',')}%`;
+        } else if (pEvol < -0.05) {
+            evolClass = 'down negative';
+            evolText = `${pEvol.toFixed(1).replace('.', ',')}%`;
+        }
+
+        const pPpFormatted = `${pPp >= 0 ? '+' : ''}${pPp.toFixed(1).replace('.', ',')} p.p.`;
+
+        return `
+            <div class="cat-col-prod-item" title="${escapeHtml(p.item)} | 2025: ${pShareAnt.toFixed(1).replace('.', ',')}% | 2026: ${pShareAtual.toFixed(1).replace('.', ',')}% | %Evol: ${evolText} | Dif: ${pPpFormatted}">
+                <div class="cat-col-prod-top">
+                    <span class="cat-col-prod-num">${pIdx + 1}º</span>
+                    <span class="cat-col-prod-name" title="${escapeHtml(p.item)}">${escapeHtml(cleanName)}</span>
+                </div>
+                <div class="cat-col-prod-metrics">
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">${anoAnt}</span>
+                        <span class="prod-m-val ant">${pShareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl gold">${anoAtual}</span>
+                        <span class="prod-m-val atual">${pShareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">%Evol.</span>
+                        <span class="prod-m-val ${evolClass}">${evolText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('') : `<div style="text-align:center; padding:12px 4px; color:#64748b; font-size:0.62rem;">Nenhum produto com evolução no período</div>`;
+
+    const remainingProds = prods.length - topProds.length;
+    const footerText = remainingProds > 0 ? `+ ${remainingProds} outros produtos` : `${prods.length} ${prods.length === 1 ? 'produto com evolução' : 'produtos com evolução'}`;
+
+    return `
+        <div class="cat-column-card ${rankClass}">
+            <div class="cat-col-header">
+                <div class="cat-col-title-row">
+                    ${rankBadge}
+                    <span class="cat-col-name" title="${escapeHtml(cat.item)}">${formatCategoryName(cat.item)}</span>
+                    <span class="cat-col-prod-count">${prods.length}p</span>
+                </div>
+            </div>
+
+            <div class="cat-col-hero">
+                <div class="cat-hero-shares-grid">
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl">SHARE ${anoAnt}</span>
+                        <span class="cat-hero-share-num ant">${shareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="cat-hero-share-divider"></div>
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl gold">SHARE ${anoAtual}</span>
+                        <span class="cat-hero-share-num atual">${shareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                </div>
+
+                <div class="cat-hero-evols-row">
+                    ${showCatPp ? `
+                        <div class="cat-hero-evol-cell">
+                            <span class="cat-hero-evol-lbl">EVOL. P.P</span>
+                            <span class="var-share-pill ${catPp > 0 ? 'up' : 'down'}">
+                                ${catPp > 0 ? '▲ +' : '▼ '}${Math.abs(catPp).toFixed(1).replace('.', ',')} p.p.
+                            </span>
+                        </div>
+                    ` : ''}
+                    <div class="cat-hero-evol-cell">
+                        <span class="cat-hero-evol-lbl">EVOLUÇÃO</span>
+                        <span class="var-share-pill ${catEvol > 0 ? 'up' : (catEvol < 0 ? 'down' : 'equal')}">
+                            ${catEvol > 0 ? '▲ +' : (catEvol < 0 ? '▼ ' : '')}${Math.abs(catEvol).toFixed(1).replace('.', ',')}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cat-col-body">
+                <div class="cat-col-prods-title">
+                    <span>TOP PRODUTOS</span>
+                    <span>2025 · 2026 · %EVOL</span>
+                </div>
+                <div class="cat-col-prod-list">
+                    ${prodItemsHtml}
+                </div>
+            </div>
+
+            <div class="cat-col-footer">
+                <span>${footerText}</span>
+            </div>
+        </div>
     `;
+}
 
-    theadRow.innerHTML = html;
+function renderCards(filteredCats) {
+    const container = document.getElementById('container-cards');
+    if (!container) return;
+
+    if (!filteredCats || filteredCats.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#8c93a0; font-size:1rem;">Nenhuma categoria encontrada no filtro.</div>`;
+        return;
+    }
+
+    // Ordenação das 2 linhas:
+    // Linha 1 (maior volume): Prancha, Secador, Máquina, Escova Diário
+    // Linha 2 (foco/menores): Modelador, Parlux, Escova Sec., Tesoura
+    const sortedCats = [...filteredCats].sort((a, b) => getCategoryPriority(a.item) - getCategoryPriority(b.item));
+
+    if (sortedCats.length <= 4) {
+        container.style.gridTemplateColumns = `repeat(${sortedCats.length}, minmax(0, 1fr))`;
+        container.style.gridTemplateRows = '1fr';
+    } else {
+        container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+        container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
+    }
+
+    const cardsHtml = sortedCats.map((cat) => {
+        return renderCategoryCard(cat, cat.rank || 1);
+    }).join('');
+
+    container.innerHTML = cardsHtml;
 }
 
 function renderTable() {
@@ -314,77 +741,48 @@ function renderTable() {
 
     renderTableHeader();
 
-    const items = currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas];
-    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
-    const ano = currentData.ano;
+    let items = currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas];
 
-    // Calcular faturamento do período e total geral do período selecionado (ano atual e ano anterior)
-    let totalPeriodoGeral = 0;
-    let totalPeriodoAntGeral = 0;
-
-    items.forEach(row => {
-        let fatItem = 0;
-        let fatItemAnt = 0;
-        selectedMonths.forEach(m => {
-            fatItem += (row.meses_dados?.[m]?.faturamento || 0);
-            fatItemAnt += (row.meses_dados?.[m]?.faturamento_ant || 0);
-        });
-        row.fat_periodo = fatItem;
-        row.fat_periodo_ant = fatItemAnt;
-        totalPeriodoGeral += fatItem;
-        totalPeriodoAntGeral += fatItemAnt;
-
-        let ytd_atual = 0;
-        let ytd_ant = 0;
-        for(let i=1; i<=mesRef; i++) {
-            ytd_atual += (row.meses_dados?.[i]?.faturamento || 0);
-            ytd_ant += (row.meses_dados?.[i]?.faturamento_ant || 0);
+    // Respeita o multiselect de categorias
+    if (currentView === 'categoria') {
+        if (selectedCategories.length > 0) {
+            items = items.filter(c => selectedCategories.includes(c.item));
+        } else if (allAvailableCategories.length > 0 && selectedCategories.length === 0) {
+            items = [];
         }
-        row.ytd_yoy_val = ytd_ant > 0 ? ((ytd_atual / ytd_ant) - 1) * 100 : (ytd_atual > 0 ? 100 : 0);
-    });
+    }
 
-    items.forEach(row => {
-        row.share_periodo = totalPeriodoGeral > 0 ? ((row.fat_periodo / totalPeriodoGeral) * 100) : 0;
-        row.share_periodo_ant = totalPeriodoAntGeral > 0 ? ((row.fat_periodo_ant / totalPeriodoAntGeral) * 100) : 0;
-        row.share_var = row.share_periodo - row.share_periodo_ant;
-    });
+    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
 
-    // Filtragem por busca
-    const filtered = items.filter(it => it.item.toLowerCase().includes(searchTerm));
+    // Filtragem por busca: busca na categoria ou em seus produtos
+    let filtered = [];
+    if (!searchTerm) {
+        filtered = items;
+    } else {
+        items.forEach(cat => {
+            const catMatches = cat.item.toLowerCase().includes(searchTerm);
+            const matchingProds = (cat.produtos || []).filter(p => p.item.toLowerCase().includes(searchTerm));
+            if (catMatches || matchingProds.length > 0) {
+                filtered.push({
+                    ...cat,
+                    produtos: catMatches ? cat.produtos : matchingProds
+                });
+            }
+        });
+    }
 
-    // Ordenação
     filtered.sort((a, b) => {
         let valA, valB;
-        if (currentSort.column === 'share_periodo') {
-            valA = a.share_periodo ?? 0;
-            valB = b.share_periodo ?? 0;
-        } else if (currentSort.column === 'share_periodo_ant') {
-            valA = a.share_periodo_ant ?? 0;
-            valB = b.share_periodo_ant ?? 0;
-        } else if (currentSort.column === 'share_var') {
-            valA = a.share_var ?? 0;
-            valB = b.share_var ?? 0;
-        } else if (currentSort.column === 'ytd_yoy') {
-            valA = a.ytd_yoy_val ?? -Infinity;
-            valB = b.ytd_yoy_val ?? -Infinity;
-        } else if (currentSort.column.startsWith('mes_')) {
-            const mNum = parseInt(currentSort.column.replace('mes_', ''));
-            const dataA = a.meses_dados?.[mNum] || {};
-            const dataB = b.meses_dados?.[mNum] || {};
-
-            if (currentMetric === 'mom') {
-                valA = dataA.mom ?? -Infinity;
-                valB = dataB.mom ?? -Infinity;
-            } else if (currentMetric === 'yoy') {
-                valA = dataA.yoy ?? -Infinity;
-                valB = dataB.yoy ?? -Infinity;
-            } else {
-                valA = dataA.share ?? 0;
-                valB = dataB.share ?? 0;
-            }
+        if (currentSort.column === 'evolucao_pp') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shA - shAntA;
+            valB = shB - shAntB;
+        } else if (currentSort.column === 'evolucao_share') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shAntA > 0 ? ((shA - shAntA) / shAntA * 100) : (shA > 0 ? 100 : 0);
+            valB = shAntB > 0 ? ((shB - shAntB) / shAntB * 100) : (shB > 0 ? 100 : 0);
         } else {
             valA = a[currentSort.column];
             valB = b[currentSort.column];
@@ -392,136 +790,130 @@ function renderTable() {
 
         if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
         if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
-
         if (typeof valA === 'string') {
             return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
         return currentSort.asc ? valA - valB : valB - valA;
     });
 
+    // Renderiza as 7 Colunas Lado a Lado
+    renderCards(filtered);
+
     const tbody = document.getElementById('table-body');
+    const tfoot = document.getElementById('table-footer');
     if (!tbody) return;
 
-    const totalCols = 20;
-
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; padding: 30px; color: #8c93a0;">Nenhum registro encontrado.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado.</td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
         return;
     }
 
-    if (meses.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="${totalCols}" class="text-center" style="padding: 40px; color: var(--gold-light); font-size: 0.85rem;">
-                    ⚠️ Nenhum mês selecionado no filtro. Marque os meses desejados no botão <strong>"📅 Filtrar Meses"</strong> acima.
+    const htmlRows = [];
+
+    filtered.forEach((cat, catIdx) => {
+        const isCollapsed = collapsedCategories.has(cat.item);
+        const prods = cat.produtos || [];
+        const expandIcon = isCollapsed ? '▶' : '▼';
+
+        const shareAnt = cat.share_ant ?? 0;
+        const shareAtual = cat.share ?? 0;
+        
+        // 1. Evolução p.p = Share 2026 - Share 2025
+        const catPp = shareAtual - shareAnt;
+
+        // 2. Evolução %: (Share 2026 - Share 2025) / Share 2025
+        let catEvol = 0;
+        if (shareAnt > 0) {
+            catEvol = ((shareAtual - shareAnt) / shareAnt) * 100;
+        } else if (shareAtual > 0) {
+            catEvol = 100.0;
+        } else {
+            catEvol = 0.0;
+        }
+
+        const safeCatItem = cat.item.replace(/'/g, "\\'");
+
+        // 1. LINHA DA CATEGORIA
+        htmlRows.push(`
+            <tr class="cat-header-row ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${safeCatItem}', event)" title="Clique para expandir/recolher produtos desta categoria">
+                <td class="col-rank text-center">${renderRankBadge(catIdx + 1)}</td>
+                <td class="col-item text-left" style="min-width: 180px; max-width: 260px;">
+                    <div class="cat-item-content">
+                        <span class="cat-toggle-icon">${expandIcon}</span>
+                        <span class="cat-title-text">${formatCategoryName(cat.item)}</span>
+                        <span class="cat-count-pill">${prods.length} ${prods.length === 1 ? 'prod' : 'prods'}</span>
+                    </div>
                 </td>
+                <td class="col-share-ant text-right cat-share-ant"><span class="share-ant-val">${shareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right cat-share-periodo"><span class="share-periodo-val" style="font-weight:700; color:#ffd700;">${shareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(catPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(catEvol)}</td>
             </tr>
-        `;
-        return;
-    }
+        `);
 
-    tbody.innerHTML = filtered.map(row => {
-        let mesesHtml = '';
-        meses.forEach(m => {
-            const d = row.meses_dados?.[m.num] || {};
-            const share = d.share || 0;
-            const vlr = d.faturamento || 0;
-            const mom = d.mom;
-            const yoy = d.yoy;
+        // 2. LINHAS DOS PRODUTOS ABAIXO DA CATEGORIA
+        if (!isCollapsed && prods.length > 0) {
+            prods.forEach((prod, pIdx) => {
+                const prodShareAnt = prod.share_ant ?? 0;
+                const prodShareAtual = prod.share ?? 0;
+                
+                // 1. Evolução p.p
+                const prodPp = prodShareAtual - prodShareAnt;
 
-            const isRef = m.num === mesRef;
-            const refClass = isRef ? 'active-month-td' : '';
-            const shareNegCls = share < 0 ? 'negative' : '';
-
-            // Main column
-            let cellContent = (share !== 0 || vlr > 0) ? `
-                <div class="cell-month-box" style="flex-direction:row; justify-content:flex-end; padding:0; height:100%; border:none;">
-                    <span class="cell-month-main ${shareNegCls}" style="font-size:0.95rem; margin:0;">${share.toFixed(1)}%</span>
-                </div>
-            ` : '<span class="cell-vazio">—</span>';
-            mesesHtml += `<td class="col-mes-val text-right ${refClass}" style="border-left: 1px solid #475569; padding:4px 2px;">${cellContent}</td>`;
-
-            // MoM column
-            let momBadge = '<span class="cell-vazio">—</span>';
-            if (mom !== null && mom !== undefined && vlr > 0) {
-                const momCls = mom > 0 ? 'positive' : (mom < 0 ? 'negative' : 'neutral');
-                momBadge = `<span class="pct-pill ${momCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(mom)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${momBadge}</td>`;
-
-            // YoY column
-            let yoyBadge = '<span class="cell-vazio">—</span>';
-            if (yoy !== null && yoy !== undefined && vlr > 0) {
-                const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
-                yoyBadge = `<span class="pct-pill ${yoyCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(yoy)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${yoyBadge}</td>`;
-
-            // YTD YoY (only after M-1)
-            if (isRef) {
-                let ytdBadge = '<span class="cell-vazio">—</span>';
-                if (row.fat_periodo > 0 || row.fat_periodo_ant > 0) {
-                    const ytdCls = row.ytd_yoy_val > 0 ? 'positive' : (row.ytd_yoy_val < 0 ? 'negative' : 'neutral');
-                    ytdBadge = `<span class="pct-pill ${ytdCls}" style="display:inline-block; margin:0; font-weight:bold; border:1px solid currentColor; font-size:0.75rem; padding: 2px 4px;">${formatPct(row.ytd_yoy_val)}</span>`;
+                // 2. Evolução %: (Share 2026 - Share 2025) / Share 2025
+                let prodEvol = 0;
+                if (prodShareAnt > 0) {
+                    prodEvol = ((prodShareAtual - prodShareAnt) / prodShareAnt) * 100;
+                } else if (prodShareAtual > 0) {
+                    prodEvol = 100.0;
+                } else {
+                    prodEvol = 0.0;
                 }
-                mesesHtml += `<td class="text-center" style="vertical-align:middle; background: rgba(255,193,7,0.05); padding:4px 2px;">${ytdBadge}</td>`;
-            }
-        });
 
-        const sharePerVal = row.share_periodo || 0;
-        const shareAntVal = row.share_periodo_ant || 0;
-        const diffPp = row.share_var ?? (sharePerVal - shareAntVal);
-        const diffSign = diffPp > 0 ? '+' : '';
-        const diffArrow = diffPp > 0 ? '▲' : (diffPp < 0 ? '▼' : '—');
-        const diffCls = diffPp > 0 ? 'up' : (diffPp < 0 ? 'down negative' : 'equal');
+                htmlRows.push(`
+                    <tr class="prod-sub-row">
+                        <td class="col-rank text-center prod-rank-cell">
+                            <span class="prod-sub-num">${pIdx + 1}º</span>
+                        </td>
+                        <td class="col-item text-left prod-item-cell" title="${prod.item}" style="min-width: 180px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <div class="prod-indent-wrap">
+                                <span class="prod-name-label">${prod.item}</span>
+                            </div>
+                        </td>
+                        <td class="col-share-ant text-right prod-share-cell"><span class="sub-share-muted">${prodShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-periodo text-right prod-share-cell"><span class="sub-share-light" style="color:#ffd700;">${prodShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-pp text-right">${formatPp(prodPp, true)}</td>
+                        <td class="col-share-var text-right">${formatEvol(prodEvol, true)}</td>
+                    </tr>
+                `);
+            });
+        }
+    });
 
-        const sharePerNegCls = sharePerVal < 0 ? 'negative' : '';
-        const shareAntNegCls = shareAntVal < 0 ? 'negative' : '';
+    tbody.innerHTML = htmlRows.join('');
 
-        const sharePerHtml = `
-            <td class="col-share-periodo text-right" title="Share no período filtrado (${selectedMonths.length} meses): ${sharePerVal.toFixed(1)}% (${formatMoeda(row.fat_periodo)})">
-                <div class="cell-share-periodo">
-                    <span class="share-periodo-val ${sharePerNegCls}">${sharePerVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
+    // Linha de TOTAL das categorias visíveis
+    if (tfoot) {
+        const sumShareAnt = filtered.reduce((acc, r) => acc + (r.share_ant || 0), 0);
+        const sumShareAtual = filtered.reduce((acc, r) => acc + (r.share || 0), 0);
+        const sumPp = sumShareAtual - sumShareAnt;
+        const sumEvol = sumShareAnt > 0 ? ((sumShareAtual - sumShareAnt) / sumShareAnt) * 100 : 0;
 
-        const shareAntHtml = `
-            <td class="col-share-ant text-right" title="Share no mesmo período do ano anterior (${selectedMonths.length} meses): ${shareAntVal.toFixed(1)}% (${formatMoeda(row.fat_periodo_ant)})\nVariação de Share: ${diffSign}${diffPp.toFixed(1)} p.p.">
-                <div class="cell-share-ant">
-                    <span class="share-ant-val ${shareAntNegCls}">${shareAntVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        const shareVarHtml = `
-            <td class="col-share-var text-right" title="Comparativo de Share (Período Atual vs Ano Anterior): ${diffSign}${diffPp.toFixed(1)} p.p. (${sharePerVal.toFixed(1)}% vs ${shareAntVal.toFixed(1)}%)">
-                <div class="cell-share-var">
-                    <span class="var-share-pill ${diffCls}">${diffArrow} ${diffSign}${diffPp.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        return `
-            <tr>
-                <td class="col-rank text-center">${renderRankBadge(row.rank)}</td>
-                <td class="col-item text-left" title="${row.item}" style="min-width: 180px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${row.item}</td>
-                ${mesesHtml}
-                ${sharePerHtml}
-                ${shareAntHtml}
-                ${shareVarHtml}
-                <td class="col-status text-center" style="min-width: 90px; white-space: nowrap;">${renderStatusTag(row.status)}</td>
+        tfoot.innerHTML = `
+            <tr class="total-row">
+                <td class="col-rank text-center" style="font-size:0.9rem;">Σ</td>
+                <td class="col-item text-left">TOTAL SELECIONADO</td>
+                <td class="col-share-ant text-right total-share"><span class="share-ant-val">${sumShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right total-share"><span class="share-periodo-val" style="color:#ffd700;">${sumShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(sumPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(sumEvol)}</td>
             </tr>
         `;
-    }).join('');
-
-    // Atualizar stats badge
-    const totalItensEl = document.getElementById('total-itens');
-    const totalFatEl = document.getElementById('total-faturamento');
-    if (totalItensEl) totalItensEl.innerText = filtered.length;
-    if (totalFatEl && currentData) {
-        totalFatEl.innerText = `${formatMoeda(currentData.total_faturamento)} [${currentData.mes_nome || 'M-1'}]`;
     }
+
+    const totalItensEl = document.getElementById('total-itens');
+    if (totalItensEl) totalItensEl.innerText = filtered.length;
 }
 
 function switchView(view) {
@@ -550,17 +942,26 @@ function filterTable() {
     renderTable();
 }
 
-async function fetchData() {
-    const hiddenMonthEl = document.getElementById('filter-month');
-    const refMes = (selectedMonths && selectedMonths.length > 0) ? selectedMonths[selectedMonths.length - 1] : (hiddenMonthEl?.value || 8);
+async function fetchData(forceRefresh = false) {
+    const monthEl = document.getElementById('filter-month');
+    const refMes = parseInt(monthEl?.value) || (new Date().getMonth() + 1);
     const ano = document.getElementById('filter-year')?.value || 2026;
 
     try {
-        const res = await fetch(`/api/categorias_dados?mes=${refMes}&ano=${ano}`);
+        let url = `/api/categorias_dados?mes=${refMes}&ano=${ano}`;
+        if (selectedMarcas.length > 0 && selectedMarcas.length < allAvailableMarcas.length) {
+            url += `&marca=${encodeURIComponent(selectedMarcas.join(','))}`;
+        }
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const res = await fetch(url);
         const json = await res.json();
 
         if (json.success && json.data) {
             currentData = json.data;
+            initCategoryMultiselect();
+            initMarcaMultiselect();
             renderTable();
 
             const lastEl = document.getElementById('last-update');
@@ -575,7 +976,7 @@ async function fetchData() {
 
 function manualRefresh() {
     nextUpdateSeconds = 600;
-    fetchData();
+    fetchData(true);
 }
 
 function testarAudio() {

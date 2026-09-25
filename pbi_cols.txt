@@ -1,0 +1,62 @@
+﻿
+TABLE_NAME    COLUMN_NAME                                   
+----------    -----------                                   
+$BASE SETORES RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61
+$BASE SETORES CODVEND                                       
+$BASE SETORES VENDEDOR                                      
+$BASE SETORES GERENTE                                       
+$BASE SETORES SETOR                                         
+$BASE SETORES SETOR 2                                       
+$BASE SETORES VENDEDOR (grupos)                             
+$BASE SETORES VAREJO ESPECIALIZADO                          
+$BASE SETORES CANAL                                         
+$BASE SETORES VAREJO ESPECIALIZADO_2                        
+$BASE SETORES Column8                                       
+$CALENDARIO   RowNumber-2662979B-1795-4F74-8F37-6A1BA8059B61
+$CALENDARIO   Date                                          
+$CALENDARIO   ANO                                           
+$CALENDARIO   NUMES                                         
+$CALENDARIO   NOME MÊS                                      
+$CALENDARIO   FIM DO MÊS                                    
+$CALENDARIO   DIA                                           
+$CALENDARIO   ordem dia da semana                           
+$CALENDARIO   NUMERO DIA DA SEMANA                          
+$CALENDARIO   NUMBER DIAS                                   
+$CALENDARIO   DDS                                           
+$CALENDARIO   FERIADO                                       
+$CALENDARIO   DIA UTIL                                      
+
+
+
+
+CALENDARIO[Date]    CALENDARIO[ANO] CALENDARIO[NUMES] CALENDARIO[NOME MÊS] CALENDARIO[FIM DO MÊS] CALENDARIO[DIA] CALEN
+                                                                                                                  DARIO
+                                                                                                                  [orde
+                                                                                                                     m 
+                                                                                                                   dia 
+                                                                                                                  da se
+                                                                                                                  mana]
+----------------    --------------- ----------------- -------------------- ---------------------- --------------- -----
+03/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  3     2
+04/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  4     3
+05/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  5     4
+06/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  6     5
+07/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  7     6
+08/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  8     7
+09/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                  9     1
+10/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 10     2
+11/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 11     3
+12/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 12     4
+13/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 13     5
+14/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 14     6
+15/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 15     7
+16/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 16     1
+17/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 17     2
+18/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 18     3
+19/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 19     4
+20/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 20     5
+21/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 21     6
+22/02/2020 00:00:00            2020                 2 fev                  29/02/2020 00:00:00                 22     7
+
+
+

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel TV - Categorias & Marcas</title>
+    <title>Painel TV - Canal {{ canal_db }}</title>
     
     <!-- Google Fonts: Montserrat (MQ Design System) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -44,31 +44,20 @@
 
             <div class="header-bottom">
                 <div class="filters-row">
-                    <div class="multiselect-wrapper" id="month-multiselect">
-                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
-                            <span class="ms-icon">📅</span>
-                            <span id="month-select-label">Meses: Mai a Ago (4)</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="month-select-menu">
-                            <div class="ms-header">
-                                <div class="ms-title-row">
-                                    <span class="ms-title">Filtrar Meses na Tabela</span>
-                                    <span class="ms-selected-count" id="ms-count-badge">4 sel.</span>
-                                </div>
-                                <div class="ms-quick-actions">
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(true, event)">Todos</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(3, event)">Últ. 3</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(6, event)">Últ. 6</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(false, event)">Limpar</button>
-                                </div>
-                            </div>
-                            <div class="ms-grid" id="month-checkbox-grid">
-                                <!-- Checkboxes gerados dinamicamente -->
-                            </div>
-                        </div>
-                        <input type="hidden" id="filter-month" value="8">
-                    </div>
+                    <select id="filter-month" onchange="fetchData()" title="A tabela consolida de 01/01 até o fim do mês escolhido (ou até hoje, se for o mês corrente)">
+                        <option value="1">Acumulado até Janeiro</option>
+                        <option value="2">Acumulado até Fevereiro</option>
+                        <option value="3">Acumulado até Março</option>
+                        <option value="4">Acumulado até Abril</option>
+                        <option value="5">Acumulado até Maio</option>
+                        <option value="6">Acumulado até Junho</option>
+                        <option value="7">Acumulado até Julho</option>
+                        <option value="8">Acumulado até Agosto</option>
+                        <option value="9">Acumulado até Setembro</option>
+                        <option value="10">Acumulado até Outubro</option>
+                        <option value="11">Acumulado até Novembro</option>
+                        <option value="12">Acumulado até Dezembro</option>
+                    </select>
                     <select id="filter-year" onchange="fetchData()">
                         <option value="2024">2024</option>
                         <option value="2025">2025</option>
@@ -90,13 +79,16 @@
             <div class="controls-left-group">
                 <div class="view-switch-container">
                     <button class="view-btn active" id="btn-view-cat" onclick="switchView('categoria')">
-                        🏷️ Categorias
+                        📦 Categorias
+                    </button>
+                    <button class="view-btn" id="btn-view-marca" onclick="switchView('marca')">
+                        🏷️ Marcas
                     </button>
                 </div>
 
                 <div class="metric-switch-container">
                     <button class="metric-btn active" id="btn-met-completo" onclick="switchMetric('completo')">
-                        🎯 Completo (Share + Δ Posição + MoM + YoY)
+                        ⚡ Completo (Share + Δ Posição + MoM + YoY)
                     </button>
                 </div>
             </div>
@@ -121,7 +113,7 @@
                 <table class="exec-table" id="table-categorias">
                     <thead>
                         <tr id="table-header-row">
-                            <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
+                            <!-- Cabeçalhos dinâmicos com colunas gerados via JS -->
                         </tr>
                     </thead>
                     <tbody id="table-body">
@@ -136,7 +128,6 @@
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
-    <script src="{{ url_for('static', filename='js/canal.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/canal.js') }}?v=20260925_fixed"></script>
 </body>
 </html>
-

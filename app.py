@@ -19,12 +19,9 @@ app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 @app.after_request
 def add_header(response):
-    if request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'public, max-age=86400'
-    else:
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
     return response
 
 # Configurações do Banco Oracle
@@ -79,14 +76,51 @@ def get_vendas_do_banco(mes, ano):
 
     return df_vendas
 
+CACHE_TTL = 300  # 5 minutos de cache em memória (antes era 30 min / 1800s)
+
 cached_df_metas = None
 cached_df_setores = None
 last_excel_read = 0
 
-def carregar_metas_e_setores(mes, ano):
+def invalidar_todos_os_caches(ano=None):
+    global cached_df_metas, cached_df_setores, last_excel_read
+    global cached_painel_results, anos_carregados_no_cache, cached_vendas_diarias
+    global cached_categorias_data, cached_paises_data, cached_paises_raw_df
+    global cached_diario_data
+    
+    print(f"[CACHE] Forçando limpeza de caches (ano={ano})...")
+    cached_df_metas = None
+    cached_df_setores = None
+    last_excel_read = 0
+    
+    if ano:
+        anos_carregados_no_cache.discard(ano)
+        cached_vendas_diarias.pop(ano, None)
+        keys_to_del = [k for k in list(cached_painel_results.keys()) if k.endswith(f"_{ano}")]
+        for k in keys_to_del:
+            cached_painel_results.pop(k, None)
+    else:
+        anos_carregados_no_cache.clear()
+        cached_vendas_diarias.clear()
+        cached_painel_results.clear()
+        
+    cached_categorias_data.clear()
+    cached_paises_data.clear()
+    cached_paises_raw_df.clear()
+    cached_diario_data.clear()
+    if 'cached_estoque_previsao' in globals() and isinstance(cached_estoque_previsao, dict):
+        cached_estoque_previsao['data'] = None
+        cached_estoque_previsao['timestamp'] = 0
+
+def carregar_metas_e_setores(mes, ano, force_refresh=False):
     global cached_df_metas, cached_df_setores, last_excel_read
     
-    if cached_df_metas is None or time.time() - last_excel_read > 1800:
+    if force_refresh:
+        cached_df_metas = None
+        cached_df_setores = None
+        
+    if cached_df_metas is None or time.time() - last_excel_read > CACHE_TTL:
+        print("[CACHE] Recarregando metas e base_setores do Excel...")
         cached_df_metas = pd.read_excel(EXCEL_METAS_PATH, sheet_name='metas')
         cached_df_metas.columns = cached_df_metas.columns.str.strip().str.upper()
         
@@ -271,11 +305,11 @@ cached_vendas_diarias = {}
 
 
 def obter_vendas_diarias(ano, force_refresh=False):
-    """DataFrame de vendas diarias do ano, com cache de 30 min."""
+    """DataFrame de vendas diarias do ano, com cache em memória (CACHE_TTL)."""
     now_ts = time.time()
     if not force_refresh and ano in cached_vendas_diarias:
         df, ts = cached_vendas_diarias[ano]
-        if now_ts - ts < 1800:
+        if now_ts - ts < CACHE_TTL:
             return df
     try:
         df = carregar_vendas_ano(ano)
@@ -305,16 +339,16 @@ def calcular_medidas_tempo_canais(mes, ano, hoje=None, force_refresh=False):
     corte = mt.data_corte_contexto(mes, ano, hoje)
     parcial = mt.mes_esta_parcial(corte)
 
-    df_atual = obter_vendas_diarias(ano, force_refresh)
-    df_ant = obter_vendas_diarias(ano - 1, force_refresh)
-    _, df_setores = carregar_metas_e_setores(mes, ano)
+    df_atual = obter_vendas_diarias(ano, force_refresh=force_refresh)
+    df_ant = obter_vendas_diarias(ano - 1, force_refresh=force_refresh)
+    _, df_setores = carregar_metas_e_setores(mes, ano, force_refresh=force_refresh)
 
     # Meta acumulada do ano: metas CHEIAS de janeiro ate o mes do corte, mesmo
     # criterio do velocimetro, que confronta o realizado parcial do mes com a
     # meta inteira daquele mes.
     meta_ytd = {}
     for m in range(1, corte.month + 1):
-        df_metas_m, _ = carregar_metas_e_setores(m, ano)
+        df_metas_m, _ = carregar_metas_e_setores(m, ano, force_refresh=False)
         for canal, valor in calcular_meta_por_canal(df_metas_m).items():
             meta_ytd[canal] = meta_ytd.get(canal, 0.0) + valor
 
@@ -372,14 +406,16 @@ def carregar_ano_completo_no_cache(ano, force=False):
     now_ts = time.time()
     if not force and ano in anos_carregados_no_cache:
         mes_test = f"1_{ano}"
-        if mes_test in cached_painel_results and (now_ts - cached_painel_results[mes_test][1] < 1800):
+        if mes_test in cached_painel_results and (now_ts - cached_painel_results[mes_test][1] < CACHE_TTL):
             return
     try:
-        print(f"[CACHE] Carregando vendas do ano {ano} completo no Oracle...")
+        print(f"[CACHE] Carregando vendas do ano {ano} completo no Oracle (force={force})...")
         df_ano = obter_vendas_diarias(ano, force_refresh=force)
+        if force:
+            carregar_metas_e_setores(1, ano, force_refresh=True)
         for m in range(1, 13):
             df_m = df_ano[df_ano['MES'] == m].copy() if len(df_ano) > 0 and 'MES' in df_ano else pd.DataFrame(columns=['CODVEND', 'MARCA', 'TOTAL_VENDAS', 'TOTAL_FAT', 'TOTAL_PREV'])
-            df_metas_m, df_setores = carregar_metas_e_setores(m, ano)
+            df_metas_m, df_setores = carregar_metas_e_setores(m, ano, force_refresh=False)
             res = calcular_metricas_painel(df_m, df_metas_m, df_setores)
             cached_painel_results[f"{m}_{ano}"] = (res, now_ts)
         anos_carregados_no_cache.add(ano)
@@ -392,7 +428,7 @@ def obter_dados_painel(mes, ano, force_refresh=False):
     now_ts = time.time()
     if not force_refresh and cache_key in cached_painel_results:
         res, ts = cached_painel_results[cache_key]
-        if now_ts - ts < 1800: # 30 min cache
+        if now_ts - ts < CACHE_TTL:
             return res
 
     carregar_ano_completo_no_cache(ano, force=force_refresh)
@@ -401,7 +437,7 @@ def obter_dados_painel(mes, ano, force_refresh=False):
 
     # Fallback individual caso necessário
     df_vendas = get_vendas_do_banco(mes, ano)
-    df_metas, df_setores = carregar_metas_e_setores(mes, ano)
+    df_metas, df_setores = carregar_metas_e_setores(mes, ano, force_refresh=force_refresh)
     res = calcular_metricas_painel(df_vendas, df_metas, df_setores)
     cached_painel_results[cache_key] = (res, now_ts)
     return res
@@ -414,17 +450,21 @@ def dashboard_tv():
 @app.route('/api/vendas_tv')
 def api_vendas_tv():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         mes = int(request.args.get('mes', datetime.now().month))
         ano = int(request.args.get('ano', datetime.now().year))
+
+        if force:
+            invalidar_todos_os_caches(ano)
 
         mes_ant_m = 12 if mes == 1 else mes - 1
         ano_ant_m = ano - 1 if mes == 1 else ano
 
-        dados_atual = obter_dados_painel(mes, ano)
-        dados_mes_ant = obter_dados_painel(mes_ant_m, ano_ant_m)
-        dados_ano_ant = obter_dados_painel(mes, ano - 1)
+        dados_atual = obter_dados_painel(mes, ano, force_refresh=force)
+        dados_mes_ant = obter_dados_painel(mes_ant_m, ano_ant_m, force_refresh=force)
+        dados_ano_ant = obter_dados_painel(mes, ano - 1, force_refresh=force)
 
-        medidas, contexto = calcular_medidas_tempo_canais(mes, ano)
+        medidas, contexto = calcular_medidas_tempo_canais(mes, ano, force_refresh=force)
 
         equipes = []
         for setor in CANAIS_PAINEL:
@@ -493,9 +533,13 @@ def dashboard_canais():
 @app.route('/api/acumulado_tv')
 def api_acumulado_tv():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         mes = int(request.args.get('mes', datetime.now().month))
         ano = int(request.args.get('ano', datetime.now().year))
         
+        if force:
+            invalidar_todos_os_caches(ano)
+            
         setores = [
             "VAREJO ESPECIALIZADO - SP",
             "VAREJO ESPECIALIZADO REG.",
@@ -510,7 +554,7 @@ def api_acumulado_tv():
         ytd_por_setor = {setor: {"realizado": 0.0, "meta": 0.0} for setor in setores}
         
         for m in range(1, mes + 1):
-            dados_mes = obter_dados_painel(m, ano)
+            dados_mes = obter_dados_painel(m, ano, force_refresh=force)
             
             mensal = {}
             for setor in setores:
@@ -556,14 +600,18 @@ def dashboard_trimestre():
 @app.route('/api/trimestre_tv')
 def api_trimestre_tv():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         mes = int(request.args.get('mes', datetime.now().month))
         ano = int(request.args.get('ano', datetime.now().year))
         
+        if force:
+            invalidar_todos_os_caches(ano)
+            
         # 1º Trimestre: Jan, Fev, Mar (1, 2, 3)
         real_t1 = 0.0
         meta_t1 = 0.0
         for m in [1, 2, 3]:
-            d = obter_dados_painel(m, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d = obter_dados_painel(m, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_t1 += d["realizado"]
             meta_t1 += d["meta"]
         pct_t1 = round((real_t1 / meta_t1 * 100), 1) if meta_t1 > 0 else 0.0
@@ -573,7 +621,7 @@ def api_trimestre_tv():
         real_t2 = 0.0
         meta_t2 = 0.0
         for m in [4, 5, 6]:
-            d = obter_dados_painel(m, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d = obter_dados_painel(m, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_t2 += d["realizado"]
             meta_t2 += d["meta"]
         pct_t2 = round((real_t2 / meta_t2 * 100), 1) if meta_t2 > 0 else 0.0
@@ -583,14 +631,14 @@ def api_trimestre_tv():
         real_t3 = 0.0
         meta_t3 = 0.0
         for m in [7, 8, 9]:
-            d = obter_dados_painel(m, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d = obter_dados_painel(m, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_t3 += d["realizado"]
             meta_t3 += d["meta"]
         pct_t3 = round((real_t3 / meta_t3 * 100), 1) if meta_t3 > 0 else 0.0
         diff_t3 = round(pct_t3 - 100.0, 1)
 
         # Mês Atual: mes selecionado
-        d_atual = obter_dados_painel(mes, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        d_atual = obter_dados_painel(mes, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
         pct_atual = round(d_atual["percentual"], 1)
         diff_atual = round(pct_atual - 100.0, 1)
 
@@ -598,7 +646,7 @@ def api_trimestre_tv():
         real_sem = 0.0
         meta_sem = 0.0
         for m in range(1, mes + 1):
-            d = obter_dados_painel(m, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d = obter_dados_painel(m, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_sem += d["realizado"]
             meta_sem += d["meta"]
         pct_sem = round((real_sem / meta_sem * 100), 1) if meta_sem > 0 else 0.0
@@ -661,9 +709,13 @@ def dashboard_empresa():
 @app.route('/api/empresa_tv')
 def api_empresa_tv():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         ano = int(request.args.get('ano', datetime.now().year))
         meses_param = request.args.get('meses') or request.args.get('mes')
         
+        if force:
+            invalidar_todos_os_caches(ano)
+            
         if meses_param:
             if ',' in str(meses_param):
                 meses_list = [int(m.strip()) for m in str(meses_param).split(',') if m.strip().isdigit() and 1 <= int(m.strip()) <= 12]
@@ -679,12 +731,12 @@ def api_empresa_tv():
         meses_list.sort()
 
         ref_mes = meses_list[-1]
-        d_ref = obter_dados_painel(ref_mes, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        d_ref = obter_dados_painel(ref_mes, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
         
         real_sel = 0.0
         meta_sel = 0.0
         for m in meses_list:
-            d = obter_dados_painel(m, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d = obter_dados_painel(m, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_sel += d["realizado"]
             meta_sel += d["meta"]
 
@@ -700,7 +752,7 @@ def api_empresa_tv():
         real_sel_ant = 0.0
         meta_sel_ant = 0.0
         for m in meses_list:
-            d_ant = obter_dados_painel(m, ano - 1).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
+            d_ant = obter_dados_painel(m, ano - 1, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0})
             real_sel_ant += d_ant.get("realizado", 0.0)
             meta_sel_ant += d_ant.get("meta", 0.0)
         pct_sel_ant = round((real_sel_ant / meta_sel_ant * 100), 1) if meta_sel_ant > 0 else 0.0
@@ -709,7 +761,7 @@ def api_empresa_tv():
         # 2. MÊS ATUAL: Sempre o mês atual do calendário real (não responsivo ao filtro de meses)
         now = datetime.now()
         mes_atual = now.month
-        d_mes_atual = obter_dados_painel(mes_atual, ano).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        d_mes_atual = obter_dados_painel(mes_atual, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
         pct_mes = round(d_mes_atual.get("percentual", 0.0), 1)
         diff_mes = round(pct_mes - 100.0, 1)
         real_mes = d_mes_atual.get("realizado", 0.0)
@@ -717,8 +769,8 @@ def api_empresa_tv():
 
         mes_ant_m = 12 if mes_atual == 1 else mes_atual - 1
         ano_ant_m = ano - 1 if mes_atual == 1 else ano
-        d_mes_ant = obter_dados_painel(mes_ant_m, ano_ant_m).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
-        d_ano_ant = obter_dados_painel(mes_atual, ano - 1).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        d_mes_ant = obter_dados_painel(mes_ant_m, ano_ant_m, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        d_ano_ant = obter_dados_painel(mes_atual, ano - 1, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
 
         real_ant_m = d_mes_ant.get("realizado", 0.0)
         real_ant_y = d_ano_ant.get("realizado", 0.0)
@@ -797,12 +849,12 @@ def api_canal_dados():
         mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
         ano = int(request.args.get('ano', now.year))
         canal = request.args.get('canal')
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         
-        if request.args.get('refresh') == '1':
-            # Optionally clear cache
-            pass
+        if force:
+            cached_categorias_data.clear()
             
-        data = obter_dados_categorias_marcas(mes, ano, canal_filter=canal)
+        data = obter_dados_categorias_marcas(mes, ano, canal_filter=canal, force_refresh=force)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         import traceback
@@ -844,12 +896,12 @@ def tv_alertas():
 
 cached_categorias_data = {}
 
-def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
-    cache_key = f"{ano}_{mes}_{canal_filter}"
+def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None, force_refresh=False):
+    cache_key = f"{ano}_{mes}_{canal_filter}_{marca_filter}"
     now_ts = time.time()
-    if cache_key in cached_categorias_data:
+    if not force_refresh and cache_key in cached_categorias_data:
         data, ts = cached_categorias_data[cache_key]
-        if now_ts - ts < 1800:
+        if now_ts - ts < CACHE_TTL:
             return data
 
     now = datetime.now()
@@ -884,16 +936,20 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
 
     query = f"""
     SELECT 
+        TRUNC(V.DTENTSAI) AS DATA,
         TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')) AS ANO,
         TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) AS MES,
         V.CODVEND,
-        NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS') AS CATEGORIA,
+        NVL(TRIM(P.GRUPO_PAI), 'OUTROS') AS GRUPO_PAI,
+        NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS') AS GRUPO_SINTETICO,
+        NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS') AS GRUPO_ANALITICO,
         NVL(TRIM(P.MARCA), 'OUTRAS') AS MARCA,
+        NVL(TRIM(P.DESCRPROD), 'OUTROS') AS PRODUTO,
         SUM(V.TotalPrevisto) AS TOTAL_PREV,
         SUM(V.TotalFat) AS TOTAL_FAT
     FROM ({opt_sql}) V
     LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.codprod) = TO_CHAR(P.CODPROD)
-    GROUP BY TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS'), NVL(TRIM(P.MARCA), 'OUTRAS')
+    GROUP BY TRUNC(V.DTENTSAI), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, NVL(TRIM(P.GRUPO_PAI), 'OUTROS'), NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS'), NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS'), NVL(TRIM(P.MARCA), 'OUTRAS'), NVL(TRIM(P.DESCRPROD), 'OUTROS')
     """
 
     conn = get_db_connection()
@@ -901,6 +957,60 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
         df = pd.read_sql(query, conn)
     finally:
         conn.close()
+
+    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
+    df['TOTAL_PREV'] = pd.to_numeric(df['TOTAL_PREV'], errors='coerce').fillna(0.0)
+    df['PRODUTO'] = df['GRUPO_ANALITICO'].where(
+        (df['GRUPO_ANALITICO'] != 'OUTROS') & (df['GRUPO_ANALITICO'] != '') & (df['GRUPO_ANALITICO'].notna()),
+        df['PRODUTO']
+    )
+
+    def mapear_categoria(row):
+        marca = str(row.get('MARCA', '')).upper()
+        gp_pai = str(row.get('GRUPO_PAI', '')).upper()
+        gp_sint = str(row.get('GRUPO_SINTETICO', '')).upper()
+        gp_anal = str(row.get('GRUPO_ANALITICO', '')).upper()
+        descr = str(row.get('PRODUTO', '')).upper()
+
+        # 1. Spare Parts
+        if 'SPARE' in gp_pai or 'SPARE' in gp_sint or marca.startswith('SP ') or 'SPARE PARTS' in gp_anal or ' - SP' in descr:
+            return 'Spare Parts'
+        
+        # 2. Parlux (toda a linha Parlux que não for Spare Parts)
+        if 'PARLUX' in marca or 'PARLUX' in descr or 'PARLUX' in gp_anal:
+            return 'Parlux'
+        
+        # 3. Escova Secadora (escovas elétricas / secadoras / alisadoras)
+        if 'ESCOVA ELETRICA' in gp_sint or 'SECADORA' in descr or 'TRISCOVA' in descr or 'LIZIN' in descr or 'ESCOVA ALISADORA' in descr:
+            return 'Escova Secadora'
+            
+        # 4. Escova Uso Diário (escovas tradicionais/profissionais)
+        if 'ESCOVA' in gp_pai or 'ESCOVA' in gp_sint or 'ESCOVA' in gp_anal or 'ESCOVA' in descr:
+            return 'Escova Uso Diário'
+
+        # 5. Prancha
+        if 'PRANCHA' in gp_sint or 'PRANCHA' in gp_anal or 'PRANCHA' in descr:
+            return 'Prancha'
+
+        # 6. Secador
+        if 'SECADOR' in gp_sint or 'SECADOR' in gp_anal or 'SECADOR' in descr:
+            return 'Secador'
+
+        # 7. Modelador
+        if 'MODELADOR' in gp_sint or 'MODELADOR' in gp_anal or 'MODELADOR' in descr:
+            return 'Modelador'
+
+        # 8. Maquina
+        if 'MAQUINA' in gp_sint or 'MAQUINA' in gp_anal or 'MAQUINA' in descr or 'BARBER' in gp_sint or 'BARBER' in gp_anal:
+            return 'Maquina'
+
+        # 9. Tesoura
+        if 'TESOURA' in gp_sint or 'TESOURA' in gp_anal or 'TESOURA' in descr or 'TESOURA' in marca or descr.startswith('TES '):
+            return 'Tesoura'
+
+        return 'Outros'
+
+    df['CATEGORIA'] = df.apply(mapear_categoria, axis=1)
 
     _, df_setores = carregar_metas_e_setores(mes_ref, ano_ref)
     df_setores_clean = df_setores[['CODVEND', 'SETOR']].drop_duplicates(subset=['CODVEND'])
@@ -929,135 +1039,200 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
     if canal_filter:
         df = df[df['CANAL'] == canal_filter].copy()
 
+    if marca_filter and str(marca_filter).strip().upper() not in ('TODAS', '', 'NONE', 'NULL'):
+        if ',' in str(marca_filter):
+            m_list = [m.strip().upper() for m in str(marca_filter).split(',') if m.strip()]
+            df = df[df['MARCA'].str.upper().isin(m_list)].copy()
+        else:
+            df = df[df['MARCA'].str.upper() == str(marca_filter).strip().upper()].copy()
+
+    corte_pg = mt.data_corte_contexto(mes_ref, ano_ref)
+    parcial_pg = mt.mes_esta_parcial(corte_pg)
+
+    # Período YTD cortado no mesmo dia útil/equivalente do ano anterior quando o mês for parcial
+    periodos_pg = {
+        "mtd": mt.periodo_mes_atual(corte_pg),
+        "mes_anterior": mt.periodo_mes_anterior(corte_pg, parcial_pg),
+        "mes_ano_anterior": mt.periodo_ano_anterior_mes(corte_pg, parcial_pg),
+        "ytd": mt.periodo_ytd(corte_pg),
+        "ytd_anterior": mt.periodo_ytd_ano_anterior(corte_pg, parcial_pg),
+    }
+
     def calcular_dimensao(dim_col):
-        pivot = df.groupby(['ANO', 'MES', dim_col])['TOTAL_PREV'].sum().reset_index()
+        def extrair_totais(mask, chaves_group):
+            if not mask.any():
+                return {}, 0.0
+            grp = df[mask].groupby(chaves_group)['TOTAL_PREV'].sum()
+            return grp.to_dict(), float(grp.sum())
 
-        ranks = {}
-        vlrs = {}
-        totals = {}
+        pai_vals = {}
+        pai_tots = {}
+        filho_vals = {}
+        filho_tots = {}
 
-        for (a, m), grp in pivot.groupby(['ANO', 'MES']):
-            s = grp.sort_values('TOTAL_PREV', ascending=False).reset_index(drop=True)
-            s['RANK'] = s.index + 1
-            ranks[(a, m)] = s.set_index(dim_col)['RANK'].to_dict()
-            vlrs[(a, m)] = s.set_index(dim_col)['TOTAL_PREV'].to_dict()
-            totals[(a, m)] = float(grp['TOTAL_PREV'].sum())
+        for chave, (ini_p, fim_p) in periodos_pg.items():
+            m = (df['DATA'].dt.date >= ini_p) & (df['DATA'].dt.date <= fim_p)
+            pai_vals[chave], pai_tots[chave] = extrair_totais(m, [dim_col])
+            filho_vals[chave], filho_tots[chave] = extrair_totais(m, [dim_col, 'PRODUTO'])
 
-        df_atual = pivot[(pivot['ANO'] == ano_ref) & (pivot['MES'] == mes_ref)].copy()
-        total_empresa = totals.get((ano_ref, mes_ref), 0.0)
-        df_atual = df_atual.sort_values('TOTAL_PREV', ascending=False).reset_index(drop=True)
-        df_atual['RANK'] = df_atual.index + 1
+        total_ytd = pai_tots["ytd"]
+        total_ytd_ant = pai_tots["ytd_anterior"]
+
+        if dim_col == 'CATEGORIA':
+            padrao_cats = ['Prancha', 'Secador', 'Modelador', 'Escova Uso Diário', 'Escova Secadora', 'Maquina', 'Parlux', 'Tesoura', 'Spare Parts', 'Outros']
+            for c_nome in padrao_cats:
+                if c_nome not in pai_vals["ytd"]:
+                    pai_vals["ytd"][c_nome] = 0.0
+                if c_nome not in pai_vals["ytd_anterior"]:
+                    pai_vals["ytd_anterior"][c_nome] = 0.0
+
+        ordenados_pai = sorted(pai_vals["ytd"].items(), key=lambda kv: kv[1], reverse=True)
+        rank_atual_pai = {item: i + 1 for i, (item, _) in enumerate(ordenados_pai) if _ > 0}
+        rank_ant_pai = {
+            item: i + 1 for i, (item, _) in enumerate(
+                sorted(pai_vals["ytd_anterior"].items(), key=lambda kv: kv[1], reverse=True)
+            ) if _ > 0
+        }
 
         linhas = []
-        for _, r in df_atual.iterrows():
-            item = str(r[dim_col])
-            vlr_atual = float(r['TOTAL_PREV'])
-            share = round((vlr_atual / total_empresa * 100), 1) if total_empresa > 0 else 0.0
-            rank = int(r['RANK'])
+        for pai_item, v_ytd in ordenados_pai:
+            pai_item = str(pai_item)
+            v_mtd = float(pai_vals["mtd"].get(pai_item, 0.0))
+            v_mom = float(pai_vals["mes_anterior"].get(pai_item, 0.0))
+            v_yoy = float(pai_vals["mes_ano_anterior"].get(pai_item, 0.0))
+            v_ytd = float(v_ytd)
+            v_ytd_ant = float(pai_vals["ytd_anterior"].get(pai_item, 0.0))
 
-            meses_dados = {}
-            for m in range(1, 13):
-                v_m = float(vlrs.get((ano_ref, m), {}).get(item, 0.0))
-                tot_m = totals.get((ano_ref, m), 0.0)
-                s_m = round((v_m / tot_m * 100), 1) if tot_m > 0 else 0.0
-                r_m = ranks.get((ano_ref, m), {}).get(item)
+            rank = rank_atual_pai.get(pai_item, len(linhas) + 1)
+            r_ant = rank_ant_pai.get(pai_item)
+            delta_rank = (r_ant - rank) if (r_ant is not None and rank is not None) else None
 
-                prev_m = 12 if m == 1 else m - 1
-                prev_a = ano_ref - 1 if m == 1 else ano_ref
-                r_prev = ranks.get((prev_a, prev_m), {}).get(item)
-                v_prev = float(vlrs.get((prev_a, prev_m), {}).get(item, 0.0))
+            share = round(v_ytd / total_ytd * 100, 1) if total_ytd > 0 else 0.0
+            share_ant = round(v_ytd_ant / total_ytd_ant * 100, 1) if total_ytd_ant > 0 else 0.0
 
-                delta_r_m = (r_prev - r_m) if (r_prev is not None and r_m is not None) else None
-                mom_m = mt.arredondar(mt.divide_seguro(v_m, v_prev), 1)
+            # Evolução percentual de um share para outro: ((share - share_ant) / share_ant * 100)
+            if share_ant > 0:
+                evolucao_share = round(((share - share_ant) / share_ant * 100), 1)
+            elif share > 0:
+                evolucao_share = None # Indicador de novo
+            else:
+                evolucao_share = 0.0
 
-                v_yoy = float(vlrs.get((ano_ref - 1, m), {}).get(item, 0.0))
-                tot_yoy = totals.get((ano_ref - 1, m), 0.0)
-                s_yoy = round((v_yoy / tot_yoy * 100), 1) if tot_yoy > 0 else 0.0
-                yoy_m = mt.arredondar(mt.divide_seguro(v_m, v_yoy), 1)
+            mom = mt.arredondar(mt.divide_seguro(v_mtd, v_mom), 1)
+            yoy = mt.arredondar(mt.divide_seguro(v_mtd, v_yoy), 1)
+            ytd_yoy = mt.arredondar(mt.divide_seguro(v_ytd, v_ytd_ant), 1)
 
-                meses_dados[m] = {
-                    "faturamento": round(v_m, 2),
-                    "share": s_m,
-                    "rank": r_m,
-                    "delta_rank": delta_r_m,
-                    "mom": mom_m,
-                    "yoy": yoy_m,
-                    "faturamento_ant": round(v_yoy, 2),
-                    "share_ant": s_yoy
-                }
-
-            r_ref_prev = ranks.get((ano_ant, mes_ant), {}).get(item)
-            delta_rank = (r_ref_prev - rank) if (r_ref_prev is not None) else None
-
-            v_ref_prev = float(vlrs.get((ano_ant, mes_ant), {}).get(item, 0.0))
-            mom = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_prev), 1)
-
-            v_ref_yoy = float(vlrs.get((ano_yoy, mes_ref), {}).get(item, 0.0))
-            yoy = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_yoy), 1)
-
-            if rank <= 2:
+            if rank is not None and rank <= 2:
                 status = "Líder"
-            elif (mom is not None and mom >= 15.0) or (delta_rank is not None and delta_rank >= 2):
+            elif (ytd_yoy is not None and ytd_yoy >= 15.0) or (delta_rank is not None and delta_rank >= 2):
                 status = "Expansão"
-            elif (mom is not None and mom <= -15.0) or (delta_rank is not None and delta_rank <= -2):
+            elif (ytd_yoy is not None and ytd_yoy <= -15.0) or (delta_rank is not None and delta_rank <= -2):
                 status = "Atenção"
             else:
                 status = "Estável"
 
+            filhos_deste_pai = []
+            for (p_pai, p_filho), f_val_ytd in filho_vals["ytd"].items():
+                if str(p_pai) == pai_item:
+                    filhos_deste_pai.append((str(p_filho), float(f_val_ytd)))
+            
+            for (p_pai, p_filho), f_val_ytd_ant in filho_vals["ytd_anterior"].items():
+                if str(p_pai) == pai_item:
+                    f_str = str(p_filho)
+                    if not any(f[0] == f_str for f in filhos_deste_pai):
+                        filhos_deste_pai.append((f_str, 0.0))
+            
+            filhos_ordenados = sorted(filhos_deste_pai, key=lambda x: x[1], reverse=True)
+            f_rank_atual = {item: i + 1 for i, (item, _) in enumerate(filhos_ordenados) if _ > 0}
+            
+            filhos_ant_ordenados = sorted(
+                [(str(k[1]), v) for k, v in filho_vals["ytd_anterior"].items() if str(k[0]) == pai_item],
+                key=lambda x: x[1], reverse=True
+            )
+            f_rank_ant = {item: i + 1 for i, (item, _) in enumerate(filhos_ant_ordenados)}
+
+            produtos_linhas = []
+            for filho_item, f_ytd in filhos_ordenados:
+                if f_ytd == 0.0 and f_rank_ant.get(filho_item) is None:
+                    continue
+                    
+                f_mtd = float(filho_vals["mtd"].get((pai_item, filho_item), 0.0))
+                f_mom = float(filho_vals["mes_anterior"].get((pai_item, filho_item), 0.0))
+                f_yoy = float(filho_vals["mes_ano_anterior"].get((pai_item, filho_item), 0.0))
+                f_ytd_ant = float(filho_vals["ytd_anterior"].get((pai_item, filho_item), 0.0))
+                
+                f_r = f_rank_atual.get(filho_item)
+                f_r_ant = f_rank_ant.get(filho_item)
+                f_delta_rank = (f_r_ant - f_r) if (f_r_ant is not None and f_r is not None) else None
+
+                f_share = round(f_ytd / total_ytd * 100, 1) if total_ytd > 0 else 0.0
+                f_share_ant = round(f_ytd_ant / total_ytd_ant * 100, 1) if total_ytd_ant > 0 else 0.0
+                
+                if f_share_ant > 0:
+                    f_evolucao_share = round(((f_share - f_share_ant) / f_share_ant * 100), 1)
+                elif f_share > 0:
+                    f_evolucao_share = None
+                else:
+                    f_evolucao_share = 0.0
+
+                f_mom_pct = mt.arredondar(mt.divide_seguro(f_mtd, f_mom), 1)
+                f_yoy_pct = mt.arredondar(mt.divide_seguro(f_mtd, f_yoy), 1)
+                f_ytd_yoy_pct = mt.arredondar(mt.divide_seguro(f_ytd, f_ytd_ant), 1)
+
+                if f_r is not None and f_r <= 2:
+                    f_status = "Líder"
+                elif (f_ytd_yoy_pct is not None and f_ytd_yoy_pct >= 15.0) or (f_delta_rank is not None and f_delta_rank >= 2):
+                    f_status = "Expansão"
+                elif (f_ytd_yoy_pct is not None and f_ytd_yoy_pct <= -15.0) or (f_delta_rank is not None and f_delta_rank <= -2):
+                    f_status = "Atenção"
+                else:
+                    f_status = "Estável"
+
+                produtos_linhas.append({
+                    "item": filho_item,
+                    "faturamento": f_ytd,
+                    "faturamento_ant": f_ytd_ant,
+                    "faturamento_mtd": f_mtd,
+                    "rank": f_r,
+                    "rank_ant": f_r_ant,
+                    "share": f_share,
+                    "share_ant": f_share_ant,
+                    "var_pp": round(f_share - f_share_ant, 1),
+                    "evolucao_share": f_evolucao_share,
+                    "mom": f_mom_pct,
+                    "yoy": f_yoy_pct,
+                    "ytd_yoy": f_ytd_yoy_pct,
+                    "status": f_status,
+                })
+                
             linhas.append({
-                "item": item,
-                "faturamento": round(vlr_atual, 2),
-                "share": share,
+                "item": pai_item,
+                "faturamento": v_ytd,
+                "faturamento_ant": v_ytd_ant,
+                "faturamento_mtd": v_mtd,
                 "rank": rank,
-                "rank_ant": r_ref_prev,
-                "delta_rank": delta_rank,
+                "rank_ant": r_ant,
+                "share": share,
+                "share_ant": share_ant,
+                "var_pp": round(share - share_ant, 1),
+                "evolucao_share": evolucao_share,
                 "mom": mom,
                 "yoy": yoy,
-                "meses_dados": meses_dados,
-                "status": status
+                "ytd_yoy": ytd_yoy,
+                "status": status,
+                "produtos": produtos_linhas
             })
-
-        lider = linhas[0] if len(linhas) > 0 else {"item": "N/A", "faturamento": 0.0, "share": 0.0, "rank": 1, "mom": 0.0, "delta_rank": 0, "yoy": 0.0}
-        min_vlr = max(10000.0, total_empresa * 0.005)
-        itens_relevantes = [x for x in linhas if (x.get("faturamento") or 0) >= min_vlr]
-        if not itens_relevantes:
-            itens_relevantes = linhas
-
-        top_growth = max(itens_relevantes, key=lambda x: (x.get("mom") if x.get("mom") is not None else -999999)) if itens_relevantes else lider
-        itens_com_delta = [x for x in itens_relevantes if x.get("delta_rank") is not None]
-        top_mover = max(itens_com_delta, key=lambda x: (x.get("delta_rank") if x.get("delta_rank") is not None else -999999)) if itens_com_delta else lider
-        warning = min(itens_relevantes, key=lambda x: (x.get("mom") if x.get("mom") is not None else 999999)) if itens_relevantes else lider
-
+            
         summary = {
-            "lider": {
-                "nome": lider.get("item", "N/A"),
-                "faturamento": lider.get("faturamento", 0.0),
-                "share": lider.get("share", 0.0),
-                "rank": lider.get("rank", 1)
-            },
-            "top_growth": {
-                "nome": top_growth.get("item", "N/A"),
-                "mom": top_growth.get("mom", 0.0),
-                "faturamento": top_growth.get("faturamento", 0.0)
-            },
-            "top_mover": {
-                "nome": top_mover.get("item", "N/A"),
-                "delta": top_mover.get("delta_rank", 0),
-                "rank": top_mover.get("rank", 1),
-                "faturamento": top_mover.get("faturamento", 0.0)
-            },
-            "warning": {
-                "nome": warning.get("item", "N/A"),
-                "mom": warning.get("mom", 0.0),
-                "faturamento": warning.get("faturamento", 0.0)
-            }
+            "lider": {"nome": "N/A", "faturamento": 0.0, "share": 0.0, "rank": 1},
+            "top_growth": {"nome": "N/A", "mom": 0.0},
+            "top_mover": {"nome": "N/A", "delta_rank": 0},
+            "warning": {"nome": "N/A", "mom": 0.0}
         }
-
-        return linhas, total_empresa, summary
-
-    cat_linhas, total_cat, cat_summary = calcular_dimensao('CATEGORIA')
-    marca_linhas, total_marca, marca_summary = calcular_dimensao('MARCA')
-    canal_linhas, total_canal, canal_summary = calcular_dimensao('CANAL')
+        return linhas, total_ytd, total_ytd_ant, summary
+    cat_linhas, total_cat, total_cat_ant, cat_summary = calcular_dimensao('CATEGORIA')
+    marca_linhas, total_marca, total_marca_ant, marca_summary = calcular_dimensao('MARCA')
+    canal_linhas, total_canal, total_canal_ant, canal_summary = calcular_dimensao('CANAL')
 
     ordem_canais = [
         'VAREJO ESPECIALIZADO - SP',
@@ -1084,6 +1259,7 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None):
         "mes_nome": nomes_meses_br[mes_ref],
         "meses_colunas": meses_colunas,
         "total_faturamento": round(total_cat, 2),
+        "total_faturamento_ant": round(total_cat_ant, 2),
         "labels_6m": labels_6m,
         "categorias": cat_linhas,
         "marcas": marca_linhas,
@@ -1104,11 +1280,13 @@ def api_categorias_dados():
         mes_arg = request.args.get('mes')
         mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
         ano = int(request.args.get('ano', now.year))
+        marca_arg = request.args.get('marca')
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         
-        if request.args.get('refresh') == '1':
+        if force:
             cached_categorias_data.clear()
             
-        data = obter_dados_categorias_marcas(mes, ano)
+        data = obter_dados_categorias_marcas(mes, ano, marca_filter=marca_arg, force_refresh=force)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         import traceback
@@ -1118,12 +1296,12 @@ def api_categorias_dados():
 cached_paises_data = {}
 cached_paises_raw_df = {}
 
-def obter_dados_paises(mes, ano):
+def obter_dados_paises(mes, ano, force_refresh=False):
     cache_key = f"{ano}_{mes}"
     now_ts = time.time()
-    if cache_key in cached_paises_data:
+    if not force_refresh and cache_key in cached_paises_data:
         data, ts = cached_paises_data[cache_key]
-        if now_ts - ts < 1800:
+        if now_ts - ts < CACHE_TTL:
             return data
 
     now = datetime.now()
@@ -1135,9 +1313,9 @@ def obter_dados_paises(mes, ano):
     ano_ant = ano_ref - 1
 
     df = None
-    if ano_ref in cached_paises_raw_df:
+    if not force_refresh and ano_ref in cached_paises_raw_df:
         df_cached, ts_raw = cached_paises_raw_df[ano_ref]
-        if now_ts - ts_raw < 1800:
+        if now_ts - ts_raw < CACHE_TTL:
             df = df_cached.copy()
 
     if df is None:
@@ -1358,7 +1536,7 @@ cached_estoque_previsao = {
 
 def obter_dados_estoque_previsao(force=False):
     global cached_estoque_previsao
-    if not force and cached_estoque_previsao['data'] is not None and (time.time() - cached_estoque_previsao['timestamp'] < 1800):
+    if not force and cached_estoque_previsao['data'] is not None and (time.time() - cached_estoque_previsao['timestamp'] < CACHE_TTL):
         return cached_estoque_previsao['data']
 
     conn = get_db_connection()
@@ -1522,7 +1700,7 @@ def obter_dados_estoque_previsao(force=False):
 @app.route('/api/estoque_previsao')
 def api_estoque_previsao():
     try:
-        force = request.args.get('refresh') == '1'
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         data = obter_dados_estoque_previsao(force=force)
         meta = cached_estoque_previsao.get('meta', {})
         return jsonify({'success': True, 'data': data, 'meta': meta})
@@ -1539,11 +1717,13 @@ def api_paises_dados():
         mes_arg = request.args.get('mes')
         mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
         ano = int(request.args.get('ano', now.year))
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         
-        if request.args.get('refresh') == '1':
+        if force:
             cached_paises_data.clear()
+            cached_paises_raw_df.clear()
             
-        data = obter_dados_paises(mes, ano)
+        data = obter_dados_paises(mes, ano, force_refresh=force)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         import traceback
@@ -1553,12 +1733,12 @@ def api_paises_dados():
 # Cache para consultas diárias
 cached_diario_data = {}
 
-def carregar_dados_diarios_sankhya(mes, ano):
+def carregar_dados_diarios_sankhya(mes, ano, force_refresh=False):
     cache_key = f"{ano}_{mes}"
     now_ts = time.time()
-    if cache_key in cached_diario_data:
+    if not force_refresh and cache_key in cached_diario_data:
         data, ts = cached_diario_data[cache_key]
-        if now_ts - ts < 600:
+        if now_ts - ts < CACHE_TTL:
             return data.copy()
 
     _, num_days = calendar.monthrange(ano, mes)
@@ -1647,12 +1827,16 @@ def mapear_marca(marca):
 @app.route('/api/diario_canal')
 def api_diario_canal():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         mes_param = request.args.get('mes', str(datetime.now().month))
         if ',' in mes_param:
             mes = int(mes_param.split(',')[-1].strip())
         else:
             mes = int(mes_param)
         ano = int(request.args.get('ano', datetime.now().year))
+
+        if force:
+            cached_diario_data.clear()
 
         # Mes anterior
         mes_ant = 12 if mes == 1 else mes - 1
@@ -1662,12 +1846,12 @@ def api_diario_canal():
         mes_yoy = mes
         ano_yoy = ano - 1
 
-        _, df_setores = carregar_metas_e_setores(mes, ano)
+        _, df_setores = carregar_metas_e_setores(mes, ano, force_refresh=force)
         dict_setores = dict(zip(df_setores['CODVEND'], df_setores['SETOR']))
 
-        df_atual = carregar_dados_diarios_sankhya(mes, ano)
-        df_ant = carregar_dados_diarios_sankhya(mes_ant, ano_ant)
-        df_yoy = carregar_dados_diarios_sankhya(mes_yoy, ano_yoy)
+        df_atual = carregar_dados_diarios_sankhya(mes, ano, force_refresh=force)
+        df_ant = carregar_dados_diarios_sankhya(mes_ant, ano_ant, force_refresh=force)
+        df_yoy = carregar_dados_diarios_sankhya(mes_yoy, ano_yoy, force_refresh=force)
 
         for df in [df_atual, df_ant, df_yoy]:
             df['CANAL'] = df['CODVEND'].map(dict_setores).apply(mapear_canal)
@@ -1726,6 +1910,9 @@ def api_diario_canal():
 @app.route('/api/diario_marcas')
 def api_diario_marcas():
     try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
+        if force:
+            cached_diario_data.clear()
         mes_param = request.args.get('mes', str(datetime.now().month))
         if ',' in mes_param:
             mes = int(mes_param.split(',')[-1].strip())
@@ -1739,9 +1926,9 @@ def api_diario_marcas():
         mes_yoy = mes
         ano_yoy = ano - 1
 
-        df_atual = carregar_dados_diarios_sankhya(mes, ano)
-        df_ant = carregar_dados_diarios_sankhya(mes_ant, ano_ant)
-        df_yoy = carregar_dados_diarios_sankhya(mes_yoy, ano_yoy)
+        df_atual = carregar_dados_diarios_sankhya(mes, ano, force_refresh=force)
+        df_ant = carregar_dados_diarios_sankhya(mes_ant, ano_ant, force_refresh=force)
+        df_yoy = carregar_dados_diarios_sankhya(mes_yoy, ano_yoy, force_refresh=force)
 
         for df in [df_atual, df_ant, df_yoy]:
             df['MARCA_MAP'] = df['MARCA'].apply(mapear_marca)
@@ -2002,6 +2189,15 @@ def api_estoque():
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/refresh')
+def api_refresh():
+    try:
+        ano = request.args.get('ano', type=int)
+        invalidar_todos_os_caches(ano)
+        return jsonify({'success': True, 'message': f'Caches invalidados com sucesso (ano={ano})'})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 def aquecer_cache_background():

@@ -163,14 +163,18 @@ function renderData(data, mes, ano) {
 }
 
 // ── Buscar dados ─────────────────────────────────────────────
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     try {
         const now = new Date();
         const yearSelect = document.getElementById('filter-year');
         const year  = yearSelect ? yearSelect.value : now.getFullYear();
         const month = (parseInt(year) === now.getFullYear()) ? (now.getMonth() + 1) : 12;
 
-        const res  = await fetch(`/api/acumulado_tv?mes=${month}&ano=${year}`);
+        let url = `/api/acumulado_tv?mes=${month}&ano=${year}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const res  = await fetch(url);
         const json = await res.json();
 
         if (json.success) {
@@ -214,7 +218,7 @@ async function manualRefresh() {
         btn.disabled = true;
         btn.innerHTML = '⏳ Atualizando...';
     }
-    await fetchData();
+    await fetchData(true);
     if (btn) {
         btn.disabled = false;
         btn.innerHTML = '🔄 Atualizar';
@@ -240,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Buscar dados
     fetchData();
-    setInterval(fetchData, 10 * 60 * 1000);
+    setInterval(() => fetchData(true), 10 * 60 * 1000);
 });
 
 // ── Resize ───────────────────────────────────────────────────

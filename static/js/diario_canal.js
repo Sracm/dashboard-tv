@@ -40,7 +40,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     
     const nextUpdateEl = document.getElementById('next-update');
@@ -231,7 +231,7 @@ function startCarousel() {
     }, CAROUSEL_DURATION_MS);
 }
 
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     const mes = document.getElementById('filter-month').value;
     const ano = document.getElementById('filter-year').value;
     
@@ -241,7 +241,11 @@ async function fetchData() {
     }
     
     try {
-        const response = await fetch(`/api/diario_canal?mes=${mes}&ano=${ano}`);
+        let url = `/api/diario_canal?mes=${mes}&ano=${ano}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const response = await fetch(url);
         const json = await response.json();
         
         if (json.success && json.data) {
@@ -265,7 +269,7 @@ async function fetchData() {
 
 function manualRefresh() {
     nextUpdateSeconds = 600;
-    fetchData();
+    fetchData(true);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

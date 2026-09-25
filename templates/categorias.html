@@ -11,8 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260925_172800">
 </head>
 <body>
     <div class="dashboard-container">
@@ -44,36 +44,75 @@
 
             <div class="header-bottom">
                 <div class="filters-row">
-                    <div class="multiselect-wrapper" id="month-multiselect">
-                        <button type="button" class="multiselect-btn" id="month-select-btn" onclick="toggleMonthDropdown(event)">
-                            <span class="ms-icon">📅</span>
-                            <span id="month-select-label">Meses: Mai a Ago (4)</span>
-                            <span class="ms-arrow">▼</span>
-                        </button>
-                        <div class="multiselect-menu" id="month-select-menu">
-                            <div class="ms-header">
-                                <div class="ms-title-row">
-                                    <span class="ms-title">Filtrar Meses na Tabela</span>
-                                    <span class="ms-selected-count" id="ms-count-badge">4 sel.</span>
-                                </div>
-                                <div class="ms-quick-actions">
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(true, event)">Todos</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(3, event)">Últ. 3</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectLastNMonths(6, event)">Últ. 6</button>
-                                    <button type="button" class="ms-action-btn" onclick="selectAllMonths(false, event)">Limpar</button>
-                                </div>
-                            </div>
-                            <div class="ms-grid" id="month-checkbox-grid">
-                                <!-- Checkboxes gerados dinamicamente -->
-                            </div>
-                        </div>
-                        <input type="hidden" id="filter-month" value="8">
-                    </div>
+                    <select id="filter-month" onchange="fetchData()" title="A tabela consolida de 01/01 até o fim do mês escolhido (ou até hoje, se for o mês corrente)">
+                        <option value="1">Acumulado até Janeiro</option>
+                        <option value="2">Acumulado até Fevereiro</option>
+                        <option value="3">Acumulado até Março</option>
+                        <option value="4">Acumulado até Abril</option>
+                        <option value="5">Acumulado até Maio</option>
+                        <option value="6">Acumulado até Junho</option>
+                        <option value="7">Acumulado até Julho</option>
+                        <option value="8">Acumulado até Agosto</option>
+                        <option value="9">Acumulado até Setembro</option>
+                        <option value="10">Acumulado até Outubro</option>
+                        <option value="11">Acumulado até Novembro</option>
+                        <option value="12">Acumulado até Dezembro</option>
+                    </select>
                     <select id="filter-year" onchange="fetchData()">
                         <option value="2024">2024</option>
                         <option value="2025">2025</option>
                         <option value="2026">2026</option>
                     </select>
+
+                    <!-- Filtro Multiselect de Marcas -->
+                    <div class="multiselect-wrapper" id="marca-multiselect">
+                        <button type="button" class="multiselect-btn" id="marca-select-btn" onclick="toggleMarcaDropdown(event)" title="Filtrar marcas exibidas no painel">
+                            <span class="ms-icon">🏷️</span>
+                            <span id="marca-select-label">Marcas: Todas</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="marca-select-menu" style="width: 260px;">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+                                    <span class="ms-title">Filtrar Marcas</span>
+                                    <span class="ms-selected-count" id="marca-count-badge">-- sel.</span>
+                                </div>
+                                <div class="ms-quick-actions">
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMarcas(true, event)">Todas</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllMarcas(false, event)">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="ms-grid" id="marca-checkbox-grid" style="grid-template-columns: 1fr; max-height: 260px; overflow-y: auto; gap: 4px;">
+                                <!-- Checkboxes gerados dinamicamente via JS -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filtro Multiselect de Categorias -->
+                    <div class="multiselect-wrapper" id="cat-multiselect">
+                        <button type="button" class="multiselect-btn" id="cat-select-btn" onclick="toggleCatDropdown(event)" title="Filtrar categorias exibidas na tabela">
+                            <span class="ms-icon">🏷️</span>
+                            <span id="cat-select-label">Categorias: Principais</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="cat-select-menu" style="width: 320px;">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+                                    <span class="ms-title">Filtrar Categorias</span>
+                                    <span class="ms-selected-count" id="cat-count-badge">-- sel.</span>
+                                </div>
+                                <div class="ms-quick-actions">
+                                    <button type="button" class="ms-action-btn" onclick="selectDefaultCategories(event)">Padrão</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllCategories(true, event)">Todas</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllCategories(false, event)">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="ms-grid" id="cat-checkbox-grid" style="grid-template-columns: 1fr; max-height: 280px; overflow-y: auto; gap: 4px;">
+                                <!-- Checkboxes gerados dinamicamente via JS -->
+                            </div>
+                        </div>
+                    </div>
+
                     <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
                 </div>
                 <div class="header-meta-info">
@@ -89,38 +128,41 @@
         <section class="controls-bar">
             <div class="controls-left-group">
                 <div class="view-switch-container">
-                    <button class="view-btn active" id="btn-view-cat" onclick="switchView('categoria')">
-                        🏷️ Categorias
+                    <button class="view-btn active" id="btn-mode-cards" onclick="switchViewMode('cards')" title="Visualização em Colunas Lado a Lado">
+                        📊 Colunas Lado a Lado
+                    </button>
+                    <button class="view-btn" id="btn-mode-table" onclick="switchViewMode('table')" title="Visualização em Tabela Detalhada com Hierarquia">
+                        📋 Tabela Detalhada
                     </button>
                 </div>
 
-                <div class="metric-switch-container">
-                    <button class="metric-btn active" id="btn-met-completo" onclick="switchMetric('completo')">
-                        🎯 Completo (Share + Δ Posição + MoM + YoY)
-                    </button>
-                </div>
-            </div>
-
-            <div class="search-and-stats">
-                <div class="search-box">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="table-search" placeholder="Filtrar nesta visualização..." onkeyup="filterTable()">
+                <div class="metric-switch-container" id="table-tree-controls" style="display: none;">
+                    <button class="tree-toggle-btn" onclick="expandAllCategories()" title="Expandir todos os produtos">▾ Expandir Todos</button>
+                    <button class="tree-toggle-btn" onclick="collapseAllCategories()" title="Recolher e ver apenas categorias">▸ Recolher Todos</button>
                 </div>
             </div>
         </section>
 
-        <!-- Executive Table Container -->
-        <main class="table-card-container">
+        <!-- Mode 1: Colunas Lado a Lado (Padrão) -->
+        <main class="columns-grid-container" id="container-cards">
+            <!-- Cards em colunas gerados dinamicamente via JS -->
+        </main>
+
+        <!-- Mode 2: Executive Data Table Container -->
+        <main class="table-card-container" id="container-table" style="display: none;">
             <div class="table-responsive-wrapper">
                 <table class="exec-table" id="table-categorias">
                     <thead>
                         <tr id="table-header-row">
-                            <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
+                            <!-- Cabeçalhos gerados via JS -->
                         </tr>
                     </thead>
                     <tbody id="table-body">
                         <!-- Linhas geradas dinamicamente via JS -->
                     </tbody>
+                    <tfoot id="table-footer">
+                        <!-- Linha de totais gerada dinamicamente via JS -->
+                    </tfoot>
                 </table>
             </div>
         </main>
@@ -130,7 +172,7 @@
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
-    <script src="{{ url_for('static', filename='js/categorias.js') }}?v=20260916_8"></script>
+    <script src="{{ url_for('static', filename='js/categorias.js') }}?v=20260925_172800"></script>
 </body>
 </html>
 

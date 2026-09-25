@@ -30,7 +30,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     
     const nextUpdateEl = document.getElementById('next-update');
@@ -117,12 +117,16 @@ function initCharts() {
     }
 }
 
-async function fetchData() {
+async function fetchData(forceRefresh = false) {
     const mes = document.getElementById('filter-month').value;
     const ano = document.getElementById('filter-year').value;
     
     try {
-        const response = await fetch(`/api/trimestre_tv?mes=${mes}&ano=${ano}`);
+        let url = `/api/trimestre_tv?mes=${mes}&ano=${ano}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const response = await fetch(url);
         const json = await response.json();
         
         if (json.success && json.data) {
@@ -148,7 +152,7 @@ async function fetchData() {
 
 function manualRefresh() {
     nextUpdateSeconds = 600;
-    fetchData();
+    fetchData(true);
 }
 
 let sireneTimeout = null;
