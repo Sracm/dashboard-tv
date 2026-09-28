@@ -1,9 +1,17 @@
 let nextUpdateSeconds = 600;
-let currentView = 'categoria'; // 'categoria' ou 'marca'
-let currentMetric = 'completo'; // 'completo', 'share', 'mom', 'yoy'
+let currentView = 'categoria';
+let currentMetric = 'completo';
 let currentData = null;
 let currentSort = { column: 'rank', asc: true };
 const nomesMeses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+let selectedMonths = [];
+let allAvailableMarcas = [];
+let selectedMarcas = [];
+let allAvailableCategories = [];
+let selectedCategories = [];
+let collapsedCategories = new Set();
+let currentDisplayMode = 'cards'; // 'cards' (padrão) ou 'table'
 
 function pararTodosAudios() {
     const audio = document.getElementById('victory-sound');
@@ -18,7 +26,7 @@ function navigateTab(path) {
         window.location.href = '/tv';
         return;
     }
-    const mes = document.getElementById('filter-month')?.value || 9;
+    const mes = document.getElementById('filter-month')?.value || 8;
     const ano = document.getElementById('filter-year')?.value || 2026;
     window.location.href = `${path}?mes=${mes}&ano=${ano}`;
 }
@@ -62,6 +70,307 @@ function initFilters() {
     }
     const monthEl = document.getElementById('filter-month');
     if (monthEl) monthEl.value = String(mesCorte);
+
+    const marcaParam = urlParams.get('marca');
+    if (marcaParam) {
+        selectedMarcas = marcaParam.split(',').map(m => decodeURIComponent(m).trim()).filter(Boolean);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Filtro Multiselect de Marcas
+// ---------------------------------------------------------------------------
+function initMarcaMultiselect() {
+    if (!currentData) return;
+
+    if (allAvailableMarcas.length === 0 && currentData.marcas && currentData.marcas.length > 0) {
+        allAvailableMarcas = currentData.marcas.map(m => m.item).filter(Boolean);
+    }
+    if (allAvailableMarcas.length === 0) {
+        allAvailableMarcas = ['MQ PRO', 'PARLUX', 'FORCE BARB', 'MQ ESCOVAS', 'MQ BEAUTY', 'MQ TESOURA', 'MQ COMEX', 'FT1', 'OUTRAS'];
+    }
+
+    if (selectedMarcas.length === 0) {
+        selectedMarcas = [...allAvailableMarcas];
+    }
+
+    const grid = document.getElementById('marca-checkbox-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    allAvailableMarcas.forEach((marca, idx) => {
+        const isChecked = selectedMarcas.includes(marca);
+        const safeMarca = marca.replace(/'/g, "\\'");
+
+        const item = document.createElement('label');
+        item.className = `ms-item ${isChecked ? 'checked' : ''}`;
+        item.id = `marca-item-${idx}`;
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '5px 8px';
+        item.style.cursor = 'pointer';
+
+        item.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" class="ms-checkbox" value="${escapeHtml(marca)}" ${isChecked ? 'checked' : ''} onchange="onMarcaCheckChange('${safeMarca}', ${idx})">
+                <span style="font-weight:600; font-size:0.75rem;">${escapeHtml(marca)}</span>
+            </div>
+        `;
+        grid.appendChild(item);
+    });
+
+    updateMarcaSelectLabel();
+}
+
+function toggleMarcaDropdown(event) {
+    if (event) event.stopPropagation();
+    const wrapper = document.getElementById('marca-multiselect');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+}
+
+function onMarcaCheckChange(marca, idx) {
+    const exists = selectedMarcas.includes(marca);
+    if (exists) {
+        selectedMarcas = selectedMarcas.filter(m => m !== marca);
+    } else {
+        selectedMarcas.push(marca);
+    }
+
+    const item = document.getElementById(`marca-item-${idx}`);
+    if (item) {
+        item.classList.toggle('checked', !exists);
+    }
+
+    updateMarcaSelectLabel();
+    fetchData();
+}
+
+function selectAllMarcas(all, event) {
+    if (event) event.stopPropagation();
+    if (all) {
+        selectedMarcas = [...allAvailableMarcas];
+    } else {
+        selectedMarcas = [];
+    }
+    syncMarcaCheckboxUI();
+    updateMarcaSelectLabel();
+    fetchData();
+}
+
+function syncMarcaCheckboxUI() {
+    allAvailableMarcas.forEach((marca, idx) => {
+        const isChecked = selectedMarcas.includes(marca);
+        const item = document.getElementById(`marca-item-${idx}`);
+        if (item) {
+            item.classList.toggle('checked', isChecked);
+            const chk = item.querySelector('input');
+            if (chk) chk.checked = isChecked;
+        }
+    });
+}
+
+function updateMarcaSelectLabel() {
+    const labelEl = document.getElementById('marca-select-label');
+    const badgeEl = document.getElementById('marca-count-badge');
+    if (!labelEl) return;
+
+    const total = allAvailableMarcas.length;
+    const count = selectedMarcas.length;
+
+    if (badgeEl) {
+        badgeEl.innerText = `${count} de ${total} sel.`;
+    }
+
+    if (count === total || count === 0) {
+        labelEl.innerText = 'Marcas: Todas';
+    } else if (count === 1) {
+        labelEl.innerText = `Marca: ${selectedMarcas[0]}`;
+    } else {
+        labelEl.innerText = `Marcas (${count})`;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Filtro Multiselect de Categorias
+// ---------------------------------------------------------------------------
+function formatCategoryName(name) {
+    if (!name) return '';
+    const n = String(name).trim();
+    const lower = n.toLowerCase();
+    if (lower.includes('diario') || lower.includes('diário')) {
+        return 'Escova/Diario';
+    }
+    if (lower.includes('secadora') || lower.includes('sec.')) {
+        return 'Escova Sec.';
+    }
+    return n;
+}
+
+function isDefaultCategory(catName) {
+    if (!catName) return false;
+    const c = String(catName).toLowerCase().trim();
+    if (c === 'spare parts' || c.includes('spare') || c === 'outros' || c.includes('outro')) {
+        return false;
+    }
+    return true;
+}
+
+function initCategoryMultiselect() {
+    if (!currentData || !currentData.categorias) return;
+
+    if (allAvailableCategories.length === 0 && currentData.categorias.length > 0) {
+        allAvailableCategories = currentData.categorias.filter(c => !isItemZerado(c)).map(c => c.item);
+    }
+
+    if (selectedCategories.length === 0) {
+        selectedCategories = allAvailableCategories.filter(isDefaultCategory);
+    }
+
+    const grid = document.getElementById('cat-checkbox-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    allAvailableCategories.forEach((cat, idx) => {
+        const isChecked = selectedCategories.includes(cat);
+        const isDef = isDefaultCategory(cat);
+        const safeCat = cat.replace(/'/g, "\\'");
+
+        const item = document.createElement('label');
+        item.className = `ms-item ${isChecked ? 'checked' : ''}`;
+        item.id = `cat-item-${idx}`;
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.justifyContent = 'space-between';
+        item.style.padding = '5px 8px';
+        item.style.cursor = 'pointer';
+
+        item.innerHTML = `
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" class="ms-checkbox" value="${escapeHtml(cat)}" ${isChecked ? 'checked' : ''} onchange="onCategoryCheckChange('${safeCat}', ${idx})">
+                <span style="font-weight:600; font-size:0.75rem;">${escapeHtml(formatCategoryName(cat))}</span>
+            </div>
+            ${isDef ? '<span style="font-size:0.60rem; color:var(--gold); font-weight:800; background:rgba(203,151,39,0.15); padding:1px 5px; border-radius:3px;">PADRÃO</span>' : '<span style="font-size:0.60rem; color:#64748b; font-weight:600;">OPCIONAL</span>'}
+        `;
+        grid.appendChild(item);
+    });
+
+    updateCategorySelectLabel();
+}
+
+function toggleCatDropdown(event) {
+    if (event) event.stopPropagation();
+    const wrapper = document.getElementById('cat-multiselect');
+    if (wrapper) {
+        wrapper.classList.toggle('open');
+    }
+}
+
+function onCategoryCheckChange(cat, idx) {
+    const exists = selectedCategories.includes(cat);
+    if (exists) {
+        selectedCategories = selectedCategories.filter(c => c !== cat);
+    } else {
+        selectedCategories.push(cat);
+    }
+
+    const item = document.getElementById(`cat-item-${idx}`);
+    if (item) {
+        item.classList.toggle('checked', !exists);
+    }
+
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function selectDefaultCategories(event) {
+    if (event) event.stopPropagation();
+    selectedCategories = allAvailableCategories.filter(isDefaultCategory);
+    syncCategoryCheckboxUI();
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function selectAllCategories(all, event) {
+    if (event) event.stopPropagation();
+    if (all) {
+        selectedCategories = [...allAvailableCategories];
+    } else {
+        selectedCategories = [];
+    }
+    syncCategoryCheckboxUI();
+    updateCategorySelectLabel();
+    renderTable();
+}
+
+function syncCategoryCheckboxUI() {
+    allAvailableCategories.forEach((cat, idx) => {
+        const isChecked = selectedCategories.includes(cat);
+        const item = document.getElementById(`cat-item-${idx}`);
+        if (item) {
+            item.classList.toggle('checked', isChecked);
+            const chk = item.querySelector('input');
+            if (chk) chk.checked = isChecked;
+        }
+    });
+}
+
+function updateCategorySelectLabel() {
+    const labelEl = document.getElementById('cat-select-label');
+    const badgeEl = document.getElementById('cat-count-badge');
+    const count = selectedCategories.length;
+    const total = allAvailableCategories.length;
+
+    if (badgeEl) badgeEl.innerText = `${count} sel.`;
+
+    if (!labelEl) return;
+    if (count === 0) {
+        labelEl.innerText = 'Categorias: Nenhuma';
+    } else if (count === total) {
+        labelEl.innerText = 'Categorias: Todas';
+    } else if (count === allAvailableCategories.filter(isDefaultCategory).length && allAvailableCategories.filter(isDefaultCategory).every(c => selectedCategories.includes(c))) {
+        labelEl.innerText = `Categorias: Principais (${count})`;
+    } else {
+        labelEl.innerText = `Categorias (${count})`;
+    }
+}
+
+document.addEventListener('click', (e) => {
+    const catWrapper = document.getElementById('cat-multiselect');
+    if (catWrapper && catWrapper.classList.contains('open')) {
+        if (!catWrapper.contains(e.target)) {
+            catWrapper.classList.remove('open');
+        }
+    }
+    const marcaWrapper = document.getElementById('marca-multiselect');
+    if (marcaWrapper && marcaWrapper.classList.contains('open')) {
+        if (!marcaWrapper.contains(e.target)) {
+            marcaWrapper.classList.remove('open');
+        }
+    }
+});
+
+// ---------------------------------------------------------------------------
+// Helpers e Formatações
+// ---------------------------------------------------------------------------
+function isItemZerado(item) {
+    if (!item) return true;
+    const sAnt = Number(item.share_ant || 0);
+    const sAtual = Number(item.share || 0);
+    const pp = Math.abs(sAtual - sAnt);
+    return sAnt < 0.05 && sAtual < 0.05 && pp < 0.05;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
 }
 
 function formatMoeda(val) {
@@ -69,23 +378,30 @@ function formatMoeda(val) {
     return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatPct(val) {
-    if (val === null || val === undefined || isNaN(val)) return '—';
-    const sinal = val > 0 ? '+' : '';
-    return `${sinal}${Number(val).toFixed(1)}%`;
+function formatPp(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0 p.p.</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    return `<span class="var-share-pill equal ${subCls}">— 0,0 p.p.</span>`;
 }
 
-function renderDeltaBadge(delta) {
-    if (delta === null || delta === undefined) {
-        return `<span class="delta-badge new">✨ NOVO</span>`;
+function formatEvol(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0%</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta > 0) {
-        return `<span class="delta-badge up">▲ +${delta}</span>`;
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta < 0) {
-        return `<span class="delta-badge down">▼ ${Math.abs(delta)}</span>`;
-    }
-    return `<span class="delta-badge equal">—</span>`;
+    return `<span class="var-share-pill equal ${subCls}">— 0,0%</span>`;
 }
 
 function renderRankBadge(rank) {
@@ -95,187 +411,262 @@ function renderRankBadge(rank) {
     return `<span class="rank-badge rank-other">${rank}º</span>`;
 }
 
-function renderStatusTag(status) {
-    const s = (status || 'Estável').toLowerCase();
-    let cls = 'estavel';
-    let tooltip = 'Estável: Variação de ranking e faturamento (MoM) sem oscilações drásticas.';
+function cleanProductName(name, cat) {
+    if (!name) return '';
+    let s = String(name).trim();
 
-    if (s.includes('líder') || s.includes('lider')) {
-        cls = 'lider';
-        tooltip = 'Líder: A categoria ou marca está no Top 2 em vendas.';
-    }
-    else if (s.includes('expansão') || s.includes('expansao')) {
-        cls = 'expansao';
-        tooltip = 'Expansão: Crescimento ≥ 15% (MoM) OU subiu 2+ posições no ranking.';
-    }
-    else if (s.includes('atenção') || s.includes('atencao')) {
-        cls = 'atencao';
-        tooltip = 'Atenção: Queda ≤ -15% (MoM) OU caiu 2+ posições no ranking.';
-    }
+    s = s.replace(/^MQ\s+/i, '');
+    s = s.replace(/^PRANCHA\s+/i, '');
+    s = s.replace(/^SECADOR\s+/i, '');
+    s = s.replace(/^MODELADOR\s+/i, '');
+    
+    s = s.replace(/^MAQUINA\s+DE\s+CORTE\s+/i, 'CORTE ');
+    s = s.replace(/^MAQUINA\s+DE\s+ACABAMENTO\s+/i, 'ACAB. ');
+    s = s.replace(/^MAQUINA\s+/i, '');
 
-    return `<span class="status-tag ${cls}" title="${tooltip}">${status}</span>`;
+    s = s.replace(/^TESOURAS?\s+SORTIDAS\s+/i, 'SORTIDAS ');
+    s = s.replace(/^TESOURAS?\s+/i, '');
+    s = s.replace(/^TES\s+/i, '');
+
+    s = s.replace(/^ESCOVA\s+SECADORA\s+/i, '');
+    s = s.replace(/^ESCOVA\s+ALISADORA\s+/i, 'ALISADORA ');
+    s = s.replace(/^ESCOVA\s+/i, '');
+    s = s.replace(/\s*-\s*ESCOVA\s+SECADORA.*$/i, '');
+    s = s.replace(/\s*-\s*ESCOVA\s+ALISADORA.*$/i, '');
+
+    s = s.replace(/\s*-\s*MQ\d+$/i, '');
+    s = s.replace(/\s*-\s*BIVOLT$/i, ' BIV');
+    s = s.replace(/\s*BIVOLT$/i, ' BIV');
+    
+    s = s.replace(/DESBASTADEIRA/gi, 'DESBAST.');
+    s = s.replace(/SAND\s+FINISH/gi, 'SAND');
+    s = s.replace(/SHINE\s+STEEL/gi, 'SHINE');
+    s = s.replace(/TITANIUM/gi, 'TIT.');
+
+    return s.trim();
 }
 
-function switchMetric(met) {
-    currentMetric = met;
-    ['completo', 'share', 'mom', 'yoy'].forEach(m => {
-        const btn = document.getElementById(`btn-met-${m}`);
-        if (btn) btn.classList.toggle('active', m === met);
-    });
-    renderTable();
+function getCategoryPriority(item) {
+    if (!item) return 99;
+    const s = String(item).toLowerCase();
+    if (s.includes('prancha')) return 1;
+    if (s.includes('secador')) return 2;
+    if (s.includes('maquina')) return 3;
+    if (s.includes('diario') || s.includes('diário')) return 4;
+    if (s.includes('modelador')) return 5;
+    if (s.includes('parlux')) return 6;
+    if (s.includes('secadora') || s.includes('sec.')) return 7;
+    if (s.includes('tesoura')) return 8;
+    return 99;
 }
 
-function rotuloPeriodo() {
-    const c = currentData && currentData.contexto;
-    if (!c) return '';
-    const fim = c.periodos.ytd[1];
-    const partes = fim.split('-');
-    return `01/01 a ${partes[2]}/${partes[1]}${c.parcial ? ` (${c.dias} dias)` : ''}`;
-}
+// ---------------------------------------------------------------------------
+// Renderização dos Cards (Modo 1)
+// ---------------------------------------------------------------------------
+function renderCategoryCard(cat, rankNum) {
+    const anoAtual = currentData ? currentData.ano : 2026;
+    const anoAnt = anoAtual - 1;
+    const shareAnt = cat.share_ant ?? 0;
+    const shareAtual = cat.share ?? 0;
+    const catPp = shareAtual - shareAnt;
+    let catEvol = shareAnt > 0 ? ((shareAtual - shareAnt) / shareAnt) * 100 : (shareAtual > 0 ? 100.0 : 0.0);
 
-function renderTableHeader() {
-    const theadRow = document.getElementById('table-header-row');
-    if (!theadRow || !currentData) return;
+    const showCatPp = Math.abs(catPp) >= 0.05;
 
-    const itemLabel = currentView === 'categoria' ? 'Categoria Analítica' : 'Marca';
-    const ano = currentData.ano;
-    const per = rotuloPeriodo();
+    // Filtrar produtos que NÃO sejam zerados (share ant, share atual e evolução p.p zerados)
+    const prods = (cat.produtos || []).filter(p => !isItemZerado(p));
+    const topProds = prods.slice(0, 10);
 
-    theadRow.innerHTML = `
-        <th class="col-rank sortable text-center" onclick="sortTable('rank')">Posição ⇅</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 200px; max-width: 280px;">Produto ⇅</th>
-        <th class="sortable text-right" onclick="sortTable('faturamento')" style="border-left: 1px solid #475569; white-space: nowrap; display: none;" title="Receita acumulada de ${per} de ${ano}">Acum. ${ano} ⇅</th>
-        <th class="sortable text-right" onclick="sortTable('faturamento_ant')" style="white-space: nowrap; display: none;" title="Mesmo período de ${ano - 1}, cortado no mesmo dia">Acum. ${ano - 1} ⇅</th>
-        <th class="col-share-ant sortable text-center" onclick="sortTable('share_ant')" title="Participação no mesmo período do ano anterior">Part. % Anter. ⇅</th>
-        <th class="col-share-periodo sortable text-center" onclick="sortTable('share')" title="Participação no canal">Part. % Atual ⇅</th>
-        <th class="col-share-var sortable text-center" onclick="sortTable('share_var')" title="Variação em pontos percentuais (Share atual - anterior)">Var. pp ⇅</th>
-        <th class="col-mes-mom sortable text-center" onclick="sortTable('mom')" style="border-left: 1px solid #475569; white-space: nowrap;" title="MoM: mês corrente contra o mês anterior, no mesmo intervalo de dias">% Cresc. (MoM) ⇅</th>
-        <th class="col-mes-yoy sortable text-center" onclick="sortTable('yoy')" style="white-space: nowrap;" title="YoY: mês corrente contra o mesmo mês do ano anterior, no mesmo intervalo de dias">% Cresc. (YoY) ⇅</th>
-        <th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); white-space: nowrap;" title="YTD: acumulado de ${per} contra o mesmo período do ano anterior">% Cresc. (YTD) ⇅</th>
-        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;">Classificação</th>
+    const rankClass = rankNum === 1 ? 'rank-1-card' : '';
+    const rankBadge = renderRankBadge(rankNum);
+
+    const prodItemsHtml = topProds.length > 0 ? topProds.map((p, pIdx) => {
+        const pShareAnt = p.share_ant ?? 0;
+        const pShareAtual = p.share ?? 0;
+        const pPp = pShareAtual - pShareAnt;
+        const cleanName = cleanProductName(p.item, cat.item);
+
+        let pEvol = p.evolucao_share;
+        if (pEvol === null || pEvol === undefined || isNaN(pEvol)) {
+            if (pShareAnt > 0) {
+                pEvol = ((pShareAtual - pShareAnt) / pShareAnt) * 100;
+            } else if (pShareAtual > 0) {
+                pEvol = 100.0;
+            } else {
+                pEvol = 0.0;
+            }
+        }
+
+        let evolClass = 'equal';
+        let evolText = '0,0%';
+        if (pEvol > 0.05) {
+            evolClass = 'up';
+            evolText = `+${pEvol.toFixed(1).replace('.', ',')}%`;
+        } else if (pEvol < -0.05) {
+            evolClass = 'down negative';
+            evolText = `${pEvol.toFixed(1).replace('.', ',')}%`;
+        }
+
+        const pPpFormatted = `${pPp >= 0 ? '+' : ''}${pPp.toFixed(1).replace('.', ',')} p.p.`;
+
+        return `
+            <div class="cat-col-prod-item" title="${escapeHtml(p.item)} | ${anoAnt}: ${pShareAnt.toFixed(1).replace('.', ',')}% | ${anoAtual}: ${pShareAtual.toFixed(1).replace('.', ',')}% | %Evol: ${evolText} | Dif: ${pPpFormatted}">
+                <div class="cat-col-prod-top">
+                    <span class="cat-col-prod-num">${pIdx + 1}º</span>
+                    <span class="cat-col-prod-name" title="${escapeHtml(p.item)}">${escapeHtml(cleanName)}</span>
+                </div>
+                <div class="cat-col-prod-metrics">
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">${anoAnt}</span>
+                        <span class="prod-m-val ant">${pShareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl gold">${anoAtual}</span>
+                        <span class="prod-m-val atual">${pShareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">%Evol.</span>
+                        <span class="prod-m-val ${evolClass}">${evolText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('') : `<div style="text-align:center; padding:12px 4px; color:#64748b; font-size:0.62rem;">Nenhum produto com evolução no período</div>`;
+
+    const remainingProds = prods.length - topProds.length;
+    const footerText = remainingProds > 0 ? `+ ${remainingProds} outros produtos` : `${prods.length} ${prods.length === 1 ? 'produto com evolução' : 'produtos com evolução'}`;
+
+    return `
+        <div class="cat-column-card ${rankClass}">
+            <div class="cat-col-header">
+                <div class="cat-col-title-row">
+                    ${rankBadge}
+                    <span class="cat-col-name" title="${escapeHtml(cat.item)}">${escapeHtml(formatCategoryName(cat.item))}</span>
+                    <span class="cat-col-prod-count">${prods.length}p</span>
+                </div>
+            </div>
+
+            <div class="cat-col-hero">
+                <div class="cat-hero-shares-grid">
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl">SHARE ${anoAnt}</span>
+                        <span class="cat-hero-share-num ant">${shareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="cat-hero-share-divider"></div>
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl gold">SHARE ${anoAtual}</span>
+                        <span class="cat-hero-share-num atual">${shareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                </div>
+
+                <div class="cat-hero-evols-row">
+                    ${showCatPp ? `
+                        <div class="cat-hero-evol-cell">
+                            <span class="cat-hero-evol-lbl">EVOL. P.P</span>
+                            <span class="var-share-pill ${catPp > 0 ? 'up' : 'down'}">
+                                ${catPp > 0 ? '▲ +' : '▼ '}${Math.abs(catPp).toFixed(1).replace('.', ',')} p.p.
+                            </span>
+                        </div>
+                    ` : ''}
+                    <div class="cat-hero-evol-cell">
+                        <span class="cat-hero-evol-lbl">EVOLUÇÃO</span>
+                        <span class="var-share-pill ${catEvol > 0 ? 'up' : (catEvol < 0 ? 'down' : 'equal')}">
+                            ${catEvol > 0 ? '▲ +' : (catEvol < 0 ? '▼ ' : '')}${Math.abs(catEvol).toFixed(1).replace('.', ',')}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cat-col-body">
+                <div class="cat-col-prods-title">
+                    <span>TOP PRODUTOS</span>
+                    <span>${anoAnt} · ${anoAtual} · %EVOL</span>
+                </div>
+                <div class="cat-col-prod-list">
+                    ${prodItemsHtml}
+                </div>
+            </div>
+
+            <div class="cat-col-footer">
+                <span>${footerText}</span>
+            </div>
+        </div>
     `;
 }
 
-const BASE_MINIMA_COMPARAVEL = 5000;
+function renderCards(filteredCats) {
+    const container = document.getElementById('container-cards');
+    if (!container) return;
 
-function pilulaVariacao(valor, base) {
-    if (valor === null || valor === undefined || Number.isNaN(valor)) {
-        return '<span class="cell-vazio">—</span>';
-    }
-    if (base !== undefined && base !== null && Math.abs(base) < BASE_MINIMA_COMPARAVEL) {
-        return `<span class="delta-badge new" style="font-size:0.72rem; padding:2px 5px;">✨ novo</span>`;
-    }
-    const cls = valor > 0 ? 'positive' : (valor < 0 ? 'negative' : 'neutral');
-    return `<span class="pct-pill ${cls}" style="display:inline-block; margin:0; font-size:0.78rem; padding:2px 5px;">${formatPct(valor)}</span>`;
-}
+    // Ocultar categorias zeradas (share ant, share atual e evolução p.p = 0)
+    const activeCats = (filteredCats || []).filter(c => !isItemZerado(c));
 
-function renderTable() {
-    if (!currentData) return;
-
-    renderTableHeader();
-
-    const items = currentView === 'categoria' ? [...(currentData.categorias || [])] : [...(currentData.marcas || [])];
-    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
-    const ano = currentData.ano;
-
-    // Filter by item or children item
-    const filtered = items.filter(it => {
-        if (it.item.toLowerCase().includes(searchTerm)) return true;
-        if (it.produtos) {
-            return it.produtos.some(p => p.item.toLowerCase().includes(searchTerm));
-        }
-        return false;
-    });
-
-    // Sorting only on parent for now, children are already sorted by backend (or can be sorted here)
-    filtered.sort((a, b) => {
-        let valA = a[currentSort.column];
-        let valB = b[currentSort.column];
-        if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
-        if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
-        if (typeof valA === 'string') {
-            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return currentSort.asc ? valA - valB : valB - valA;
-    });
-
-    const tbody = document.getElementById('table-body');
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado.</td></tr>`;
+    if (activeCats.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#8c93a0; font-size:1rem;">Nenhuma categoria com movimentação encontrada no filtro para este canal.</div>`;
         return;
     }
 
-    const per = rotuloPeriodo();
+    const sortedCats = [...activeCats].sort((a, b) => getCategoryPriority(a.item) - getCategoryPriority(b.item));
 
-    let html = '';
-    
-    filtered.forEach(row => {
-        const diffPp = row.var_pp ?? (row.share - (row.share_ant || 0)) ?? 0;
-        const diffSign = diffPp > 0 ? '+' : '';
-        const diffCls = diffPp > 0 ? 'up' : (diffPp < 0 ? 'down negative' : 'equal');
+    if (sortedCats.length <= 4) {
+        container.style.gridTemplateColumns = `repeat(${sortedCats.length}, minmax(0, 1fr))`;
+        container.style.gridTemplateRows = '1fr';
+    } else {
+        container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+        container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
+    }
 
-        // Parent Row (Categoria/Marca)
-        html += `
-            <tr style="background-color: rgba(255,255,255,0.02); font-weight: bold; border-top: 2px solid #334155;">
-                <td class="col-rank text-center"></td>
-                <td class="col-item text-center" title="${row.item}" style="min-width:200px; max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${row.item}</td>
-                <td class="text-right" style="border-left:1px solid #475569; white-space:nowrap; display: none;" title="${per} de ${ano}">${formatMoeda(row.faturamento)}</td>
-                <td class="text-right" style="white-space:nowrap; color:#9aa3b2; display: none;" title="Mesmo período de ${ano - 1}">${formatMoeda(row.faturamento_ant)}</td>
-                <td class="col-share-ant text-center"><span class="share-ant-val">${(row.share_ant ?? 0).toFixed(1)}%</span></td>
-                <td class="col-share-periodo text-center"><span class="share-periodo-val">${(row.share ?? 0).toFixed(1)}%</span></td>
-                <td class="col-share-var text-center"><span class="var-share-pill ${diffCls}">${diffSign}${diffPp.toFixed(1)}%</span></td>
-                <td class="col-mes-mom text-center" style="border-left:1px solid #475569;">${pilulaVariacao(row.mom, row.mes_anterior)}</td>
-                <td class="col-mes-yoy text-center">${pilulaVariacao(row.yoy, row.mes_ano_anterior)}</td>
-                <td class="col-ytd-yoy text-center" style="background: rgba(255,193,7,0.05);">${pilulaVariacao(row.ytd_yoy, row.faturamento_ant)}</td>
-                <td class="col-status text-center"></td>
-            </tr>
-        `;
-        
-        // Children Rows (Produtos)
-        if (row.produtos && row.produtos.length > 0) {
-            row.produtos.forEach(f => {
-                // If filtering by search term, and search term exists, and product doesn't match, skip
-                if (searchTerm && !f.item.toLowerCase().includes(searchTerm) && !row.item.toLowerCase().includes(searchTerm)) {
-                    return;
-                }
-                
-                const fdiffPp = f.var_pp ?? (f.share - (f.share_ant || 0)) ?? 0;
-                const fdiffSign = fdiffPp > 0 ? '+' : '';
-                const fdiffCls = fdiffPp > 0 ? 'up' : (fdiffPp < 0 ? 'down negative' : 'equal');
+    const cardsHtml = sortedCats.map((cat, idx) => {
+        return renderCategoryCard(cat, idx + 1);
+    }).join('');
 
-                html += `
-                    <tr>
-                        <td class="col-rank text-center">${f.rank ? f.rank : '-'}</td>
-                        <td class="col-item text-left" style="padding-left: 20px; font-size: 0.9em; min-width:200px; max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${f.item}">${f.item}</td>
-                        <td class="text-right" style="border-left:1px solid #475569; white-space:nowrap; display: none;">${formatMoeda(f.faturamento)}</td>
-                        <td class="text-right" style="white-space:nowrap; color:#9aa3b2; display: none;">${formatMoeda(f.faturamento_ant)}</td>
-                        <td class="col-share-ant text-center"><span class="share-ant-val" style="font-size: 0.9em; color:#9aa3b2;">${(f.share_ant ?? 0).toFixed(1)}%</span></td>
-                        <td class="col-share-periodo text-center"><span class="share-periodo-val" style="font-size: 0.9em;">${(f.share ?? 0).toFixed(1)}%</span></td>
-                        <td class="col-share-var text-center"><span class="var-share-pill ${fdiffCls}" style="font-size: 0.85em;">${fdiffSign}${fdiffPp.toFixed(1)}%</span></td>
-                        <td class="col-mes-mom text-center" style="border-left:1px solid #475569;">${pilulaVariacao(f.mom, f.faturamento_mtd)}</td>
-                        <td class="col-mes-yoy text-center">${pilulaVariacao(f.yoy, f.faturamento_mtd)}</td>
-                        <td class="col-ytd-yoy text-center" style="background: rgba(255,193,7,0.05);">${pilulaVariacao(f.ytd_yoy, f.faturamento_ant)}</td>
-                        <td class="col-status text-center" style="min-width:90px; white-space:nowrap;">${renderStatusTag(f.status)}</td>
-                    </tr>
-                `;
-            });
-        }
-    });
-
-    tbody.innerHTML = html;
+    container.innerHTML = cardsHtml;
 }
-function switchView(view) {
-    currentView = view;
-    const btnCat = document.getElementById('btn-view-cat');
-    const btnMarca = document.getElementById('btn-view-marca');
-    if (btnCat) btnCat.classList.toggle('active', view === 'categoria');
-    if (btnMarca) btnMarca.classList.toggle('active', view === 'marca');
 
-    if (currentData) {
+// ---------------------------------------------------------------------------
+// Visualização e Controles de Tabela
+// ---------------------------------------------------------------------------
+function switchDisplayMode(mode) {
+    currentDisplayMode = mode;
+    const btnCards = document.getElementById('btn-mode-cards');
+    const btnTable = document.getElementById('btn-mode-table');
+    const containerCards = document.getElementById('container-cards');
+    const containerTable = document.getElementById('container-table');
+    const treeControls = document.getElementById('table-tree-controls');
+
+    if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+    if (btnTable) btnTable.classList.toggle('active', mode === 'table');
+
+    if (containerCards) containerCards.style.display = mode === 'cards' ? 'grid' : 'none';
+    if (containerTable) containerTable.style.display = mode === 'table' ? 'flex' : 'none';
+    if (treeControls) treeControls.style.display = mode === 'table' ? 'flex' : 'none';
+
+    if (mode === 'table') {
         renderTable();
     }
+}
+window.switchViewMode = switchDisplayMode;
+window.switchDisplayMode = switchDisplayMode;
+
+function toggleCategory(catName, event) {
+    if (event) event.stopPropagation();
+    if (collapsedCategories.has(catName)) {
+        collapsedCategories.delete(catName);
+    } else {
+        collapsedCategories.add(catName);
+    }
+    renderTable();
+}
+
+function expandAllCategories() {
+    collapsedCategories.clear();
+    renderTable();
+}
+
+function collapseAllCategories() {
+    if (!currentData || !currentData.categorias) return;
+    currentData.categorias.forEach(c => collapsedCategories.add(c.item));
+    renderTable();
 }
 
 function sortTable(column) {
@@ -292,14 +683,207 @@ function filterTable() {
     renderTable();
 }
 
+function renderTableHeader() {
+    const theadRow = document.getElementById('table-header-row');
+    if (!theadRow || !currentData) return;
+
+    const ano = currentData.ano;
+
+    theadRow.innerHTML = `
+        <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 260px;">Categoria ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no canal no mesmo período do ano anterior">Share ${ano - 1} ↕</th>
+        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no canal no acumulado do ano atual">Share ${ano} ↕</th>
+        <th class="col-share-pp sortable text-right" onclick="sortTable('evolucao_pp')" title="Variação em pontos percentuais (Share ${ano} - Share ${ano - 1})">Evolução p.p ↕</th>
+        <th class="col-share-var sortable text-right" onclick="sortTable('evolucao_share')" title="Evolução percentual: (Share ${ano} - Share ${ano - 1}) / Share ${ano - 1}">Evolução ↕</th>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// Renderização Principal (Cards + Tabela)
+// ---------------------------------------------------------------------------
+function renderTable() {
+    if (!currentData || !currentData.categorias) return;
+
+    renderTableHeader();
+
+    // Filtrar categorias que NÃO sejam zeradas (share ant, share atual e evolução p.p = 0)
+    let items = [...currentData.categorias].filter(c => !isItemZerado(c));
+
+    if (selectedCategories.length > 0) {
+        items = items.filter(c => selectedCategories.includes(c.item));
+    } else if (allAvailableCategories.length > 0 && selectedCategories.length === 0) {
+        items = [];
+    }
+
+    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
+
+    let filtered = [];
+    if (!searchTerm) {
+        filtered = items;
+    } else {
+        items.forEach(cat => {
+            const catMatches = cat.item.toLowerCase().includes(searchTerm);
+            const activeProds = (cat.produtos || []).filter(p => !isItemZerado(p));
+            const matchingProds = activeProds.filter(p => p.item.toLowerCase().includes(searchTerm));
+            if (catMatches || matchingProds.length > 0) {
+                filtered.push({
+                    ...cat,
+                    produtos: catMatches ? activeProds : matchingProds
+                });
+            }
+        });
+    }
+
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (currentSort.column === 'evolucao_pp') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shA - shAntA;
+            valB = shB - shAntB;
+        } else if (currentSort.column === 'evolucao_share') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shAntA > 0 ? ((shA - shAntA) / shAntA * 100) : (shA > 0 ? 100 : 0);
+            valB = shAntB > 0 ? ((shB - shAntB) / shAntB * 100) : (shB > 0 ? 100 : 0);
+        } else {
+            valA = a[currentSort.column];
+            valB = b[currentSort.column];
+        }
+
+        if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
+        if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
+        if (typeof valA === 'string') {
+            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return currentSort.asc ? valA - valB : valB - valA;
+    });
+
+    renderCards(filtered);
+
+    const tbody = document.getElementById('table-body');
+    const tfoot = document.getElementById('table-footer');
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado no canal.</td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+
+    const htmlRows = [];
+
+    filtered.forEach((cat, catIdx) => {
+        const isCollapsed = collapsedCategories.has(cat.item);
+        const prods = (cat.produtos || []).filter(p => !isItemZerado(p));
+        const expandIcon = isCollapsed ? '▶' : '▼';
+
+        const shareAnt = cat.share_ant ?? 0;
+        const shareAtual = cat.share ?? 0;
+        const catPp = shareAtual - shareAnt;
+
+        let catEvol = 0;
+        if (shareAnt > 0) {
+            catEvol = ((shareAtual - shareAnt) / shareAnt) * 100;
+        } else if (shareAtual > 0) {
+            catEvol = 100.0;
+        } else {
+            catEvol = 0.0;
+        }
+
+        const safeCatItem = cat.item.replace(/'/g, "\\'");
+
+        // Linha Principal da Categoria
+        htmlRows.push(`
+            <tr class="cat-header-row ${isCollapsed ? 'collapsed' : ''}" onclick="toggleCategory('${safeCatItem}', event)" title="Clique para expandir/recolher produtos desta categoria no canal">
+                <td class="col-rank text-center">${renderRankBadge(catIdx + 1)}</td>
+                <td class="col-item text-left" style="min-width: 180px; max-width: 260px;">
+                    <div class="cat-item-content">
+                        <span class="cat-toggle-icon">${expandIcon}</span>
+                        <span class="cat-title-text">${escapeHtml(formatCategoryName(cat.item))}</span>
+                        <span class="cat-count-pill">${prods.length} ${prods.length === 1 ? 'prod' : 'prods'}</span>
+                    </div>
+                </td>
+                <td class="col-share-ant text-right cat-share-ant"><span class="share-ant-val">${shareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right cat-share-periodo"><span class="share-periodo-val" style="font-weight:700; color:#ffd700;">${shareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(catPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(catEvol)}</td>
+            </tr>
+        `);
+
+        // Sublinhas dos Produtos
+        if (!isCollapsed && prods.length > 0) {
+            prods.forEach((prod, pIdx) => {
+                const prodShareAnt = prod.share_ant ?? 0;
+                const prodShareAtual = prod.share ?? 0;
+                const prodPp = prodShareAtual - prodShareAnt;
+
+                let prodEvol = 0;
+                if (prodShareAnt > 0) {
+                    prodEvol = ((prodShareAtual - prodShareAnt) / prodShareAnt) * 100;
+                } else if (prodShareAtual > 0) {
+                    prodEvol = 100.0;
+                } else {
+                    prodEvol = 0.0;
+                }
+
+                htmlRows.push(`
+                    <tr class="prod-sub-row">
+                        <td class="col-rank text-center prod-rank-cell">
+                            <span class="prod-sub-num">${pIdx + 1}º</span>
+                        </td>
+                        <td class="col-item text-left prod-item-cell" title="${escapeHtml(prod.item)}" style="min-width: 180px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <div class="prod-indent-wrap">
+                                <span class="prod-name-label">${escapeHtml(prod.item)}</span>
+                            </div>
+                        </td>
+                        <td class="col-share-ant text-right prod-share-cell"><span class="sub-share-muted">${prodShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-periodo text-right prod-share-cell"><span class="sub-share-light" style="color:#ffd700;">${prodShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-pp text-right">${formatPp(prodPp, true)}</td>
+                        <td class="col-share-var text-right">${formatEvol(prodEvol, true)}</td>
+                    </tr>
+                `);
+            });
+        }
+    });
+
+    tbody.innerHTML = htmlRows.join('');
+
+    // Linha de TOTAL no rodapé
+    if (tfoot) {
+        const sumShareAnt = filtered.reduce((acc, r) => acc + (r.share_ant || 0), 0);
+        const sumShareAtual = filtered.reduce((acc, r) => acc + (r.share || 0), 0);
+        const sumPp = sumShareAtual - sumShareAnt;
+        const sumEvol = sumShareAnt > 0 ? ((sumShareAtual - sumShareAnt) / sumShareAnt) * 100 : 0;
+
+        tfoot.innerHTML = `
+            <tr class="total-row">
+                <td class="col-rank text-center" style="font-size:0.9rem;">Σ</td>
+                <td class="col-item text-left">TOTAL NO CANAL</td>
+                <td class="col-share-ant text-right total-share"><span class="share-ant-val">${sumShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right total-share"><span class="share-periodo-val" style="color:#ffd700;">${sumShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(sumPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(sumEvol)}</td>
+            </tr>
+        `;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Carga de Dados da API
+// ---------------------------------------------------------------------------
 async function fetchData(forceRefresh = false) {
     const monthEl = document.getElementById('filter-month');
     const refMes = parseInt(monthEl?.value) || (new Date().getMonth() + 1);
     const ano = document.getElementById('filter-year')?.value || 2026;
-    const canal = window.CURRENT_CANAL || '';
+    const canal = window.CURRENT_CANAL_ID || window.CURRENT_CANAL || 'distribuicao';
 
     try {
         let url = `/api/canal_dados?canal=${encodeURIComponent(canal)}&mes=${refMes}&ano=${ano}`;
+        if (selectedMarcas.length > 0 && selectedMarcas.length < allAvailableMarcas.length) {
+            url += `&marca=${encodeURIComponent(selectedMarcas.join(','))}`;
+        }
         if (forceRefresh) {
             url += `&refresh=1&_t=${Date.now()}`;
         }
@@ -308,15 +892,25 @@ async function fetchData(forceRefresh = false) {
 
         if (json.success && json.data) {
             currentData = json.data;
+            initCategoryMultiselect();
+            initMarcaMultiselect();
             renderTable();
 
             const lastEl = document.getElementById('last-update');
             if (lastEl) lastEl.innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')}`;
         } else {
             console.error("Erro na API canal_dados:", json.error);
+            const containerCards = document.getElementById('container-cards');
+            if (containerCards) {
+                containerCards.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#ef4444; font-size:1rem;">⚠️ Erro ao carregar dados: ${escapeHtml(json.error || 'Falha na API')}</div>`;
+            }
         }
     } catch (err) {
         console.error("Falha ao buscar dados do canal:", err);
+        const containerCards = document.getElementById('container-cards');
+        if (containerCards) {
+            containerCards.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#ef4444; font-size:1rem;">⚠️ Erro de conexão. Verifique a conexão com o servidor.</div>`;
+        }
     }
 }
 

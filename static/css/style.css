@@ -24,19 +24,36 @@ body {
     background-color: var(--bg-dark);
     color: var(--mq-white);
     font-family: var(--font-main);
-    overflow: hidden; /* Evita scroll na TV */
-    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
+/* Scrollbar adaptativa elegante MQ Gold */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #0d0f12;
+}
+::-webkit-scrollbar-thumb {
+    background: #a5781a;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #ffd700;
+}
+
 .dashboard-container {
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 6px 16px 8px;
-    overflow: hidden;
+    padding: 4px 12px 8px;
+    overflow: visible;
 }
 
 .header {
@@ -729,7 +746,8 @@ body {
  . o s c i l o u - b a i x o   { 
          a n i m a t i o n :   p i s c a r V e r m e l h o   1 s   i n f i n i t e ; 
  } 
-  
+ 
+ 
  
 /* ============================================================ */
 /* Tabela de indicadores de tempo dentro do velocímetro         */

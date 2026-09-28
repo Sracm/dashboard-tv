@@ -11,8 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260916_5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260925_172800">
 </head>
 <body>
     <div class="dashboard-container">
@@ -31,7 +31,6 @@
                     <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
                     <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
                     <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
-                    <button onclick="navigateTab('/canal/ecommerce_parlux')" class="tab-btn">E-com. Parlux</button>
                     <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
                     <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn">Regional Sul</button>
                     <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
@@ -63,6 +62,32 @@
                         <option value="2025">2025</option>
                         <option value="2026">2026</option>
                     </select>
+
+                    <!-- Filtro Multiselect de Marcas -->
+                    <div class="multiselect-wrapper" id="brand-multiselect">
+                        <button type="button" class="multiselect-btn" id="brand-select-btn" onclick="toggleBrandDropdown(event)" title="Filtrar marcas exibidas no painel">
+                            <span class="ms-icon">🏷️</span>
+                            <span id="brand-select-label">Marcas: Principais</span>
+                            <span class="ms-arrow">▼</span>
+                        </button>
+                        <div class="multiselect-menu" id="brand-select-menu" style="width: 280px;">
+                            <div class="ms-header">
+                                <div class="ms-title-row">
+                                    <span class="ms-title">Filtrar Marcas</span>
+                                    <span class="ms-selected-count" id="brand-count-badge">-- sel.</span>
+                                </div>
+                                <div class="ms-quick-actions">
+                                    <button type="button" class="ms-action-btn" onclick="selectDefaultBrands(event)">Padrão</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllBrands(true, event)">Todas</button>
+                                    <button type="button" class="ms-action-btn" onclick="selectAllBrands(false, event)">Limpar</button>
+                                </div>
+                            </div>
+                            <div class="ms-grid" id="brand-checkbox-grid" style="grid-template-columns: 1fr; max-height: 280px; overflow-y: auto; gap: 4px;">
+                                <!-- Checkboxes gerados dinamicamente via JS -->
+                            </div>
+                        </div>
+                    </div>
+
                     <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
                 </div>
                 <div class="header-meta-info">
@@ -78,15 +103,17 @@
         <section class="controls-bar">
             <div class="controls-left-group">
                 <div class="view-switch-container">
-                    <button class="view-btn active" id="btn-view-marca" onclick="switchView('marca')">
-                        🏷️ Marcas
+                    <button class="view-btn active" id="btn-mode-cards" onclick="switchViewMode('cards')" title="Visualização em Colunas Lado a Lado">
+                        📊 Colunas Lado a Lado
+                    </button>
+                    <button class="view-btn" id="btn-mode-table" onclick="switchViewMode('table')" title="Visualização em Tabela Detalhada com Hierarquia">
+                        📋 Tabela Detalhada
                     </button>
                 </div>
 
-                <div class="metric-switch-container">
-                    <button class="metric-btn active" id="btn-met-completo" onclick="switchMetric('completo')">
-                        🎯 Completo (Share + Δ Posição + MoM + YoY)
-                    </button>
+                <div class="metric-switch-container" id="table-tree-controls" style="display: none;">
+                    <button class="tree-toggle-btn" onclick="expandAllMarcas()" title="Expandir todos os produtos">▾ Expandir Todos</button>
+                    <button class="tree-toggle-btn" onclick="collapseAllMarcas()" title="Recolher e ver apenas marcas">▸ Recolher Todos</button>
                 </div>
             </div>
 
@@ -98,27 +125,31 @@
             </div>
         </section>
 
-        <!-- Executive Table Container -->
-        <main class="table-card-container">
-            <!-- Seção 1: Marcas -->
-            <div class="table-section-block">
-                <div class="table-section-title">
-                    <span class="section-icon">🏷️</span> PERFORMANCE POR MARCAS
-                </div>
-                <div class="table-responsive-wrapper">
-                    <table class="exec-table" id="table-marcas">
-                        <thead>
-                            <tr id="table-header-row">
-                                <!-- Cabeçalhos dinâmicos com colunas mês a mês gerados via JS -->
-                            </tr>
-                        </thead>
-                        <tbody id="table-body">
-                            <!-- Linhas de Marcas geradas dinamicamente via JS -->
-                        </tbody>
-                    </table>
-                </div>
+        <!-- Mode 1: Colunas Lado a Lado (Padrão) -->
+        <main class="columns-grid-container" id="container-cards">
+            <div style="grid-column: 1 / -1; display:flex; flex-direction:column; align-items:center; justify-content:center; height:60vh; color:var(--gold); font-size:1rem; gap:12px;">
+                <span style="font-size:2rem;">⏳</span>
+                <span style="font-weight:600; letter-spacing:0.5px;">Carregando marcas...</span>
             </div>
+        </main>
 
+        <!-- Mode 2: Executive Data Table Container -->
+        <main class="table-card-container" id="container-table" style="display: none;">
+            <div class="table-responsive-wrapper">
+                <table class="exec-table" id="table-marcas">
+                    <thead>
+                        <tr id="table-header-row">
+                            <!-- Cabeçalhos gerados via JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <!-- Linhas geradas dinamicamente via JS -->
+                    </tbody>
+                    <tfoot id="table-footer">
+                        <!-- Linha de totais gerada dinamicamente via JS -->
+                    </tfoot>
+                </table>
+            </div>
         </main>
     </div>
 
@@ -126,8 +157,6 @@
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
-    <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260922_2"></script>
+    <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260925_214200"></script>
 </body>
 </html>
-
-

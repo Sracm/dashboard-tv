@@ -265,7 +265,9 @@ function isDefaultCategory(catName) {
 function initCategoryMultiselect() {
     if (!currentData || !currentData.categorias) return;
 
-    allAvailableCategories = currentData.categorias.map(c => c.item);
+    if (allAvailableCategories.length === 0) {
+        allAvailableCategories = currentData.categorias.filter(c => !isItemZerado(c)).map(c => c.item);
+    }
 
     // Se selectedCategories estiver vazio, inicializa com padrão (sem Spare Parts e Outros)
     if (selectedCategories.length === 0) {
@@ -502,6 +504,14 @@ function switchDisplayMode(mode) {
 window.switchViewMode = switchDisplayMode;
 window.switchDisplayMode = switchDisplayMode;
 
+function isItemZerado(item) {
+    if (!item) return true;
+    const sAnt = Number(item.share_ant || 0);
+    const sAtual = Number(item.share || 0);
+    const pp = Math.abs(sAtual - sAnt);
+    return sAnt < 0.05 && sAtual < 0.05 && pp < 0.05;
+}
+
 function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -580,13 +590,8 @@ function renderCategoryCard(cat, rankNum) {
     // Se a evolução p.p for igual a 0.0 p.p, NÃO mostrar no card para não poluir
     const showCatPp = Math.abs(catPp) >= 0.05;
 
-    // Filtrar produtos com evolução p.p != 0,0% (se a evolução p.p for 0,0%, não mostrar nome do produto e informações)
-    const prods = (cat.produtos || []).filter(p => {
-        const pShareAnt = p.share_ant ?? 0;
-        const pShareAtual = p.share ?? 0;
-        const pPp = pShareAtual - pShareAnt;
-        return Math.abs(pPp) >= 0.05;
-    });
+    // Filtrar produtos relevantes que NÃO sejam zerados (share ant, share atual e evolução p.p zerados)
+    const prods = (cat.produtos || []).filter(p => !isItemZerado(p));
     const topProds = prods.slice(0, 10);
 
     const rankClass = rankNum === 1 ? 'rank-1-card' : '';
@@ -711,15 +716,18 @@ function renderCards(filteredCats) {
     const container = document.getElementById('container-cards');
     if (!container) return;
 
-    if (!filteredCats || filteredCats.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#8c93a0; font-size:1rem;">Nenhuma categoria encontrada no filtro.</div>`;
+    // Ocultar categorias zeradas
+    const activeCats = (filteredCats || []).filter(c => !isItemZerado(c));
+
+    if (activeCats.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#8c93a0; font-size:1rem;">Nenhuma categoria com movimentação encontrada no filtro.</div>`;
         return;
     }
 
     // Ordenação das 2 linhas:
     // Linha 1 (maior volume): Prancha, Secador, Máquina, Escova Diário
     // Linha 2 (foco/menores): Modelador, Parlux, Escova Sec., Tesoura
-    const sortedCats = [...filteredCats].sort((a, b) => getCategoryPriority(a.item) - getCategoryPriority(b.item));
+    const sortedCats = [...activeCats].sort((a, b) => getCategoryPriority(a.item) - getCategoryPriority(b.item));
 
     if (sortedCats.length <= 4) {
         container.style.gridTemplateColumns = `repeat(${sortedCats.length}, minmax(0, 1fr))`;
@@ -729,8 +737,8 @@ function renderCards(filteredCats) {
         container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
     }
 
-    const cardsHtml = sortedCats.map((cat) => {
-        return renderCategoryCard(cat, cat.rank || 1);
+    const cardsHtml = sortedCats.map((cat, idx) => {
+        return renderCategoryCard(cat, idx + 1);
     }).join('');
 
     container.innerHTML = cardsHtml;
@@ -741,7 +749,8 @@ function renderTable() {
 
     renderTableHeader();
 
-    let items = currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas];
+    // Filtrar itens que NÃO sejam zerados (share ant, share atual e evolução p.p = 0)
+    let items = (currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas]).filter(c => !isItemZerado(c));
 
     // Respeita o multiselect de categorias
     if (currentView === 'categoria') {
@@ -761,11 +770,12 @@ function renderTable() {
     } else {
         items.forEach(cat => {
             const catMatches = cat.item.toLowerCase().includes(searchTerm);
-            const matchingProds = (cat.produtos || []).filter(p => p.item.toLowerCase().includes(searchTerm));
+            const activeProds = (cat.produtos || []).filter(p => !isItemZerado(p));
+            const matchingProds = activeProds.filter(p => p.item.toLowerCase().includes(searchTerm));
             if (catMatches || matchingProds.length > 0) {
                 filtered.push({
                     ...cat,
-                    produtos: catMatches ? cat.produtos : matchingProds
+                    produtos: catMatches ? activeProds : matchingProds
                 });
             }
         });
@@ -813,7 +823,7 @@ function renderTable() {
 
     filtered.forEach((cat, catIdx) => {
         const isCollapsed = collapsedCategories.has(cat.item);
-        const prods = cat.produtos || [];
+        const prods = (cat.produtos || []).filter(p => !isItemZerado(p));
         const expandIcon = isCollapsed ? '▶' : '▼';
 
         const shareAnt = cat.share_ant ?? 0;

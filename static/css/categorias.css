@@ -22,8 +22,9 @@
 }
 
 html, body {
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
     background-color: var(--bg-main);
     color: var(--text-main);
     font-family: 'Montserrat', sans-serif;
@@ -34,9 +35,9 @@ html, body {
 .dashboard-container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    padding: 2px 10px 3px 10px;
-    overflow: hidden;
+    min-height: 100vh;
+    padding: 2px 10px 6px 10px;
+    overflow: visible;
 }
 
 .header {
@@ -196,11 +197,11 @@ html, body {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    padding: 2px 8px 6px 8px;
-    overflow: hidden;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 10px;
+    padding: 4px 8px 12px 8px;
+    overflow-y: auto;
+    max-height: calc(100vh - 120px);
 }
 
 .cat-column-card {
@@ -552,13 +553,11 @@ html, body {
 .table-card-container {
     flex: 1;
     min-height: 0;
-    padding: 0 8px 2px 8px;
+    padding: 0 8px 8px 8px;
     display: flex;
     flex-direction: column;
-    overflow-y: hidden;
-    overflow-x: hidden;
-    gap: 3px;
-    justify-content: space-between;
+    overflow: visible;
+    gap: 6px;
 }
 
 .table-section-block {
@@ -1605,4 +1604,61 @@ th.col-share-var {
     background-image: none !important;
     text-align: center;
     padding-right: 12px !important;
+}
+
+
+/* =========================================================
+   ADAPTABILIDADE TOTAL: TVs & MONITORES
+   ========================================================= */
+
+/* Monitores Menores e Notebooks (<= 1440px ou altura <= 850px) */
+@media screen and (max-width: 1440px), screen and (max-height: 850px) {
+    .columns-grid-container {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        max-height: none;
+    }
+    .col-card-title {
+        font-size: 0.82rem;
+    }
+    .col-card-subtitle {
+        font-size: 0.72rem;
+    }
+    .col-metric-value {
+        font-size: 0.78rem;
+    }
+    .card-prod-name {
+        max-width: 160px;
+        font-size: 0.68rem;
+    }
+    .table-responsive-wrapper {
+        max-height: calc(100vh - 110px);
+    }
+}
+
+/* Telas Grandes / TVs Full HD (1920x1080) */
+@media screen and (min-width: 1800px) {
+    .columns-grid-container {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+    }
+    .col-card-title {
+        font-size: 0.95rem;
+    }
+    .col-metric-value.hero-gold {
+        font-size: 1.15rem;
+    }
+}
+
+/* Telas 4K / Ultra-wide (>= 2560px) */
+@media screen and (min-width: 2560px) {
+    .columns-grid-container {
+        grid-template-columns: repeat(6, 1fr);
+        gap: 16px;
+    }
+    .col-card-title {
+        font-size: 1.15rem;
+    }
+    .col-metric-value.hero-gold {
+        font-size: 1.35rem;
+    }
 }

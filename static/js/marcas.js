@@ -1,40 +1,25 @@
 let nextUpdateSeconds = 600;
-let currentView = 'marca'; // 'categoria' ou 'marca'
-let currentMetric = 'completo'; // 'completo', 'share', 'mom', 'yoy'
+let currentView = 'marca';
+let currentMetric = 'completo';
 let currentData = null;
 let currentSort = { column: 'rank', asc: true };
-let currentCanaisSort = { column: 'rank', asc: true };
 const nomesMeses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-function getDefault4Months() {
-    const currentM = new Date().getMonth() + 1;
-    const months = [];
-    for (let i = 4; i >= 1; i--) {
-        let pastM = currentM - i;
-        if (pastM <= 0) pastM += 12;
-        months.push(pastM);
-    }
-    months.sort((a, b) => a - b);
-    return months;
-}
-
-// Default para os ultimos 4 meses antes do mes atual
-// Mes de corte do acumulado, lido do seletor #filter-month.
-let selectedMonths = [];
-
-// Marcas padrão solicitadas
+// Marcas padrão executivas solicitadas (7 principais)
 const DEFAULT_BRANDS = [
     'MQ PRO',
-    'MQ COMEX',
     'PARLUX',
     'FORCE BARB',
     'MQ ESCOVAS',
     'MQ BEAUTY',
-    'MQ TESOURA'
+    'MQ TESOURA',
+    'MQ COMEX'
 ];
 
-let selectedBrands = [...DEFAULT_BRANDS];
+let selectedBrands = [];
 let allAvailableBrands = [];
+let collapsedMarcas = new Set();
+let currentDisplayMode = 'cards'; // 'cards' (padrão) ou 'table'
 
 function pararTodosAudios() {
     const audio = document.getElementById('victory-sound');
@@ -67,7 +52,7 @@ function updateClock() {
     nextUpdateSeconds--;
     if (nextUpdateSeconds <= 0) {
         nextUpdateSeconds = 600;
-        fetchData();
+        fetchData(true);
     }
     const nextEl = document.getElementById('next-update');
     if (nextEl) {
@@ -86,8 +71,6 @@ function initFilters() {
     const yearEl = document.getElementById('filter-year');
     if (yearEl) yearEl.value = ano;
 
-    // Mes de corte: da URL, senao o mes corrente. A tabela consolida
-    // 01/01 ate o fim desse mes (ou ate hoje, se for o mes corrente).
     const mesParam = urlParams.get('mes');
     let mesCorte = parseInt(String(mesParam || '').split(',').pop());
     if (isNaN(mesCorte) || mesCorte < 1 || mesCorte > 12) {
@@ -95,32 +78,19 @@ function initFilters() {
     }
     const monthEl = document.getElementById('filter-month');
     if (monthEl) monthEl.value = String(mesCorte);
+
+    const marcaParam = urlParams.get('marca');
+    if (marcaParam) {
+        selectedBrands = marcaParam.split(',').map(m => decodeURIComponent(m).trim()).filter(Boolean);
+    }
 }
 
-
-
-
-
-
-
-
-document.addEventListener('click', (e) => {
-    const wrapper = document.getElementById('month-multiselect');
-    if (wrapper && wrapper.classList.contains('open')) {
-        if (!wrapper.contains(e.target)) {
-            wrapper.classList.remove('open');
-        }
-    }
-    const brandWrapper = document.getElementById('brand-multiselect');
-    if (brandWrapper && brandWrapper.classList.contains('open')) {
-        if (!brandWrapper.contains(e.target)) {
-            brandWrapper.classList.remove('open');
-        }
-    }
-});
-
+// ---------------------------------------------------------------------------
+// Filtro Multiselect de Marcas
+// ---------------------------------------------------------------------------
 function isDefaultBrand(brandName) {
-    const b = (brandName || '').toUpperCase().trim();
+    if (!brandName) return false;
+    const b = brandName.toUpperCase().trim();
     return DEFAULT_BRANDS.some(def => {
         const d = def.toUpperCase().trim();
         return b === d || (d.includes('TESOURA') && b.includes('TESOURA')) || (d.includes('FORCE') && b.includes('FORCE'));
@@ -130,11 +100,15 @@ function isDefaultBrand(brandName) {
 function initBrandMultiselect() {
     if (!currentData || !currentData.marcas) return;
 
-    allAvailableBrands = currentData.marcas.map(m => m.item);
+    if (allAvailableBrands.length === 0) {
+        allAvailableBrands = currentData.marcas.filter(m => !isItemZerado(m)).map(m => m.item).filter(Boolean);
+    }
 
-    // Se selectedBrands estiver vazio, inicializa com as 7 marcas padrão solicitadas
     if (selectedBrands.length === 0) {
         selectedBrands = allAvailableBrands.filter(isDefaultBrand);
+        if (selectedBrands.length === 0) {
+            selectedBrands = [...allAvailableBrands];
+        }
     }
 
     const grid = document.getElementById('brand-checkbox-grid');
@@ -142,12 +116,7 @@ function initBrandMultiselect() {
     grid.innerHTML = '';
 
     allAvailableBrands.forEach((marca, idx) => {
-        const mUpper = marca.toUpperCase().trim();
-        const isChecked = selectedBrands.some(b => {
-            const bUpper = b.toUpperCase().trim();
-            return bUpper === mUpper || (bUpper.includes('TESOURA') && mUpper.includes('TESOURA'));
-        });
-
+        const isChecked = selectedBrands.includes(marca);
         const isDef = isDefaultBrand(marca);
 
         const item = document.createElement('label');
@@ -159,12 +128,14 @@ function initBrandMultiselect() {
         item.style.padding = '5px 8px';
         item.style.cursor = 'pointer';
 
+        const safeMarca = marca.replace(/'/g, "\\'");
+
         item.innerHTML = `
             <div style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" class="ms-checkbox" value="${marca}" ${isChecked ? 'checked' : ''} onchange="onBrandCheckChange('${marca}', ${idx})">
-                <span style="font-weight:600; font-size:0.75rem;">${marca}</span>
+                <input type="checkbox" class="ms-checkbox" value="${escapeHtml(marca)}" ${isChecked ? 'checked' : ''} onchange="onBrandCheckChange('${safeMarca}', ${idx})">
+                <span style="font-weight:600; font-size:0.75rem;">${escapeHtml(marca)}</span>
             </div>
-            ${isDef ? '<span style="font-size:0.60rem; color:var(--gold); font-weight:800; background:rgba(203,151,39,0.15); padding:1px 5px; border-radius:3px;">PADRÃO</span>' : ''}
+            ${isDef ? '<span style="font-size:0.60rem; color:var(--gold); font-weight:800; background:rgba(203,151,39,0.15); padding:1px 5px; border-radius:3px;">PADRÃO</span>' : '<span style="font-size:0.60rem; color:#64748b; font-weight:600;">OPCIONAL</span>'}
         `;
         grid.appendChild(item);
     });
@@ -175,25 +146,15 @@ function initBrandMultiselect() {
 function toggleBrandDropdown(event) {
     if (event) event.stopPropagation();
     const wrapper = document.getElementById('brand-multiselect');
-    const monthWrapper = document.getElementById('month-multiselect');
-    if (monthWrapper) monthWrapper.classList.remove('open');
     if (wrapper) {
         wrapper.classList.toggle('open');
     }
 }
 
 function onBrandCheckChange(marca, idx) {
-    const mUpper = marca.toUpperCase().trim();
-    const exists = selectedBrands.some(b => {
-        const bUpper = b.toUpperCase().trim();
-        return bUpper === mUpper || (bUpper.includes('TESOURA') && mUpper.includes('TESOURA'));
-    });
-
+    const exists = selectedBrands.includes(marca);
     if (exists) {
-        selectedBrands = selectedBrands.filter(b => {
-            const bUpper = b.toUpperCase().trim();
-            return !(bUpper === mUpper || (bUpper.includes('TESOURA') && mUpper.includes('TESOURA')));
-        });
+        selectedBrands = selectedBrands.filter(m => m !== marca);
     } else {
         selectedBrands.push(marca);
     }
@@ -229,11 +190,7 @@ function selectAllBrands(all, event) {
 
 function syncBrandCheckboxUI() {
     allAvailableBrands.forEach((marca, idx) => {
-        const mUpper = marca.toUpperCase().trim();
-        const isChecked = selectedBrands.some(b => {
-            const bUpper = b.toUpperCase().trim();
-            return bUpper === mUpper || (bUpper.includes('TESOURA') && mUpper.includes('TESOURA'));
-        });
+        const isChecked = selectedBrands.includes(marca);
         const item = document.getElementById(`brand-item-${idx}`);
         if (item) {
             item.classList.toggle('checked', isChecked);
@@ -247,59 +204,81 @@ function updateBrandSelectLabel() {
     const labelEl = document.getElementById('brand-select-label');
     const badgeEl = document.getElementById('brand-count-badge');
     const count = selectedBrands.length;
+    const total = allAvailableBrands.length;
 
     if (badgeEl) badgeEl.innerText = `${count} sel.`;
-    if (!labelEl) return;
 
+    if (!labelEl) return;
     if (count === 0) {
-        labelEl.innerText = 'Nenhuma marca';
-    } else if (allAvailableBrands.length > 0 && count === allAvailableBrands.length) {
-        labelEl.innerText = 'Todas as marcas';
-    } else if (count === 7 && selectedBrands.every(isDefaultBrand)) {
-        labelEl.innerText = 'Marcas: Principais (7)';
-    } else if (count <= 2) {
-        labelEl.innerText = selectedBrands.join(', ');
+        labelEl.innerText = 'Marcas: Nenhuma';
+    } else if (count === total) {
+        labelEl.innerText = 'Marcas: Todas';
+    } else if (count === allAvailableBrands.filter(isDefaultBrand).length && allAvailableBrands.filter(isDefaultBrand).every(b => selectedBrands.includes(b))) {
+        labelEl.innerText = `Marcas: Principais (${count})`;
     } else {
-        labelEl.innerText = `Marcas: ${count} selecionadas`;
+        labelEl.innerText = `Marcas (${count})`;
     }
 }
 
+document.addEventListener('click', (e) => {
+    const brandWrapper = document.getElementById('brand-multiselect');
+    if (brandWrapper && brandWrapper.classList.contains('open')) {
+        if (!brandWrapper.contains(e.target)) {
+            brandWrapper.classList.remove('open');
+        }
+    }
+});
+
 // ---------------------------------------------------------------------------
-// O multiselect de meses foi substituido por um seletor unico de mes de corte:
-// a tabela consolida 01/01 ate a data de corte, entao um intervalo de meses nao
-// delimitava mais nada. As funcoes abaixo ficam como no-op para nao quebrar
-// handlers remanescentes.
+// Formatação e Helpers
 // ---------------------------------------------------------------------------
-function initMonthMultiselect() {}
-function toggleMonthDropdown(event) { if (event) event.stopPropagation(); }
-function onMonthCheckChange() {}
-function selectAllMonths(all, event) { if (event) event.stopPropagation(); }
-function selectLastNMonths(n, event) { if (event) event.stopPropagation(); }
-function syncCheckboxUI() {}
-function updateMonthSelectLabel() {}
+function isItemZerado(item) {
+    if (!item) return true;
+    const sAnt = Number(item.share_ant || 0);
+    const sAtual = Number(item.share || 0);
+    const pp = Math.abs(sAtual - sAnt);
+    return sAnt < 0.05 && sAtual < 0.05 && pp < 0.05;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function formatMoeda(val) {
     if (val === null || val === undefined || isNaN(val)) return 'R$ 0,00';
     return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatPct(val) {
-    if (val === null || val === undefined || isNaN(val)) return '—';
-    const sinal = val > 0 ? '+' : '';
-    return `${sinal}${Number(val).toFixed(1)}%`;
+function formatPp(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0 p.p.</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')} p.p.</span>`;
+    }
+    return `<span class="var-share-pill equal ${subCls}">— 0,0 p.p.</span>`;
 }
 
-function renderDeltaBadge(delta) {
-    if (delta === null || delta === undefined) {
-        return `<span class="delta-badge new">★ NOVO</span>`;
+function formatEvol(val, isSub = false) {
+    if (val === null || val === undefined || isNaN(val)) return '<span class="var-share-pill equal">— 0,0%</span>';
+    const num = Number(val);
+    const subCls = isSub ? 'sub' : '';
+    if (num > 0.0001) {
+        return `<span class="var-share-pill up ${subCls}">▲ +${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta > 0) {
-        return `<span class="delta-badge up">▲ +${delta}</span>`;
+    if (num < -0.0001) {
+        return `<span class="var-share-pill down negative ${subCls}">▼ ${num.toFixed(1).replace('.', ',')}%</span>`;
     }
-    if (delta < 0) {
-        return `<span class="delta-badge down">▼ ${Math.abs(delta)}</span>`;
-    }
-    return `<span class="delta-badge equal">—</span>`;
+    return `<span class="var-share-pill equal ${subCls}">— 0,0%</span>`;
 }
 
 function renderRankBadge(rank) {
@@ -309,457 +288,260 @@ function renderRankBadge(rank) {
     return `<span class="rank-badge rank-other">${rank}º</span>`;
 }
 
-function renderStatusTag(status) {
-    const s = (status || 'Estável').toLowerCase();
-    let cls = 'estavel';
-    let tooltip = 'Estável: Variação de ranking e faturamento (MoM) sem oscilações drásticas.';
+function cleanProductName(name, brand) {
+    if (!name) return '';
+    let s = String(name).trim();
 
-    if (s.includes('líder') || s.includes('lider')) {
-        cls = 'lider';
-        tooltip = 'Líder: A categoria ou marca está no Top 2 em vendas.';
-    }
-    else if (s.includes('expansão') || s.includes('expansao')) {
-        cls = 'expansao';
-        tooltip = 'Expansão: Crescimento ≥ 15% (MoM) OU subiu 2+ posições no ranking.';
-    }
-    else if (s.includes('atenção') || s.includes('atencao')) {
-        cls = 'atencao';
-        tooltip = 'Atenção: Queda ≥ -15% (MoM) OU caiu 2+ posições no ranking.';
+    // Remove redundância da marca no nome do produto
+    if (brand) {
+        const b = String(brand).trim();
+        const regexBrand = new RegExp(`(^|\\s*-\\s*|\\s+)${b.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}(\\s*-\\s*|\\s+|$)`, 'gi');
+        s = s.replace(regexBrand, ' ');
     }
 
-    return `<span class="status-tag ${cls}" title="${tooltip}">${status}</span>`;
+    s = s.replace(/^MQ\s+/i, '');
+    s = s.replace(/^PARLUX\s+/i, '');
+    s = s.replace(/^FORCE\s+BARB(ER)?\s+/i, '');
+    s = s.replace(/^TESOURAS?\s+SORTIDAS\s+/i, 'SORTIDAS ');
+    s = s.replace(/^TESOURAS?\s+/i, '');
+    s = s.replace(/^TES\s+/i, '');
+
+    // Sufixos redundantes de código/voltagem no final
+    s = s.replace(/\s*-\s*MQ\d+$/i, '');
+    s = s.replace(/\s*-\s*BIVOLT$/i, ' BIV');
+    s = s.replace(/\s*BIVOLT$/i, ' BIV');
+
+    // Encurtar termos longos
+    s = s.replace(/DESBASTADEIRA/gi, 'DESBAST.');
+    s = s.replace(/SAND\s+FINISH/gi, 'SAND');
+    s = s.replace(/SHINE\s+STEEL/gi, 'SHINE');
+    s = s.replace(/TITANIUM/gi, 'TIT.');
+
+    return s.replace(/\s+/g, ' ').trim();
 }
 
-function switchMetric(met) {
-    currentMetric = met;
-    ['completo', 'share', 'mom', 'yoy'].forEach(m => {
-        const btn = document.getElementById(`btn-met-${m}`);
-        if (btn) btn.classList.toggle('active', m === met);
-    });
+function getBrandPriority(item) {
+    if (!item) return 99;
+    const s = String(item).toUpperCase().trim();
+    if (s === 'MQ PRO') return 1;
+    if (s === 'PARLUX') return 2;
+    if (s === 'FORCE BARB' || s.includes('FORCE')) return 3;
+    if (s === 'MQ ESCOVAS' || (s.includes('ESCOVA') && s.includes('MQ'))) return 4;
+    if (s === 'MQ BEAUTY' || s.includes('BEAUTY')) return 5;
+    if (s === 'MQ TESOURA' || s.includes('TESOURA')) return 6;
+    if (s === 'MQ COMEX' || s.includes('COMEX')) return 7;
+    if (s === 'FT1') return 8;
+    return 99;
+}
+
+// ---------------------------------------------------------------------------
+// Renderização dos Cards Lado a Lado (Modo 1)
+// ---------------------------------------------------------------------------
+function renderBrandCard(marca, rankNum) {
+    const anoAtual = currentData ? currentData.ano : 2026;
+    const anoAnt = anoAtual - 1;
+    const shareAnt = marca.share_ant ?? 0;
+    const shareAtual = marca.share ?? 0;
+    const marcaPp = shareAtual - shareAnt;
+    let marcaEvol = shareAnt > 0 ? ((shareAtual - shareAnt) / shareAnt) * 100 : (shareAtual > 0 ? 100.0 : 0.0);
+
+    const showMarcaPp = Math.abs(marcaPp) >= 0.05;
+
+    // Filtra produtos relevantes que NÃO sejam zerados
+    const prods = (marca.produtos || []).filter(p => !isItemZerado(p));
+    const topProds = prods.slice(0, 10);
+
+    const rankClass = rankNum === 1 ? 'rank-1-card' : '';
+    const rankBadge = renderRankBadge(rankNum);
+
+    const prodItemsHtml = topProds.length > 0 ? topProds.map((p, pIdx) => {
+        const pShareAnt = p.share_ant ?? 0;
+        const pShareAtual = p.share ?? 0;
+        const pPp = pShareAtual - pShareAnt;
+        const cleanName = cleanProductName(p.item, marca.item);
+
+        let pEvol = p.evolucao_share;
+        if (pEvol === null || pEvol === undefined || isNaN(pEvol)) {
+            if (pShareAnt > 0) {
+                pEvol = ((pShareAtual - pShareAnt) / pShareAnt) * 100;
+            } else if (pShareAtual > 0) {
+                pEvol = 100.0;
+            } else {
+                pEvol = 0.0;
+            }
+        }
+
+        let evolClass = 'equal';
+        let evolText = '0,0%';
+        if (pEvol > 0.05) {
+            evolClass = 'up';
+            evolText = `+${pEvol.toFixed(1).replace('.', ',')}%`;
+        } else if (pEvol < -0.05) {
+            evolClass = 'down negative';
+            evolText = `${pEvol.toFixed(1).replace('.', ',')}%`;
+        }
+
+        const pPpFormatted = `${pPp >= 0 ? '+' : ''}${pPp.toFixed(1).replace('.', ',')} p.p.`;
+
+        return `
+            <div class="cat-col-prod-item" title="${escapeHtml(p.item)} | ${anoAnt}: ${pShareAnt.toFixed(1).replace('.', ',')}% | ${anoAtual}: ${pShareAtual.toFixed(1).replace('.', ',')}% | %Evol: ${evolText} | Dif: ${pPpFormatted}">
+                <div class="cat-col-prod-top">
+                    <span class="cat-col-prod-num">${pIdx + 1}º</span>
+                    <span class="cat-col-prod-name" title="${escapeHtml(p.item)}">${escapeHtml(cleanName)}</span>
+                </div>
+                <div class="cat-col-prod-metrics">
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">${anoAnt}</span>
+                        <span class="prod-m-val ant">${pShareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl gold">${anoAtual}</span>
+                        <span class="prod-m-val atual">${pShareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="prod-metric-col">
+                        <span class="prod-m-lbl">%Evol.</span>
+                        <span class="prod-m-val ${evolClass}">${evolText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('') : `<div style="text-align:center; padding:12px 4px; color:#64748b; font-size:0.62rem;">Nenhum produto com evolução no período</div>`;
+
+    const remainingProds = prods.length - topProds.length;
+    const footerText = remainingProds > 0 ? `+ ${remainingProds} outros produtos` : `${prods.length} ${prods.length === 1 ? 'produto com evolução' : 'produtos com evolução'}`;
+
+    return `
+        <div class="cat-column-card ${rankClass}">
+            <div class="cat-col-header">
+                <div class="cat-col-title-row">
+                    ${rankBadge}
+                    <span class="cat-col-name" title="${escapeHtml(marca.item)}">${escapeHtml(marca.item)}</span>
+                    <span class="cat-col-prod-count">${prods.length}p</span>
+                </div>
+            </div>
+
+            <div class="cat-col-hero">
+                <div class="cat-hero-shares-grid">
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl">SHARE ${anoAnt}</span>
+                        <span class="cat-hero-share-num ant">${shareAnt.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                    <div class="cat-hero-share-divider"></div>
+                    <div class="cat-hero-share-box">
+                        <span class="cat-hero-share-lbl gold">SHARE ${anoAtual}</span>
+                        <span class="cat-hero-share-num atual">${shareAtual.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                </div>
+
+                <div class="cat-hero-evols-row">
+                    ${showMarcaPp ? `
+                        <div class="cat-hero-evol-cell">
+                            <span class="cat-hero-evol-lbl">EVOL. P.P</span>
+                            <span class="var-share-pill ${marcaPp > 0 ? 'up' : 'down'}">
+                                ${marcaPp > 0 ? '▲ +' : '▼ '}${Math.abs(marcaPp).toFixed(1).replace('.', ',')} p.p.
+                            </span>
+                        </div>
+                    ` : ''}
+                    <div class="cat-hero-evol-cell">
+                        <span class="cat-hero-evol-lbl">EVOLUÇÃO</span>
+                        <span class="var-share-pill ${marcaEvol > 0 ? 'up' : (marcaEvol < 0 ? 'down' : 'equal')}">
+                            ${marcaEvol > 0 ? '▲ +' : (marcaEvol < 0 ? '▼ ' : '')}${Math.abs(marcaEvol).toFixed(1).replace('.', ',')}%
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cat-col-body">
+                <div class="cat-col-prods-title">
+                    <span>TOP PRODUTOS</span>
+                    <span>${anoAnt} · ${anoAtual} · %EVOL</span>
+                </div>
+                <div class="cat-col-prod-list">
+                    ${prodItemsHtml}
+                </div>
+            </div>
+
+            <div class="cat-col-footer">
+                <span>${footerText}</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderCards(filteredMarcas) {
+    const container = document.getElementById('container-cards');
+    if (!container) return;
+
+    // Ocultar marcas zeradas
+    const activeMarcas = (filteredMarcas || []).filter(m => !isItemZerado(m));
+
+    if (activeMarcas.length === 0) {
+        container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding:50px; color:#8c93a0; font-size:1rem;">Nenhuma marca com movimentação encontrada no filtro.</div>`;
+        return;
+    }
+
+    // Ordenação executiva: prioridade das marcas padrão
+    const sortedMarcas = [...activeMarcas].sort((a, b) => getBrandPriority(a.item) - getBrandPriority(b.item));
+
+    if (sortedMarcas.length <= 4) {
+        container.style.gridTemplateColumns = `repeat(${sortedMarcas.length}, minmax(0, 1fr))`;
+        container.style.gridTemplateRows = '1fr';
+    } else {
+        container.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+        container.style.gridTemplateRows = 'repeat(2, minmax(0, 1fr))';
+    }
+
+    const cardsHtml = sortedMarcas.map((marca, idx) => {
+        return renderBrandCard(marca, idx + 1);
+    }).join('');
+
+    container.innerHTML = cardsHtml;
+}
+
+// ---------------------------------------------------------------------------
+// Visualização e Controles de Tabela
+// ---------------------------------------------------------------------------
+function switchDisplayMode(mode) {
+    currentDisplayMode = mode;
+    const btnCards = document.getElementById('btn-mode-cards');
+    const btnTable = document.getElementById('btn-mode-table');
+    const containerCards = document.getElementById('container-cards');
+    const containerTable = document.getElementById('container-table');
+    const treeControls = document.getElementById('table-tree-controls');
+
+    if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+    if (btnTable) btnTable.classList.toggle('active', mode === 'table');
+
+    if (containerCards) containerCards.style.display = mode === 'cards' ? 'grid' : 'none';
+    if (containerTable) containerTable.style.display = mode === 'table' ? 'flex' : 'none';
+    if (treeControls) treeControls.style.display = mode === 'table' ? 'flex' : 'none';
+
+    if (mode === 'table') {
+        renderTable();
+    }
+}
+window.switchViewMode = switchDisplayMode;
+window.switchDisplayMode = switchDisplayMode;
+
+function toggleMarca(brandName, event) {
+    if (event) event.stopPropagation();
+    if (collapsedMarcas.has(brandName)) {
+        collapsedMarcas.delete(brandName);
+    } else {
+        collapsedMarcas.add(brandName);
+    }
     renderTable();
 }
 
-// ---------------------------------------------------------------------------
-// Tabela CONSOLIDADA: acumulado de 01/01 ate a data de corte, com as mesmas
-// tres medidas da guia Mensal (MoM, YoY, YTD). Substituiu a visao mes a mes.
-// Todos os percentuais vem prontos do backend, ja com periodos equivalentes.
-// ---------------------------------------------------------------------------
-
-function rotuloPeriodo() {
-    const c = currentData && currentData.contexto;
-    if (!c) return '';
-    const fim = c.periodos.ytd[1];
-    const partes = fim.split('-');
-    return `01/01 a ${partes[2]}/${partes[1]}${c.parcial ? ` · ${c.dias} dias` : ''}`;
+function expandAllMarcas() {
+    collapsedMarcas.clear();
+    renderTable();
 }
 
-function renderTableHeader() {
-    const theadRow = document.getElementById('table-header-row');
-    if (!theadRow || !currentData) return;
-
-    const itemLabel = currentView === 'categoria' ? 'Categoria Analítica' : 'Marca';
-    const ano = currentData.ano;
-    const per = rotuloPeriodo();
-
-    theadRow.innerHTML = `
-        <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 200px; max-width: 280px;">${itemLabel} ↕</th>
-        <th class="sortable text-right" onclick="sortTable('faturamento')" style="border-left: 1px solid #475569; white-space: nowrap;" title="Receita projetada acumulada de ${per} de ${ano}">Acum. ${ano} ↕</th>
-        <th class="sortable text-right" onclick="sortTable('faturamento_ant')" style="white-space: nowrap;" title="Mesmo período de ${ano - 1}, cortado no mesmo dia">Acum. ${ano - 1} ↕</th>
-        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no acumulado do ano">Share ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no mesmo período do ano anterior">Share A-1 ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortTable('share_var')" title="Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
-        <th class="col-mes-mom sortable text-center" onclick="sortTable('mom')" style="border-left: 1px solid #475569; white-space: nowrap;" title="MoM: mês corrente contra o mês anterior, no mesmo intervalo de dias">MoM ↕</th>
-        <th class="col-mes-yoy sortable text-center" onclick="sortTable('yoy')" style="white-space: nowrap;" title="YoY: mês corrente contra o mesmo mês do ano anterior, no mesmo intervalo de dias">YoY ↕</th>
-        <th class="col-ytd-yoy sortable text-center" onclick="sortTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); white-space: nowrap;" title="YTD: acumulado de ${per} contra o mesmo período do ano anterior">YTD ↕</th>
-        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;">Status</th>
-    `;
-}
-
-// Base irrisoria no periodo anterior gera percentual sem significado
-// (ex.: R$ 403 -> R$ 366 mil = +90.674%). Acima do piso mostra o selo "novo",
-// com os valores reais no tooltip.
-const BASE_MINIMA_COMPARAVEL = 5000;
-
-function pilulaVariacao(valor, base) {
-    if (valor === null || valor === undefined || Number.isNaN(valor)) {
-        return '<span class="cell-vazio">—</span>';
-    }
-    if (base !== undefined && base !== null && Math.abs(base) < BASE_MINIMA_COMPARAVEL) {
-        return `<span class="delta-badge new" style="font-size:0.72rem; padding:2px 5px;">★ novo</span>`;
-    }
-    const cls = valor > 0 ? 'positive' : (valor < 0 ? 'negative' : 'neutral');
-    return `<span class="pct-pill ${cls}" style="display:inline-block; margin:0; font-size:0.78rem; padding:2px 5px;">${formatPct(valor)}</span>`;
-}
-
-function renderMarcasTable() {
-    if (!currentData) return;
-
-    renderTableHeader();
-
-    let items = currentView === 'categoria' ? [...currentData.categorias] : [...currentData.marcas];
-
-    // Respeita o multiselect de marcas (padrao: 7 principais)
-    if (currentView === 'marca') {
-        if (!selectedBrands || selectedBrands.length === 0) {
-            items = [];
-        } else {
-            items = items.filter(it => {
-                const itUpper = (it.item || '').toUpperCase().trim();
-                return selectedBrands.some(b => {
-                    const bUpper = b.toUpperCase().trim();
-                    return itUpper === bUpper || (bUpper.includes('TESOURA') && itUpper.includes('TESOURA')) || (bUpper.includes('FORCE') && itUpper.includes('FORCE'));
-                });
-            });
-        }
-    }
-    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
-    const ano = currentData.ano;
-
-    const filtered = items.filter(it => it.item.toLowerCase().includes(searchTerm));
-
-    filtered.sort((a, b) => {
-        let valA = a[currentSort.column];
-        let valB = b[currentSort.column];
-        // Sem base de comparação vai para o fim da lista, nunca para o topo.
-        if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
-        if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
-        if (typeof valA === 'string') {
-            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return currentSort.asc ? valA - valB : valB - valA;
-    });
-
-    const tbody = document.getElementById('table-body');
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado.</td></tr>`;
-        return;
-    }
-
-    const per = rotuloPeriodo();
-
-    tbody.innerHTML = filtered.map(row => {
-        const diffPp = row.share_var ?? 0;
-        const diffSign = diffPp > 0 ? '+' : '';
-        const diffArrow = diffPp > 0 ? '▲' : (diffPp < 0 ? '▼' : '—');
-        const diffCls = diffPp > 0 ? 'up' : (diffPp < 0 ? 'down negative' : 'equal');
-
-        const tipMoM = `Mês corrente: ${formatMoeda(row.mtd)} · mês anterior (mesmo intervalo): ${formatMoeda(row.mes_anterior)}`;
-        const tipYoY = `Mês corrente: ${formatMoeda(row.mtd)} · mesmo mês de ${ano - 1}: ${formatMoeda(row.mes_ano_anterior)}`;
-        const tipYTD = `${per}: ${formatMoeda(row.faturamento)} · mesmo período de ${ano - 1}: ${formatMoeda(row.faturamento_ant)}`;
-
-        return `
-            <tr>
-                <td class="col-rank text-center">${renderRankBadge(row.rank)}</td>
-                <td class="col-item text-left" title="${row.item}" style="min-width:200px; max-width:280px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${row.item}</td>
-                <td class="text-right" style="border-left:1px solid #475569; white-space:nowrap;" title="${per} de ${ano}">${formatMoeda(row.faturamento)}</td>
-                <td class="text-right" style="white-space:nowrap; color:#9aa3b2;" title="Mesmo período de ${ano - 1}">${formatMoeda(row.faturamento_ant)}</td>
-                <td class="col-share-periodo text-right"><span class="share-periodo-val">${row.share.toFixed(1)}%</span></td>
-                <td class="col-share-ant text-right"><span class="share-ant-val">${row.share_ant.toFixed(1)}%</span></td>
-                <td class="col-share-var text-right"><span class="var-share-pill ${diffCls}">${diffArrow} ${diffSign}${diffPp.toFixed(1)}%</span></td>
-                <td class="col-mes-mom text-center" style="border-left:1px solid #475569;" title="${tipMoM}">${pilulaVariacao(row.mom, row.mes_anterior)}</td>
-                <td class="col-mes-yoy text-center" title="${tipYoY}">${pilulaVariacao(row.yoy, row.mes_ano_anterior)}</td>
-                <td class="col-ytd-yoy text-center" style="background: rgba(255,193,7,0.05);" title="${tipYTD}">${pilulaVariacao(row.ytd_yoy, row.faturamento_ant)}</td>
-                <td class="col-status text-center" style="min-width:90px; white-space:nowrap;">${renderStatusTag(row.status)}</td>
-            </tr>
-        `;
-    }).join('');
-
-    const totalItensEl = document.getElementById('total-itens');
-    const totalFatEl = document.getElementById('total-faturamento');
-    if (totalItensEl) totalItensEl.innerText = filtered.length;
-    if (totalFatEl) totalFatEl.innerText = `${formatMoeda(currentData.total_faturamento)} [${per}]`;
-}
-
-function renderCanaisTableHeader() {
-    const theadRow = document.getElementById('table-canais-header-row');
-    if (!theadRow || !currentData) return;
-
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
-
-    let html = `
-        <th class="col-rank sortable text-center" onclick="sortCanaisTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortCanaisTable('item')" style="min-width: 180px; max-width: 220px;">Canal de Vendas ↕</th>
-    `;
-
-    meses.forEach(m => {
-        const isRef = m.num === mesRef;
-        const refClass = isRef ? 'active-month-th' : '';
-        const refTag = isRef ? ' <span class="ref-badge">M-1 Fechado</span>' : '';
-
-        // Mês Principal
-        html += `<th class="col-mes-header sortable text-right ${refClass}" onclick="sortCanaisTable('mes_${m.num}')" title="Faturamento e Share do mês de ${m.label}" style="border-left: 1px solid #475569; padding: 4px 2px; font-size: 0.8rem; white-space: nowrap;">${m.label}${refTag} ↕</th>`;
-        // Coluna MoM
-        html += `<th class="col-mes-mom text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="MoM (Month-over-Month): Crescimento percentual em relação ao mês imediatamente anterior">MoM</th>`;
-        // Coluna YoY
-        html += `<th class="col-mes-yoy text-center ${refClass}" style="font-size:0.75rem; color:#aaa; padding: 4px 2px; white-space: nowrap;" title="YoY (Year-over-Year): Crescimento percentual em relação ao mesmo mês do ano anterior">YoY</th>`;
-        
-        if (isRef) {
-            html += `<th class="col-ytd-yoy sortable text-center" onclick="sortCanaisTable('ytd_yoy')" style="background: rgba(255,193,7,0.1); color: var(--gold-light); font-size:0.8rem; padding: 4px 2px; white-space: nowrap;" title="YTD YoY (Year-to-Date Year-over-Year): Crescimento percentual do acumulado (Jan até M-1) em relação ao mesmo período do ano anterior">YTD YoY ↕</th>`;
-        }
-    });
-
-    html += `
-        <th class="col-share-periodo sortable text-right" onclick="sortCanaisTable('share_periodo')" title="Share Período: Participação % do canal no total do período analisado">Share Per. ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortCanaisTable('share_periodo_ant')" title="Share Ano Anterior (A-1): Participação % do canal no mesmo período do ano passado">Share A-1 ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortCanaisTable('share_var')" title="Δ Share: Variação em pontos percentuais entre o Share atual e o do ano anterior">Δ Share ↕</th>
-        <th class="col-status text-center" style="min-width: 90px; white-space: nowrap;" title="Status de performance do canal">Status</th>
-    `;
-
-    theadRow.innerHTML = html;
-}
-
-function renderCanaisTable() {
-    if (!currentData || !currentData.canais) return;
-
-    renderCanaisTableHeader();
-
-    let items = currentData.canais.map(c => JSON.parse(JSON.stringify(c)));
-
-    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
-    const allMeses = currentData.meses_colunas || [];
-    const meses = allMeses.filter(m => selectedMonths.includes(m.num));
-    const mesRef = currentData.mes;
-    const ano = currentData.ano;
-
-    // Calcular faturamento do período e total geral do período selecionado (ano atual e ano anterior)
-    let totalPeriodoGeral = 0;
-    let totalPeriodoAntGeral = 0;
-
-    items.forEach(row => {
-        let fatItem = 0;
-        let fatItemAnt = 0;
-        selectedMonths.forEach(m => {
-            fatItem += (row.meses_dados?.[m]?.faturamento || 0);
-            fatItemAnt += (row.meses_dados?.[m]?.faturamento_ant || 0);
-        });
-        row.fat_periodo = fatItem;
-        row.fat_periodo_ant = fatItemAnt;
-        totalPeriodoGeral += fatItem;
-        totalPeriodoAntGeral += fatItemAnt;
-    });
-
-    items.forEach(row => {
-        let ytd_atual = 0;
-        let ytd_ant = 0;
-        for(let i=1; i<=mesRef; i++) {
-            ytd_atual += (row.meses_dados?.[i]?.faturamento || 0);
-            ytd_ant += (row.meses_dados?.[i]?.faturamento_ant || 0);
-        }
-        row.ytd_yoy_val = ytd_ant > 0 ? ((ytd_atual / ytd_ant) - 1) * 100 : (ytd_atual > 0 ? 100 : 0);
-    });
-
-    items.forEach(row => {
-        row.share_periodo = totalPeriodoGeral > 0 ? ((row.fat_periodo / totalPeriodoGeral) * 100) : 0;
-        row.share_periodo_ant = totalPeriodoAntGeral > 0 ? ((row.fat_periodo_ant / totalPeriodoAntGeral) * 100) : 0;
-        row.share_var = row.share_periodo - row.share_periodo_ant;
-    });
-
-    // Filtragem por busca
-    const filtered = items.filter(it => it.item.toLowerCase().includes(searchTerm));
-
-    // Ordenação
-    filtered.sort((a, b) => {
-        let valA, valB;
-        if (currentCanaisSort.column === 'share_periodo') {
-            valA = a.share_periodo ?? 0;
-            valB = b.share_periodo ?? 0;
-        } else if (currentCanaisSort.column === 'share_periodo_ant') {
-            valA = a.share_periodo_ant ?? 0;
-            valB = b.share_periodo_ant ?? 0;
-        } else if (currentCanaisSort.column === 'share_var') {
-            valA = a.share_var ?? 0;
-            valB = b.share_var ?? 0;
-        } else if (currentCanaisSort.column === 'ytd_yoy') {
-            valA = a.ytd_yoy_val ?? -Infinity;
-            valB = b.ytd_yoy_val ?? -Infinity;
-        } else if (currentCanaisSort.column.startsWith('mes_')) {
-            const mNum = parseInt(currentCanaisSort.column.replace('mes_', ''));
-            const dataA = a.meses_dados?.[mNum] || {};
-            const dataB = b.meses_dados?.[mNum] || {};
-
-            if (currentMetric === 'mom') {
-                valA = dataA.mom ?? -Infinity;
-                valB = dataB.mom ?? -Infinity;
-            } else if (currentMetric === 'yoy') {
-                valA = dataA.yoy ?? -Infinity;
-                valB = dataB.yoy ?? -Infinity;
-            } else {
-                valA = dataA.share ?? 0;
-                valB = dataB.share ?? 0;
-            }
-        } else {
-            valA = a[currentCanaisSort.column];
-            valB = b[currentCanaisSort.column];
-        }
-
-        if (valA === null || valA === undefined) valA = currentCanaisSort.asc ? Infinity : -Infinity;
-        if (valB === null || valB === undefined) valB = currentCanaisSort.asc ? Infinity : -Infinity;
-
-        if (typeof valA === 'string') {
-            return currentCanaisSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        }
-        return currentCanaisSort.asc ? valA - valB : valB - valA;
-    });
-
-    const tbody = document.getElementById('table-canais-body');
-    if (!tbody) return;
-
-    const totalCols = 3 + (meses.length * 3) + (meses.some(m => m.num === mesRef) ? 1 : 0) + 4;
-
-    if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="${totalCols}" style="text-align: center; padding: 25px; color: #8c93a0;">Nenhum canal encontrado.</td></tr>`;
-        return;
-    }
-
-    if (meses.length === 0) {
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="${totalCols}" class="text-center" style="padding: 30px; color: var(--gold-light); font-size: 0.85rem;">
-                    ⚠️ Nenhum mês selecionado no filtro. Marque os meses desejados no botão <strong>"📅 Filtrar Meses"</strong> acima.
-                </td>
-            </tr>
-        `;
-        return;
-    }
-
-    tbody.innerHTML = filtered.map(row => {
-        let mesesHtml = '';
-        meses.forEach(m => {
-            const d = row.meses_dados?.[m.num] || {};
-            const share = d.share || 0;
-            const vlr = d.faturamento || 0;
-            const mom = d.mom;
-            const yoy = d.yoy;
-
-            const isRef = m.num === mesRef;
-            const refClass = isRef ? 'active-month-td' : '';
-            const shareNegCls = share < 0 ? 'negative' : '';
-
-            // Main column
-            let cellContent = (share !== 0 || vlr > 0) ? `
-                <div class="cell-month-box" style="flex-direction:row; justify-content:flex-end; padding:0; height:100%; border:none;">
-                    <span class="cell-month-main ${shareNegCls}" style="font-size:0.95rem; margin:0;">${share.toFixed(1)}%</span>
-                </div>
-            ` : '<span class="cell-vazio">—</span>';
-            mesesHtml += `<td class="col-mes-val text-right ${refClass}" style="border-left: 1px solid #475569; padding:4px 2px;">${cellContent}</td>`;
-
-            // MoM column
-            let momBadge = '<span class="cell-vazio">—</span>';
-            if (mom !== null && mom !== undefined && vlr > 0) {
-                const momCls = mom > 0 ? 'positive' : (mom < 0 ? 'negative' : 'neutral');
-                momBadge = `<span class="pct-pill ${momCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(mom)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${momBadge}</td>`;
-
-            // YoY column
-            let yoyBadge = '<span class="cell-vazio">—</span>';
-            if (yoy !== null && yoy !== undefined && vlr > 0) {
-                const yoyCls = yoy > 0 ? 'positive' : (yoy < 0 ? 'negative' : 'neutral');
-                yoyBadge = `<span class="pct-pill ${yoyCls}" style="display:inline-block; margin:0; font-size:0.75rem; padding: 2px 4px;">${formatPct(yoy)}</span>`;
-            }
-            mesesHtml += `<td class="text-center ${refClass}" style="vertical-align:middle; padding:4px 2px;">${yoyBadge}</td>`;
-
-            // YTD YoY (only after M-1)
-            if (isRef) {
-                let ytdBadge = '<span class="cell-vazio">—</span>';
-                if (row.fat_periodo > 0 || row.fat_periodo_ant > 0) {
-                    const ytdCls = row.ytd_yoy_val > 0 ? 'positive' : (row.ytd_yoy_val < 0 ? 'negative' : 'neutral');
-                    ytdBadge = `<span class="pct-pill ${ytdCls}" style="display:inline-block; margin:0; font-weight:bold; border:1px solid currentColor; font-size:0.75rem; padding: 2px 4px;">${formatPct(row.ytd_yoy_val)}</span>`;
-                }
-                mesesHtml += `<td class="text-center" style="vertical-align:middle; background: rgba(255,193,7,0.05); padding:4px 2px;">${ytdBadge}</td>`;
-            }
-        });
-
-        const sharePerVal = row.share_periodo || 0;
-        const shareAntVal = row.share_periodo_ant || 0;
-        const diffPp = row.share_var ?? (sharePerVal - shareAntVal);
-        const diffSign = diffPp > 0 ? '+' : '';
-        const diffArrow = diffPp > 0 ? '▲' : (diffPp < 0 ? '▼' : '—');
-        const diffCls = diffPp > 0 ? 'up' : (diffPp < 0 ? 'down negative' : 'equal');
-
-        const sharePerNegCls = sharePerVal < 0 ? 'negative' : '';
-        const shareAntNegCls = shareAntVal < 0 ? 'negative' : '';
-
-        const sharePerHtml = `
-            <td class="col-share-periodo text-right" title="Share no período filtrado (${selectedMonths.length} meses): ${sharePerVal.toFixed(1)}% (${formatMoeda(row.fat_periodo)})">
-                <div class="cell-share-periodo">
-                    <span class="share-periodo-val ${sharePerNegCls}">${sharePerVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        const shareAntHtml = `
-            <td class="col-share-ant text-right" title="Share no mesmo período do ano anterior (${selectedMonths.length} meses): ${shareAntVal.toFixed(1)}% (${formatMoeda(row.fat_periodo_ant)})\nVariação de Share: ${diffSign}${diffPp.toFixed(1)} p.p.">
-                <div class="cell-share-ant">
-                    <span class="share-ant-val ${shareAntNegCls}">${shareAntVal.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        const shareVarHtml = `
-            <td class="col-share-var text-right" title="Comparativo de Share (Período Atual vs Ano Anterior): ${diffSign}${diffPp.toFixed(1)} p.p. (${sharePerVal.toFixed(1)}% vs ${shareAntVal.toFixed(1)}%)">
-                <div class="cell-share-var">
-                    <span class="var-share-pill ${diffCls}">${diffArrow} ${diffSign}${diffPp.toFixed(1)}%</span>
-                </div>
-            </td>
-        `;
-
-        return `
-            <tr>
-                <td class="col-rank text-center">${renderRankBadge(row.rank)}</td>
-                <td class="col-item text-left" title="${row.item}" style="min-width: 180px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${row.item}</td>
-                ${mesesHtml}
-                ${sharePerHtml}
-                ${shareAntHtml}
-                ${shareVarHtml}
-                <td class="col-status text-center" style="min-width: 90px; white-space: nowrap;">${renderStatusTag(row.status)}</td>
-            </tr>
-        `;
-    }).join('');
-}
-
-function sortCanaisTable(column) {
-    if (currentCanaisSort.column === column) {
-        currentCanaisSort.asc = !currentCanaisSort.asc;
-    } else {
-        currentCanaisSort.column = column;
-        currentCanaisSort.asc = (column === 'rank' || column === 'item');
-    }
-    renderCanaisTable();
-}
-
-function renderTable() {
-    renderMarcasTable();
-    renderCanaisTable();
-}
-
-function switchView(view) {
-    currentView = view;
-    const btnMarca = document.getElementById('btn-view-marca');
-    const btnCanais = document.getElementById('btn-view-canais');
-    
-    if (btnMarca) btnMarca.classList.toggle('active', view === 'marca');
-    if (btnCanais) btnCanais.classList.toggle('active', view === 'canais');
-
-    const secMarcas = document.getElementById('section-marcas');
-    const secCanais = document.getElementById('section-canais');
-
-    if (view === 'marca') {
-        if (secMarcas) secMarcas.style.display = 'block';
-        if (secCanais) secCanais.style.display = 'none';
-    } else if (view === 'canais') {
-        if (secMarcas) secMarcas.style.display = 'none';
-        if (secCanais) secCanais.style.display = 'block';
-    }
-
-    if (currentData) {
-        renderTable();
-    }
+function collapseAllMarcas() {
+    if (!currentData || !currentData.marcas) return;
+    currentData.marcas.forEach(m => collapsedMarcas.add(m.item));
+    renderTable();
 }
 
 function sortTable(column) {
@@ -769,22 +551,217 @@ function sortTable(column) {
         currentSort.column = column;
         currentSort.asc = (column === 'rank' || column === 'item');
     }
-    renderMarcasTable();
+    renderTable();
 }
 
 function filterTable() {
-    renderMarcasTable();
-    renderCanaisTable();
+    renderTable();
 }
 
+function renderTableHeader() {
+    const theadRow = document.getElementById('table-header-row');
+    if (!theadRow || !currentData) return;
+
+    const ano = currentData.ano;
+
+    theadRow.innerHTML = `
+        <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 180px; max-width: 260px;">Marca ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no mesmo período do ano anterior">Share ${ano - 1} ↕</th>
+        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no acumulado do ano atual">Share ${ano} ↕</th>
+        <th class="col-share-pp sortable text-right" onclick="sortTable('evolucao_pp')" title="Variação em pontos percentuais (Share ${ano} - Share ${ano - 1})">Evolução p.p ↕</th>
+        <th class="col-share-var sortable text-right" onclick="sortTable('evolucao_share')" title="Evolução percentual: (Share ${ano} - Share ${ano - 1}) / Share ${ano - 1}">Evolução ↕</th>
+    `;
+}
+
+// ---------------------------------------------------------------------------
+// Renderização Principal (Cards + Tabela)
+// ---------------------------------------------------------------------------
+function renderTable() {
+    if (!currentData || !currentData.marcas) return;
+
+    renderTableHeader();
+
+    // Filtrar marcas que NÃO sejam zeradas (share ant, share atual e evolução p.p = 0)
+    let items = [...currentData.marcas].filter(m => !isItemZerado(m));
+
+    // Respeita multiselect de marcas
+    if (selectedBrands.length > 0) {
+        items = items.filter(m => selectedBrands.includes(m.item));
+    } else if (allAvailableBrands.length > 0 && selectedBrands.length === 0) {
+        items = [];
+    }
+
+    const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
+
+    let filtered = [];
+    if (!searchTerm) {
+        filtered = items;
+    } else {
+        items.forEach(marca => {
+            const marcaMatches = marca.item.toLowerCase().includes(searchTerm);
+            const activeProds = (marca.produtos || []).filter(p => !isItemZerado(p));
+            const matchingProds = activeProds.filter(p => p.item.toLowerCase().includes(searchTerm));
+            if (marcaMatches || matchingProds.length > 0) {
+                filtered.push({
+                    ...marca,
+                    produtos: marcaMatches ? activeProds : matchingProds
+                });
+            }
+        });
+    }
+
+    filtered.sort((a, b) => {
+        let valA, valB;
+        if (currentSort.column === 'evolucao_pp') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shA - shAntA;
+            valB = shB - shAntB;
+        } else if (currentSort.column === 'evolucao_share') {
+            const shA = a.share ?? 0, shAntA = a.share_ant ?? 0;
+            const shB = b.share ?? 0, shAntB = b.share_ant ?? 0;
+            valA = shAntA > 0 ? ((shA - shAntA) / shAntA * 100) : (shA > 0 ? 100 : 0);
+            valB = shAntB > 0 ? ((shB - shAntB) / shAntB * 100) : (shB > 0 ? 100 : 0);
+        } else {
+            valA = a[currentSort.column];
+            valB = b[currentSort.column];
+        }
+
+        if (valA === null || valA === undefined) valA = currentSort.asc ? Infinity : -Infinity;
+        if (valB === null || valB === undefined) valB = currentSort.asc ? Infinity : -Infinity;
+        if (typeof valA === 'string') {
+            return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        }
+        return currentSort.asc ? valA - valB : valB - valA;
+    });
+
+    // Renderiza Cards Lado a Lado
+    renderCards(filtered);
+
+    // Renderiza Tabela Detalhada
+    const tbody = document.getElementById('table-body');
+    const tfoot = document.getElementById('table-footer');
+    if (!tbody) return;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum registro encontrado.</td></tr>`;
+        if (tfoot) tfoot.innerHTML = '';
+        return;
+    }
+
+    const htmlRows = [];
+
+    filtered.forEach((marca, mIdx) => {
+        const isCollapsed = collapsedMarcas.has(marca.item);
+        const prods = (marca.produtos || []).filter(p => !isItemZerado(p));
+        const expandIcon = isCollapsed ? '▶' : '▼';
+
+        const shareAnt = marca.share_ant ?? 0;
+        const shareAtual = marca.share ?? 0;
+        const marcaPp = shareAtual - shareAnt;
+
+        let marcaEvol = 0;
+        if (shareAnt > 0) {
+            marcaEvol = ((shareAtual - shareAnt) / shareAnt) * 100;
+        } else if (shareAtual > 0) {
+            marcaEvol = 100.0;
+        } else {
+            marcaEvol = 0.0;
+        }
+
+        const safeMarcaItem = marca.item.replace(/'/g, "\\'");
+
+        // Linha Principal da Marca
+        htmlRows.push(`
+            <tr class="cat-header-row ${isCollapsed ? 'collapsed' : ''}" onclick="toggleMarca('${safeMarcaItem}', event)" title="Clique para expandir/recolher produtos desta marca">
+                <td class="col-rank text-center">${renderRankBadge(mIdx + 1)}</td>
+                <td class="col-item text-left" style="min-width: 180px; max-width: 260px;">
+                    <div class="cat-item-content">
+                        <span class="cat-toggle-icon">${expandIcon}</span>
+                        <span class="cat-title-text">${escapeHtml(marca.item)}</span>
+                        <span class="cat-count-pill">${prods.length} ${prods.length === 1 ? 'prod' : 'prods'}</span>
+                    </div>
+                </td>
+                <td class="col-share-ant text-right cat-share-ant"><span class="share-ant-val">${shareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right cat-share-periodo"><span class="share-periodo-val" style="font-weight:700; color:#ffd700;">${shareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(marcaPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(marcaEvol)}</td>
+            </tr>
+        `);
+
+        // Linhas de Produtos abaixo da Marca
+        if (!isCollapsed && prods.length > 0) {
+            prods.forEach((prod, pIdx) => {
+                const prodShareAnt = prod.share_ant ?? 0;
+                const prodShareAtual = prod.share ?? 0;
+                const prodPp = prodShareAtual - prodShareAnt;
+
+                let prodEvol = 0;
+                if (prodShareAnt > 0) {
+                    prodEvol = ((prodShareAtual - prodShareAnt) / prodShareAnt) * 100;
+                } else if (prodShareAtual > 0) {
+                    prodEvol = 100.0;
+                } else {
+                    prodEvol = 0.0;
+                }
+
+                htmlRows.push(`
+                    <tr class="prod-sub-row">
+                        <td class="col-rank text-center prod-rank-cell">
+                            <span class="prod-sub-num">${pIdx + 1}º</span>
+                        </td>
+                        <td class="col-item text-left prod-item-cell" title="${escapeHtml(prod.item)}" style="min-width: 180px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <div class="prod-indent-wrap">
+                                <span class="prod-name-label">${escapeHtml(prod.item)}</span>
+                            </div>
+                        </td>
+                        <td class="col-share-ant text-right prod-share-cell"><span class="sub-share-muted">${prodShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-periodo text-right prod-share-cell"><span class="sub-share-light" style="color:#ffd700;">${prodShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                        <td class="col-share-pp text-right">${formatPp(prodPp, true)}</td>
+                        <td class="col-share-var text-right">${formatEvol(prodEvol, true)}</td>
+                    </tr>
+                `);
+            });
+        }
+    });
+
+    tbody.innerHTML = htmlRows.join('');
+
+    // Linha de TOTAL no rodapé
+    if (tfoot) {
+        const sumShareAnt = filtered.reduce((acc, r) => acc + (r.share_ant || 0), 0);
+        const sumShareAtual = filtered.reduce((acc, r) => acc + (r.share || 0), 0);
+        const sumPp = sumShareAtual - sumShareAnt;
+        const sumEvol = sumShareAnt > 0 ? ((sumShareAtual - sumShareAnt) / sumShareAnt) * 100 : 0;
+
+        tfoot.innerHTML = `
+            <tr class="total-row">
+                <td class="col-rank text-center" style="font-size:0.9rem;">Σ</td>
+                <td class="col-item text-left">TOTAL SELECIONADO</td>
+                <td class="col-share-ant text-right total-share"><span class="share-ant-val">${sumShareAnt.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-periodo text-right total-share"><span class="share-periodo-val" style="color:#ffd700;">${sumShareAtual.toFixed(1).replace('.', ',')}%</span></td>
+                <td class="col-share-pp text-right">${formatPp(sumPp)}</td>
+                <td class="col-share-var text-right">${formatEvol(sumEvol)}</td>
+            </tr>
+        `;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Carga de Dados da API
+// ---------------------------------------------------------------------------
 async function fetchData(forceRefresh = false) {
     const monthEl = document.getElementById('filter-month');
     const refMes = parseInt(monthEl?.value) || (new Date().getMonth() + 1);
     const ano = document.getElementById('filter-year')?.value || 2026;
 
     try {
-        const refreshParam = forceRefresh ? '&refresh=1' : '';
-        const res = await fetch(`/api/categorias_dados?mes=${refMes}&ano=${ano}${refreshParam}`);
+        let url = `/api/categorias_dados?mes=${refMes}&ano=${ano}`;
+        if (forceRefresh) {
+            url += `&refresh=1&_t=${Date.now()}`;
+        }
+        const res = await fetch(url);
         const json = await res.json();
 
         if (json.success && json.data) {
@@ -798,7 +775,7 @@ async function fetchData(forceRefresh = false) {
             console.error("Erro na API categorias_dados:", json.error);
         }
     } catch (err) {
-        console.error("Falha ao buscar dados de categorias:", err);
+        console.error("Falha ao buscar dados de marcas:", err);
     }
 }
 
@@ -807,31 +784,9 @@ function manualRefresh() {
     fetchData(true);
 }
 
-function testarAudio() {
-    const audioSiren = document.getElementById('victory-sound');
-    const audioMusic = document.getElementById('music-sound');
-    if (audioSiren) {
-        audioSiren.currentTime = 0;
-        audioSiren.play().catch(e => console.log('Audio playback prevented:', e));
-        setTimeout(() => {
-            audioSiren.pause();
-            audioSiren.currentTime = 0;
-            if (audioMusic) {
-                audioMusic.currentTime = 0;
-                audioMusic.play().catch(e => console.log('Audio playback prevented:', e));
-                setTimeout(() => {
-                    audioMusic.pause();
-                    audioMusic.currentTime = 0;
-                }, 10000);
-            }
-        }, 10000);
-    }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     initFilters();
     updateClock();
     setInterval(updateClock, 1000);
     fetchData();
 });
-

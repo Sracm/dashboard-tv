@@ -31,6 +31,8 @@ DB_DSN = os.getenv("ORACLE_DSN", "")
 
 EXCEL_METAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'meta.xlsx')
 SQL_PATH = os.path.join(os.path.dirname(__file__), 'query', 'vendas_vendedor_gerente.sql')
+DISK_CACHE_DIR = os.path.join(os.path.dirname(__file__), 'data', 'cache')
+os.makedirs(DISK_CACHE_DIR, exist_ok=True)
 
 def get_db_connection():
     conn = oracledb.connect(user=DB_USER, password=DB_PASS, dsn=DB_DSN)
@@ -105,6 +107,8 @@ def invalidar_todos_os_caches(ano=None):
         cached_painel_results.clear()
         
     cached_categorias_data.clear()
+    if 'cached_cat_raw_df' in globals():
+        cached_cat_raw_df.clear()
     cached_paises_data.clear()
     cached_paises_raw_df.clear()
     cached_diario_data.clear()
@@ -305,14 +309,31 @@ cached_vendas_diarias = {}
 
 
 def obter_vendas_diarias(ano, force_refresh=False):
-    """DataFrame de vendas diarias do ano, com cache em memória (CACHE_TTL)."""
+    """DataFrame de vendas diarias do ano, com cache em memória e em disco."""
     now_ts = time.time()
+    disk_file = os.path.join(DISK_CACHE_DIR, f'vendas_diarias_{ano}.pkl')
+
     if not force_refresh and ano in cached_vendas_diarias:
         df, ts = cached_vendas_diarias[ano]
         if now_ts - ts < CACHE_TTL:
             return df
+
+    if not force_refresh and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                df = pd.read_pickle(disk_file)
+                cached_vendas_diarias[ano] = (df, now_ts)
+                return df
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao ler {disk_file}: {e}")
+
     try:
         df = carregar_vendas_ano(ano)
+        try:
+            df.to_pickle(disk_file)
+        except Exception as e:
+            print(f"[CACHE DISCO] Erro ao salvar {disk_file}: {e}")
     except Exception as e:
         print(f"[MEDIDAS] Erro ao carregar vendas diarias de {ano}: {e}")
         df = pd.DataFrame(columns=['DATA', 'MES', 'CODVEND', 'MARCA', 'TOTAL_VENDAS', 'TOTAL_FAT', 'TOTAL_PREV'])
@@ -849,12 +870,45 @@ def api_canal_dados():
         mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
         ano = int(request.args.get('ano', now.year))
         canal = request.args.get('canal')
+        marca_arg = request.args.get('marca')
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
+        
+        map_canais = {
+            'distribuicao': 'DISTRIBUIÇÃO',
+            'ecommerce_mq': 'E-COMMERCE - MQ',
+            'varejo_sp': 'VAREJO ESPECIALIZADO - SP',
+            'comex': 'COMEX',
+            'regional_no_nd': 'REGIONAL NO - ND',
+            'ecommerce_parlux': 'E-COMMERCE - PARLUX',
+            'regional_rj_mg_es': 'REGIONAL RJ - MG - ES',
+            'regional_sul': 'REGIONAL SUL'
+        }
+        if canal in map_canais:
+            canal = map_canais[canal]
+        elif canal:
+            canal_clean = canal.strip().upper()
+            if 'DISTRIB' in canal_clean:
+                canal = 'DISTRIBUIÇÃO'
+            elif 'PARLUX' in canal_clean:
+                canal = 'E-COMMERCE - PARLUX'
+            elif 'ECOMMERCE' in canal_clean or 'E-COMMERCE' in canal_clean:
+                canal = 'E-COMMERCE - MQ'
+            elif 'SP' in canal_clean or 'VAREJO' in canal_clean:
+                canal = 'VAREJO ESPECIALIZADO - SP'
+            elif 'COMEX' in canal_clean:
+                canal = 'COMEX'
+            elif 'SUL' in canal_clean:
+                canal = 'REGIONAL SUL'
+            elif 'NO' in canal_clean or 'ND' in canal_clean:
+                canal = 'REGIONAL NO - ND'
+            elif 'RJ' in canal_clean or 'MG' in canal_clean or 'ES' in canal_clean:
+                canal = 'REGIONAL RJ - MG - ES'
         
         if force:
             cached_categorias_data.clear()
+            cached_cat_raw_df.clear()
             
-        data = obter_dados_categorias_marcas(mes, ano, canal_filter=canal, force_refresh=force)
+        data = obter_dados_categorias_marcas(mes, ano, canal_filter=canal, marca_filter=marca_arg, force_refresh=force)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         import traceback
@@ -895,6 +949,7 @@ def tv_alertas():
     return render_template('tv_alertas.html')
 
 cached_categorias_data = {}
+cached_cat_raw_df = {}
 
 def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None, force_refresh=False):
     cache_key = f"{ano}_{mes}_{canal_filter}_{marca_filter}"
@@ -927,114 +982,118 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
     months_6.reverse()
     labels_6m = [f"{nomes_meses_br[m]}/{str(a)[2:]}" for a, m in months_6]
 
-    dt_ini = f"01/01/{ano_ref - 1}"
-    dt_fim = f"31/12/{ano_ref}"
+    df = None
+    if not force_refresh and ano_ref in cached_cat_raw_df:
+        df_cached, ts_raw = cached_cat_raw_df[ano_ref]
+        if now_ts - ts_raw < CACHE_TTL:
+            df = df_cached.copy()
 
-    d_filter = f"TGFCAB.DTENTSAI >= TO_DATE('{dt_ini}', 'DD/MM/YYYY') AND TGFCAB.DTENTSAI <= TO_DATE('{dt_fim}', 'DD/MM/YYYY') AND "
-    opt_sql = RAW_SQL_BASE.replace('WHERE TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER', 'WHERE ' + d_filter + 'TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER')
-    opt_sql = opt_sql.replace("WHERE tgfcab.tipmov='P'", 'WHERE ' + d_filter + "tgfcab.tipmov='P'")
+    disk_file = os.path.join(DISK_CACHE_DIR, f'cat_raw_{ano_ref}.pkl')
+    if df is None and not force_refresh and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                df = pd.read_pickle(disk_file)
+                cached_cat_raw_df[ano_ref] = (df.copy(), now_ts)
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao carregar arquivo de cache {disk_file}: {e}")
 
-    query = f"""
-    SELECT 
-        TRUNC(V.DTENTSAI) AS DATA,
-        TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')) AS ANO,
-        TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) AS MES,
-        V.CODVEND,
-        NVL(TRIM(P.GRUPO_PAI), 'OUTROS') AS GRUPO_PAI,
-        NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS') AS GRUPO_SINTETICO,
-        NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS') AS GRUPO_ANALITICO,
-        NVL(TRIM(P.MARCA), 'OUTRAS') AS MARCA,
-        NVL(TRIM(P.DESCRPROD), 'OUTROS') AS PRODUTO,
-        SUM(V.TotalPrevisto) AS TOTAL_PREV,
-        SUM(V.TotalFat) AS TOTAL_FAT
-    FROM ({opt_sql}) V
-    LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.codprod) = TO_CHAR(P.CODPROD)
-    GROUP BY TRUNC(V.DTENTSAI), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, NVL(TRIM(P.GRUPO_PAI), 'OUTROS'), NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS'), NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS'), NVL(TRIM(P.MARCA), 'OUTRAS'), NVL(TRIM(P.DESCRPROD), 'OUTROS')
-    """
+    if df is None:
+        dt_ini = f"01/01/{ano_ref - 1}"
+        dt_fim = f"31/12/{ano_ref}"
 
-    conn = get_db_connection()
-    try:
-        df = pd.read_sql(query, conn)
-    finally:
-        conn.close()
+        d_filter = f"TGFCAB.DTENTSAI >= TO_DATE('{dt_ini}', 'DD/MM/YYYY') AND TGFCAB.DTENTSAI <= TO_DATE('{dt_fim}', 'DD/MM/YYYY') AND "
+        opt_sql = RAW_SQL_BASE.replace('WHERE TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER', 'WHERE ' + d_filter + 'TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER')
+        opt_sql = opt_sql.replace("WHERE tgfcab.tipmov='P'", 'WHERE ' + d_filter + "tgfcab.tipmov='P'")
 
-    df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
-    df['TOTAL_PREV'] = pd.to_numeric(df['TOTAL_PREV'], errors='coerce').fillna(0.0)
-    df['PRODUTO'] = df['GRUPO_ANALITICO'].where(
-        (df['GRUPO_ANALITICO'] != 'OUTROS') & (df['GRUPO_ANALITICO'] != '') & (df['GRUPO_ANALITICO'].notna()),
-        df['PRODUTO']
-    )
+        query = f"""
+        SELECT 
+            TRUNC(V.DTENTSAI) AS DATA,
+            TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')) AS ANO,
+            TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) AS MES,
+            V.CODVEND,
+            NVL(TRIM(P.GRUPO_PAI), 'OUTROS') AS GRUPO_PAI,
+            NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS') AS GRUPO_SINTETICO,
+            NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS') AS GRUPO_ANALITICO,
+            NVL(TRIM(P.MARCA), 'OUTRAS') AS MARCA,
+            NVL(TRIM(P.DESCRPROD), 'OUTROS') AS PRODUTO,
+            SUM(V.TotalPrevisto) AS TOTAL_PREV,
+            SUM(V.TotalFat) AS TOTAL_FAT
+        FROM ({opt_sql}) V
+        LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.codprod) = TO_CHAR(P.CODPROD)
+        GROUP BY TRUNC(V.DTENTSAI), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), V.CODVEND, NVL(TRIM(P.GRUPO_PAI), 'OUTROS'), NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS'), NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS'), NVL(TRIM(P.MARCA), 'OUTRAS'), NVL(TRIM(P.DESCRPROD), 'OUTROS')
+        """
 
-    def mapear_categoria(row):
-        marca = str(row.get('MARCA', '')).upper()
-        gp_pai = str(row.get('GRUPO_PAI', '')).upper()
-        gp_sint = str(row.get('GRUPO_SINTETICO', '')).upper()
-        gp_anal = str(row.get('GRUPO_ANALITICO', '')).upper()
-        descr = str(row.get('PRODUTO', '')).upper()
+        conn = get_db_connection()
+        try:
+            df = pd.read_sql(query, conn)
+        finally:
+            conn.close()
 
-        # 1. Spare Parts
-        if 'SPARE' in gp_pai or 'SPARE' in gp_sint or marca.startswith('SP ') or 'SPARE PARTS' in gp_anal or ' - SP' in descr:
-            return 'Spare Parts'
-        
-        # 2. Parlux (toda a linha Parlux que não for Spare Parts)
-        if 'PARLUX' in marca or 'PARLUX' in descr or 'PARLUX' in gp_anal:
-            return 'Parlux'
-        
-        # 3. Escova Secadora (escovas elétricas / secadoras / alisadoras)
-        if 'ESCOVA ELETRICA' in gp_sint or 'SECADORA' in descr or 'TRISCOVA' in descr or 'LIZIN' in descr or 'ESCOVA ALISADORA' in descr:
-            return 'Escova Secadora'
-            
-        # 4. Escova Uso Diário (escovas tradicionais/profissionais)
-        if 'ESCOVA' in gp_pai or 'ESCOVA' in gp_sint or 'ESCOVA' in gp_anal or 'ESCOVA' in descr:
-            return 'Escova Uso Diário'
+        df['DATA'] = pd.to_datetime(df['DATA'], errors='coerce')
+        df['TOTAL_PREV'] = pd.to_numeric(df['TOTAL_PREV'], errors='coerce').fillna(0.0)
+        df['PRODUTO'] = df['GRUPO_ANALITICO'].where(
+            (df['GRUPO_ANALITICO'] != 'OUTROS') & (df['GRUPO_ANALITICO'] != '') & (df['GRUPO_ANALITICO'].notna()),
+            df['PRODUTO']
+        )
 
-        # 5. Prancha
-        if 'PRANCHA' in gp_sint or 'PRANCHA' in gp_anal or 'PRANCHA' in descr:
-            return 'Prancha'
+        def _mapear_cat_row(row):
+            marca = str(row.get('MARCA', '')).upper()
+            gp_pai = str(row.get('GRUPO_PAI', '')).upper()
+            gp_sint = str(row.get('GRUPO_SINTETICO', '')).upper()
+            gp_anal = str(row.get('GRUPO_ANALITICO', '')).upper()
+            descr = str(row.get('PRODUTO', '')).upper()
 
-        # 6. Secador
-        if 'SECADOR' in gp_sint or 'SECADOR' in gp_anal or 'SECADOR' in descr:
-            return 'Secador'
+            if 'SPARE' in gp_pai or 'SPARE' in gp_sint or marca.startswith('SP ') or 'SPARE PARTS' in gp_anal or ' - SP' in descr:
+                return 'Spare Parts'
+            if 'PARLUX' in marca or 'PARLUX' in descr or 'PARLUX' in gp_anal:
+                return 'Parlux'
+            if 'ESCOVA ELETRICA' in gp_sint or 'SECADORA' in descr or 'TRISCOVA' in descr or 'LIZIN' in descr or 'ESCOVA ALISADORA' in descr:
+                return 'Escova Secadora'
+            if 'ESCOVA' in gp_pai or 'ESCOVA' in gp_sint or 'ESCOVA' in gp_anal or 'ESCOVA' in descr:
+                return 'Escova Uso Diário'
+            if 'PRANCHA' in gp_sint or 'PRANCHA' in gp_anal or 'PRANCHA' in descr:
+                return 'Prancha'
+            if 'SECADOR' in gp_sint or 'SECADOR' in gp_anal or 'SECADOR' in descr:
+                return 'Secador'
+            if 'MODELADOR' in gp_sint or 'MODELADOR' in gp_anal or 'MODELADOR' in descr:
+                return 'Modelador'
+            if 'MAQUINA' in gp_sint or 'MAQUINA' in gp_anal or 'MAQUINA' in descr or 'BARBER' in gp_sint or 'BARBER' in gp_anal:
+                return 'Maquina'
+            if 'TESOURA' in gp_sint or 'TESOURA' in gp_anal or 'TESOURA' in descr or 'TESOURA' in marca or descr.startswith('TES '):
+                return 'Tesoura'
+            return 'Outros'
 
-        # 7. Modelador
-        if 'MODELADOR' in gp_sint or 'MODELADOR' in gp_anal or 'MODELADOR' in descr:
-            return 'Modelador'
+        df['CATEGORIA'] = df.apply(_mapear_cat_row, axis=1)
 
-        # 8. Maquina
-        if 'MAQUINA' in gp_sint or 'MAQUINA' in gp_anal or 'MAQUINA' in descr or 'BARBER' in gp_sint or 'BARBER' in gp_anal:
-            return 'Maquina'
+        _, df_setores = carregar_metas_e_setores(mes_ref, ano_ref)
+        df_setores_clean = df_setores[['CODVEND', 'SETOR']].drop_duplicates(subset=['CODVEND'])
+        df = pd.merge(df, df_setores_clean, on='CODVEND', how='left')
 
-        # 9. Tesoura
-        if 'TESOURA' in gp_sint or 'TESOURA' in gp_anal or 'TESOURA' in descr or 'TESOURA' in marca or descr.startswith('TES '):
-            return 'Tesoura'
+        def _mapear_canal_row(row):
+            setor = str(row.get('SETOR', '')).strip().upper()
+            marca = str(row.get('MARCA', '')).strip().upper()
+            if setor == 'SP':
+                return 'VAREJO ESPECIALIZADO - SP'
+            elif setor in ['NO - ND', 'RJ - MG - ES', 'SUL']:
+                return f'REGIONAL {setor}'
+            elif 'DISTRIB' in setor or 'VAGNER' in setor:
+                return 'DISTRIBUIÇÃO'
+            elif setor == 'COMEX':
+                return 'COMEX'
+            elif 'E-COMMERCE' in setor or 'ECOMMERCE' in setor:
+                if 'PARLUX' in marca:
+                    return 'E-COMMERCE - PARLUX'
+                else:
+                    return 'E-COMMERCE - MQ'
+            return 'OUTROS'
 
-        return 'Outros'
-
-    df['CATEGORIA'] = df.apply(mapear_categoria, axis=1)
-
-    _, df_setores = carregar_metas_e_setores(mes_ref, ano_ref)
-    df_setores_clean = df_setores[['CODVEND', 'SETOR']].drop_duplicates(subset=['CODVEND'])
-    df = pd.merge(df, df_setores_clean, on='CODVEND', how='left')
-
-    def mapear_canal_venda(row):
-        setor = str(row.get('SETOR', '')).strip().upper()
-        marca = str(row.get('MARCA', '')).strip().upper()
-        if setor == 'SP':
-            return 'VAREJO ESPECIALIZADO - SP'
-        elif setor in ['NO - ND', 'RJ - MG - ES', 'SUL']:
-            return f'REGIONAL {setor}'
-        elif 'DISTRIB' in setor or 'VAGNER' in setor:
-            return 'DISTRIBUIÇÃO'
-        elif setor == 'COMEX':
-            return 'COMEX'
-        elif 'E-COMMERCE' in setor or 'ECOMMERCE' in setor:
-            if 'PARLUX' in marca:
-                return 'E-COMMERCE - PARLUX'
-            else:
-                return 'E-COMMERCE - MQ'
-        return 'OUTROS'
-
-    df['CANAL'] = df.apply(mapear_canal_venda, axis=1)
+        df['CANAL'] = df.apply(_mapear_canal_row, axis=1)
+        cached_cat_raw_df[ano_ref] = (df.copy(), now_ts)
+        try:
+            df.to_pickle(disk_file)
+        except Exception as e:
+            print(f"[CACHE DISCO] Erro ao salvar arquivo de cache {disk_file}: {e}")
 
     if canal_filter:
         df = df[df['CANAL'] == canal_filter].copy()
@@ -1264,6 +1323,7 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
         "categorias": cat_linhas,
         "marcas": marca_linhas,
         "canais": canal_linhas_ordenado,
+        "canal": canal_filter,
         "summary_categoria": cat_summary,
         "summary_marca": marca_summary,
         "summary_canal": canal_summary
@@ -1272,6 +1332,7 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
     cached_categorias_data[cache_key] = (resultado, now_ts)
     return resultado
 
+@app.route('/api/marcas_dados')
 @app.route('/api/categorias_dados')
 def api_categorias_dados():
     try:
@@ -1296,8 +1357,8 @@ def api_categorias_dados():
 cached_paises_data = {}
 cached_paises_raw_df = {}
 
-def obter_dados_paises(mes, ano, force_refresh=False):
-    cache_key = f"{ano}_{mes}"
+def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refresh=False):
+    cache_key = f"{ano}_{mes}_{marca_filter}_{pais_filter}"
     now_ts = time.time()
     if not force_refresh and cache_key in cached_paises_data:
         data, ts = cached_paises_data[cache_key]
@@ -1318,16 +1379,32 @@ def obter_dados_paises(mes, ano, force_refresh=False):
         if now_ts - ts_raw < CACHE_TTL:
             df = df_cached.copy()
 
+    disk_file = os.path.join(DISK_CACHE_DIR, f'paises_raw_{ano_ref}.pkl')
+    if df is None and not force_refresh and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                df = pd.read_pickle(disk_file)
+                cached_paises_raw_df[ano_ref] = (df.copy(), now_ts)
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao carregar arquivo de cache {disk_file}: {e}")
+
     if df is None:
         query = f"""
         SELECT 
             NVL(V.NOME_PAIS, 'NÃO INFORMADO') AS NOME_PAIS,
+            NVL(TRIM(V.DESCRPROD), 'OUTROS') AS PRODUTO,
+            NVL(TRIM(V.MARCA), 'OUTRAS') AS MARCA,
+            TRUNC(V.DTENTSAI) AS DATA,
             V.ANO,
             V.MES,
             SUM(V.CALCULO_LIQUIDO_COM_IPI) AS CALCULO_LIQUIDO_COM_IPI
         FROM (
             SELECT 
                 (SELECT descricao FROM tsipai WHERE codpais=(SELECT codpais FROM tsiufs WHERE coduf = (SELECT uf FROM tsicid WHERE codcid=(SELECT codcid FROM tgfpar WHERE codparc=cab.codparc)))) AS NOME_PAIS,
+                PRO.DESCRPROD,
+                PRO.MARCA,
+                CAB.DTENTSAI,
                 TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'YYYY')) AS ANO,
                 TO_NUMBER(TO_CHAR(CAB.DTENTSAI, 'MM')) AS MES,
                 ( ((ITE.VLRTOT - ITE.VLRDESC - ITE.VLRREPRED + ITE.VLRSUBST + ITE.VLRIPI) * VCA.INDITENSBRUTO) * CASE WHEN TOP.BONIFICACAO = 'S' THEN 0 ELSE 1 END * DECODE(CAB.TIPMOV,'D',0,'V',1)
@@ -1363,7 +1440,7 @@ def obter_dados_paises(mes, ano, force_refresh=False):
               AND CAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}','DD/MM/YYYY')
         ) V
         WHERE UPPER(TRIM(NVL(V.NOME_PAIS, 'NÃO INFORMADO'))) NOT IN ('BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX')
-        GROUP BY V.NOME_PAIS, V.ANO, V.MES
+        GROUP BY V.NOME_PAIS, NVL(TRIM(V.DESCRPROD), 'OUTROS'), NVL(TRIM(V.MARCA), 'OUTRAS'), TRUNC(V.DTENTSAI), V.ANO, V.MES
         """
 
         conn = get_db_connection()
@@ -1372,116 +1449,145 @@ def obter_dados_paises(mes, ano, force_refresh=False):
         finally:
             conn.close()
 
-        # Excluir Brasil e registros inválidos (foco 100% em COMEX internacional)
         df['NOME_PAIS'] = df['NOME_PAIS'].astype(str).str.strip().str.upper()
         df = df[~df['NOME_PAIS'].isin(['BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX', 'NONE', 'NAN', ''])]
+        df['DATA'] = pd.to_datetime(df['DATA'])
+        df['PRODUTO'] = df['PRODUTO'].astype(str).str.strip()
+        df['MARCA'] = df['MARCA'].astype(str).str.strip().str.upper()
         cached_paises_raw_df[ano_ref] = (df.copy(), now_ts)
+        try:
+            df.to_pickle(disk_file)
+        except Exception as e:
+            print(f"[CACHE DISCO] Erro ao salvar arquivo de cache {disk_file}: {e}")
 
-    nomes_meses_br = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-    
-    pivot = df.groupby(['ANO', 'MES', 'NOME_PAIS'])['CALCULO_LIQUIDO_COM_IPI'].sum().reset_index()
+    # Lista de todas as marcas e países únicos disponíveis para os filtros
+    marcas_unicas = sorted([m for m in df['MARCA'].dropna().unique() if m and m not in ('OUTRAS', 'NONE', 'NAN')])
+    paises_unicos = sorted([p for p in df['NOME_PAIS'].dropna().unique() if p and p not in ('NONE', 'NAN')])
 
-    ranks = {}
-    vlrs = {}
-    totals = {}
+    # Aplicar filtros opcionais
+    df_filtrado = df.copy()
+    if marca_filter and str(marca_filter).strip().upper() not in ('TODAS', '', 'NONE', 'NULL'):
+        if ',' in str(marca_filter):
+            m_list = [m.strip().upper() for m in str(marca_filter).split(',') if m.strip()]
+            df_filtrado = df_filtrado[df_filtrado['MARCA'].isin(m_list)]
+        else:
+            df_filtrado = df_filtrado[df_filtrado['MARCA'] == str(marca_filter).strip().upper()]
 
-    for (a, m), grp in pivot.groupby(['ANO', 'MES']):
-        s = grp.sort_values('CALCULO_LIQUIDO_COM_IPI', ascending=False).reset_index(drop=True)
-        s['RANK'] = s.index + 1
-        ranks[(a, m)] = s.set_index('NOME_PAIS')['RANK'].to_dict()
-        vlrs[(a, m)] = s.set_index('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].to_dict()
-        totals[(a, m)] = float(grp['CALCULO_LIQUIDO_COM_IPI'].sum())
+    if pais_filter and str(pais_filter).strip().upper() not in ('TODOS', '', 'NONE', 'NULL'):
+        if ',' in str(pais_filter):
+            p_list = [p.strip().upper() for p in str(pais_filter).split(',') if p.strip()]
+            df_filtrado = df_filtrado[df_filtrado['NOME_PAIS'].isin(p_list)]
+        else:
+            df_filtrado = df_filtrado[df_filtrado['NOME_PAIS'] == str(pais_filter).strip().upper()]
 
-    df_ano_ref = pivot[pivot['ANO'] == ano_ref].copy()
-    if len(df_ano_ref) > 0:
-        tot_por_pais = df_ano_ref.groupby('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
-        paises_unicos = sorted(list(df_ano_ref['NOME_PAIS'].unique()), key=lambda x: tot_por_pais.get(x, 0), reverse=True)
-    else:
-        paises_unicos = sorted(list(pivot['NOME_PAIS'].unique()))
+    corte = mt.data_corte_contexto(mes_ref, ano_ref)
+    parcial = mt.mes_esta_parcial(corte)
+    p_ytd = mt.periodo_ytd(corte)
+    p_ytda = mt.periodo_ytd_ano_anterior(corte, parcial)
 
-    mes_ant = 12 if mes_ref == 1 else mes_ref - 1
-    ano_ant_m = ano_ref - 1 if mes_ref == 1 else ano_ref
-    ano_yoy = ano_ref - 1
+    mask_atual = (df_filtrado['DATA'].dt.date >= p_ytd[0]) & (df_filtrado['DATA'].dt.date <= p_ytd[1])
+    mask_ant = (df_filtrado['DATA'].dt.date >= p_ytda[0]) & (df_filtrado['DATA'].dt.date <= p_ytda[1])
 
-    total_mes_ref = totals.get((ano_ref, mes_ref), 0.0)
+    # Agrupamento por País
+    v_ytd = df_filtrado[mask_atual].groupby('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+    v_ytda = df_filtrado[mask_ant].groupby('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+
+    tot_ytd = sum(v_ytd.values())
+    tot_ytda = sum(v_ytda.values())
+
+    # Agrupamento por Produto dentro de cada País
+    v_prod_ytd = df_filtrado[mask_atual].groupby(['NOME_PAIS', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+    v_prod_ytda = df_filtrado[mask_ant].groupby(['NOME_PAIS', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+
+    paises_todos = set(v_ytd.keys()) | set(v_ytda.keys())
+    ordenados = sorted(paises_todos, key=lambda p: v_ytd.get(p, 0.0), reverse=True)
+    ord_ant = sorted(paises_todos, key=lambda p: v_ytda.get(p, 0.0), reverse=True)
+    rank_ant_map = {p: i + 1 for i, p in enumerate(ord_ant) if v_ytda.get(p, 0.0) > 0}
 
     linhas = []
-    for idx, item in enumerate(paises_unicos):
-        vlr_atual = float(vlrs.get((ano_ref, mes_ref), {}).get(item, 0.0))
-        share = round((vlr_atual / total_mes_ref * 100), 1) if total_mes_ref > 0 else 0.0
+    for idx, p in enumerate(ordenados):
+        fat = float(v_ytd.get(p, 0.0))
+        fat_ant = float(v_ytda.get(p, 0.0))
+
+        if fat == 0.0 and fat_ant == 0.0:
+            continue
+
         rank = idx + 1
+        r_ant = rank_ant_map.get(p)
+        delta_rank = (r_ant - rank) if (r_ant is not None and rank is not None) else None
 
-        meses_dados = {}
-        for m in range(1, 13):
-            v_m = float(vlrs.get((ano_ref, m), {}).get(item, 0.0))
-            tot_m = totals.get((ano_ref, m), 0.0)
-            s_m = round((v_m / tot_m * 100), 2) if tot_m > 0 else 0.0
-            r_m = ranks.get((ano_ref, m), {}).get(item)
+        share = round(fat / tot_ytd * 100, 1) if tot_ytd > 0 else 0.0
+        share_ant = round(fat_ant / tot_ytda * 100, 1) if tot_ytda > 0 else 0.0
+        var_pp = round(share - share_ant, 1)
 
-            prev_m = 12 if m == 1 else m - 1
-            prev_a = ano_ref - 1 if m == 1 else ano_ref
-            r_prev = ranks.get((prev_a, prev_m), {}).get(item)
-            v_prev = float(vlrs.get((prev_a, prev_m), {}).get(item, 0.0))
+        evolucao_pct = round(((fat - fat_ant) / fat_ant * 100), 1) if fat_ant > 0 else (100.0 if fat > 0 else 0.0)
 
-            delta_r_m = (r_prev - r_m) if (r_prev is not None and r_m is not None) else None
-            mom_m = mt.arredondar(mt.divide_seguro(v_m, v_prev), 1)
+        # Montar produtos filhos para este país
+        prods_pais = set()
+        for k in v_prod_ytd.keys():
+            if k[0] == p:
+                prods_pais.add(k[1])
+        for k in v_prod_ytda.keys():
+            if k[0] == p:
+                prods_pais.add(k[1])
 
-            v_yoy = float(vlrs.get((ano_ref - 1, m), {}).get(item, 0.0))
-            tot_yoy = totals.get((ano_ref - 1, m), 0.0)
-            s_yoy = round((v_yoy / tot_yoy * 100), 2) if tot_yoy > 0 else 0.0
-            yoy_m = mt.arredondar(mt.divide_seguro(v_m, v_yoy), 1)
+        prods_lista = []
+        for prod_nome in sorted(prods_pais, key=lambda pr: v_prod_ytd.get((p, pr), 0.0), reverse=True):
+            fat_pr = float(v_prod_ytd.get((p, prod_nome), 0.0))
+            fat_pr_ant = float(v_prod_ytda.get((p, prod_nome), 0.0))
+            if fat_pr == 0.0 and fat_pr_ant == 0.0:
+                continue
 
-            meses_dados[m] = {
-                "faturamento": round(v_m, 2),
-                "share": s_m,
-                "rank": r_m,
-                "delta_rank": delta_r_m,
-                "mom": mom_m,
-                "yoy": yoy_m,
-                "faturamento_ant": round(v_yoy, 2),
-                "share_ant": s_yoy
-            }
+            share_pr = round(fat_pr / fat * 100, 1) if fat > 0 else 0.0
+            share_pr_ant = round(fat_pr_ant / fat_ant * 100, 1) if fat_ant > 0 else 0.0
+            var_pp_pr = round(share_pr - share_pr_ant, 1)
+            evol_pct_pr = round(((fat_pr - fat_pr_ant) / fat_pr_ant * 100), 1) if fat_pr_ant > 0 else (100.0 if fat_pr > 0 else 0.0)
 
-        r_ref_prev = ranks.get((ano_ant_m, mes_ant), {}).get(item)
-        delta_rank = (r_ref_prev - rank) if (r_ref_prev is not None and rank != 999) else None
-
-        v_ref_prev = float(vlrs.get((ano_ant_m, mes_ant), {}).get(item, 0.0))
-        mom = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_prev), 1)
-
-        v_ref_yoy = float(vlrs.get((ano_yoy, mes_ref), {}).get(item, 0.0))
-        yoy = mt.arredondar(mt.divide_seguro(vlr_atual, v_ref_yoy), 1)
-
-        if rank <= 2:
-            status = "Líder"
-        elif (mom is not None and mom >= 15.0) or (delta_rank is not None and delta_rank >= 2):
-            status = "Expansão"
-        elif (mom is not None and mom <= -15.0) or (delta_rank is not None and delta_rank <= -2):
-            status = "Atenção"
-        else:
-            status = "Estável"
+            prods_lista.append({
+                "item": prod_nome,
+                "faturamento": round(fat_pr, 2),
+                "faturamento_ant": round(fat_pr_ant, 2),
+                "share": share_pr,
+                "share_ant": share_pr_ant,
+                "var_pp": var_pp_pr,
+                "evolucao_pct": evol_pct_pr
+            })
 
         linhas.append({
-            "item": item,
-            "faturamento": round(vlr_atual, 2),
-            "share": share,
+            "item": p,
             "rank": rank,
-            "rank_ant": r_ref_prev,
+            "rank_ant": r_ant,
             "delta_rank": delta_rank,
-            "mom": mom,
-            "yoy": yoy,
-            "meses_dados": meses_dados,
-            "status": status
+            "faturamento": round(fat, 2),
+            "faturamento_ant": round(fat_ant, 2),
+            "share": share,
+            "share_ant": share_ant,
+            "var_pp": var_pp,
+            "evolucao_pct": evolucao_pct,
+            "produtos": prods_lista
         })
 
-    meses_colunas = [{"num": m, "label": nomes_meses_br[m]} for m in range(1, 13)]
+    nomes_meses_br = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+    contexto = {
+        "corte": corte.isoformat(),
+        "parcial": parcial,
+        "dias": corte.day,
+        "periodos": {
+            "ytd": [p_ytd[0].isoformat(), p_ytd[1].isoformat()],
+            "ytd_anterior": [p_ytda[0].isoformat(), p_ytda[1].isoformat()],
+        },
+    }
 
     resultado = {
         "mes": mes_ref,
         "ano": ano_ref,
         "mes_solicitado": mes,
         "mes_nome": nomes_meses_br[mes_ref],
-        "meses_colunas": meses_colunas,
-        "total_faturamento": round(total_mes_ref, 2),
+        "total_faturamento": round(tot_ytd, 2),
+        "total_faturamento_ant": round(tot_ytda, 2),
+        "marcas": marcas_unicas,
+        "paises_lista": paises_unicos,
+        "contexto": contexto,
         "paises": linhas
     }
 
@@ -1536,8 +1642,25 @@ cached_estoque_previsao = {
 
 def obter_dados_estoque_previsao(force=False):
     global cached_estoque_previsao
-    if not force and cached_estoque_previsao['data'] is not None and (time.time() - cached_estoque_previsao['timestamp'] < CACHE_TTL):
+    disk_file = os.path.join(DISK_CACHE_DIR, 'estoque_previsao.pkl')
+    now_ts = time.time()
+
+    if not force and cached_estoque_previsao['data'] is not None and (now_ts - cached_estoque_previsao['timestamp'] < CACHE_TTL):
         return cached_estoque_previsao['data']
+
+    if not force and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                import pickle
+                with open(disk_file, 'rb') as f:
+                    payload = pickle.load(f)
+                    cached_estoque_previsao['data'] = payload['data']
+                    cached_estoque_previsao['timestamp'] = now_ts
+                    cached_estoque_previsao['meta'] = payload.get('meta', {})
+                    return payload['data']
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao ler {disk_file}: {e}")
 
     conn = get_db_connection()
     # Meses dinamicos para labels
@@ -1695,6 +1818,12 @@ def obter_dados_estoque_previsao(force=False):
     cached_estoque_previsao['data'] = data
     cached_estoque_previsao['timestamp'] = time.time()
     cached_estoque_previsao['meta'] = meta
+    try:
+        import pickle
+        with open(disk_file, 'wb') as f:
+            pickle.dump({'data': data, 'meta': meta}, f)
+    except Exception as e:
+        print(f"[CACHE DISCO] Erro ao salvar {disk_file}: {e}")
     return data
 
 @app.route('/api/estoque_previsao')
@@ -1717,13 +1846,15 @@ def api_paises_dados():
         mes_arg = request.args.get('mes')
         mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
         ano = int(request.args.get('ano', now.year))
+        marca_arg = request.args.get('marca')
+        pais_arg = request.args.get('pais')
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         
         if force:
             cached_paises_data.clear()
             cached_paises_raw_df.clear()
             
-        data = obter_dados_paises(mes, ano, force_refresh=force)
+        data = obter_dados_paises(mes, ano, marca_filter=marca_arg, pais_filter=pais_arg, force_refresh=force)
         return jsonify({"success": True, "data": data})
     except Exception as e:
         import traceback
@@ -1736,10 +1867,22 @@ cached_diario_data = {}
 def carregar_dados_diarios_sankhya(mes, ano, force_refresh=False):
     cache_key = f"{ano}_{mes}"
     now_ts = time.time()
+    disk_file = os.path.join(DISK_CACHE_DIR, f'diario_{ano}_{mes}.pkl')
+
     if not force_refresh and cache_key in cached_diario_data:
         data, ts = cached_diario_data[cache_key]
         if now_ts - ts < CACHE_TTL:
             return data.copy()
+
+    if not force_refresh and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                df = pd.read_pickle(disk_file)
+                cached_diario_data[cache_key] = (df.copy(), now_ts)
+                return df.copy()
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao ler {disk_file}: {e}")
 
     _, num_days = calendar.monthrange(ano, mes)
     dt_ini = f"01/{mes:02d}/{ano}"
@@ -1788,6 +1931,10 @@ def carregar_dados_diarios_sankhya(mes, ano, force_refresh=False):
         conn.close()
 
     cached_diario_data[cache_key] = (df, now_ts)
+    try:
+        df.to_pickle(disk_file)
+    except Exception as e:
+        print(f"[CACHE DISCO] Erro ao salvar {disk_file}: {e}")
     return df.copy()
 
 def mapear_canal(setor):
