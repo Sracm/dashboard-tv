@@ -12,7 +12,7 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/empresa.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/empresa.css') }}?v=8">
     
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -97,21 +97,23 @@
 
         <!-- Main Container para o Velocímetro Gigante -->
         <main class="empresa-main-container">
-            <div class="empresa-card-wrapper" style="display:flex; flex-direction:row; gap:20px; justify-content:center; width:100%; align-items: stretch;">
+            <div class="empresa-card-wrapper">
                 <!-- Velocímetro Principal (Meta) -->
-                <div id="main-gauge-container" style="flex:1; max-width:650px; display:flex; flex-direction:column; transition: max-width 0.3s ease;">
+                <div id="main-gauge-container">
                     <div id="meta-banner-el" class="meta-banner">🎉 META ATINGIDA 🎉</div>
-                    <div class="empresa-card" id="empresa-card-el" style="flex:1;">
+                    <div class="empresa-card" id="empresa-card-el">
                         <div class="empresa-title" id="empresa-card-title">EMPRESA (MÊS ATUAL)</div>
                         <div class="empresa-chart" id="empresa-gauge"></div>
+                        <div class="empresa-comparisons" id="empresa-comparisons"></div>
                     </div>
                 </div>
                 <!-- Velocímetro YTD vs Ano Anterior (Exibido apenas no Acumulado) -->
-                <div id="ytd-yoy-container" style="flex:1; max-width:650px; display:none; flex-direction:column;">
+                <div id="ytd-yoy-container">
                     <div class="meta-banner" id="ytd-yoy-banner-el">🎉 SUPEROU ANO ANTERIOR 🎉</div>
-                    <div class="empresa-card" id="ytd-yoy-card-el" style="flex:1;">
+                    <div class="empresa-card" id="ytd-yoy-card-el">
                         <div class="empresa-title" title="YTD (Year-to-Date): acumulado do início do ano até a data atual.">YTD (Year-to-Date)</div>
                         <div class="empresa-chart" id="ytd-yoy-gauge"></div>
+                        <div class="empresa-comparisons" id="ytd-comparisons"></div>
                     </div>
                 </div>
             </div>
@@ -123,7 +125,7 @@
     <audio id="music-sound" src="/static/audio/van_halen_jump.mp3" preload="none"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/empresa.js') }}?v=26"></script>
+    <script src="{{ url_for('static', filename='js/empresa.js') }}?v=27"></script>
 </body>
 </html>
 

@@ -89,7 +89,7 @@ function getEmpresaGaugeOption(percent, diff) {
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '96%',
+                radius: '100%',
                 center: ['50%', '76%'],
                 axisLine: {
                     lineStyle: {
@@ -122,11 +122,11 @@ function getEmpresaGaugeOption(percent, diff) {
                 title: {
                     offsetCenter: [0, '15%'],
                     fontSize: 36,
-                    color: '#0d6efd',
+                    color: '#ffffff',
                     fontWeight: 'bolder'
                 },
                 detail: {
-                    fontSize: 20,
+                    fontSize: 22,
                     offsetCenter: [0, '42%'],
                     valueAnimation: true,
                     formatter: function () {
@@ -156,13 +156,27 @@ function initFilters() {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
+    const anoParam = urlParams.get('ano');
+    if (anoParam && yearEl) yearEl.value = anoParam;
+
+    const mesParam = urlParams.get('mes');
+    if (mesParam) {
+        const parsed = mesParam.split(',').map(Number).filter(n => !isNaN(n) && n >= 1 && n <= 12);
+        if (parsed.length > 0) {
+            selectedMonths = parsed;
+        }
+    }
+
     const viewParam = urlParams.get('view');
     if (viewParam === 'mes' || viewParam === 'acumulado') {
         currentView = viewParam;
-        document.querySelectorAll('.sub-nav-empresa .tab-btn').forEach(btn => btn.classList.remove('active'));
-        const btn = document.getElementById(`btn-view-${currentView}`);
-        if (btn) btn.classList.add('active');
+    } else if (selectedMonths.length > 1) {
+        currentView = 'acumulado';
     }
+
+    document.querySelectorAll('.sub-nav-empresa .tab-btn').forEach(btn => btn.classList.remove('active'));
+    const btn = document.getElementById(`btn-view-${currentView}`);
+    if (btn) btn.classList.add('active');
 
     initMonthMultiselect();
 }
@@ -398,35 +412,14 @@ function renderEmpresa() {
         if (bannerEl) bannerEl.classList.remove('show');
     }
 
-    if (!empresaChart) {
-        const chartEl = document.getElementById('empresa-gauge');
-        if (chartEl) empresaChart = echarts.init(chartEl);
-    }
-    if (!ytdYoyChart) {
-        const ytdYoyEl = document.getElementById('ytd-yoy-gauge');
-        if (ytdYoyEl) ytdYoyChart = echarts.init(ytdYoyEl);
-    }
-
-    if (empresaChart) {
-        empresaChart.setOption(getEmpresaGaugeOption(item.percent, item.diff));
-        empresaChart.resize();
-    }
-    if (ytdYoyChart) {
-        // YTD vs Ano Anterior percent
-        const ytdYoyPercent = (item.yoy || 0) + 100;
-        const ytdYoyDiff = (item.yoy || 0); // Difference vs 100% is exactly item.yoy
-        ytdYoyChart.setOption(getEmpresaGaugeOption(ytdYoyPercent, ytdYoyDiff));
-    }
-
     const ytdYoyContainer = document.getElementById('ytd-yoy-container');
     const ytdYoyBanner = document.getElementById('ytd-yoy-banner-el');
     const mainContainer = document.getElementById('main-gauge-container');
+    const ytdYoyCard = document.getElementById('ytd-yoy-card-el');
     
     if (currentView === 'acumulado') {
         if (mainContainer) mainContainer.style.maxWidth = '650px';
         if (ytdYoyContainer) ytdYoyContainer.style.display = 'flex';
-        
-        const ytdYoyCard = document.getElementById('ytd-yoy-card-el');
         
         // Exibir banner de "SUPEROU ANO ANTERIOR" se YTD YoY > 0
         if (ytdYoyBanner) {
@@ -444,24 +437,73 @@ function renderEmpresa() {
                 }
             }
         }
-        
-        // Only resize after the container is visible
-        if (ytdYoyChart) {
-            setTimeout(() => {
-                ytdYoyChart.resize();
-            }, 50);
-        }
     } else {
         if (mainContainer) mainContainer.style.maxWidth = '1000px';
         if (ytdYoyContainer) ytdYoyContainer.style.display = 'none';
     }
-    
-    // Ensure main chart resizes if container width changed
-    if (empresaChart) {
-        setTimeout(() => {
-            empresaChart.resize();
-        }, 300); // wait for CSS transition to finish
+
+    // Inicializar e configurar gráficos com os containers já com display correto
+    if (!empresaChart) {
+        const chartEl = document.getElementById('empresa-gauge');
+        if (chartEl) empresaChart = echarts.init(chartEl);
     }
+    if (empresaChart) {
+        empresaChart.setOption(getEmpresaGaugeOption(item.percent, item.diff));
+        empresaChart.resize();
+    }
+
+    if (currentView === 'acumulado') {
+        if (!ytdYoyChart) {
+            const ytdYoyEl = document.getElementById('ytd-yoy-gauge');
+            if (ytdYoyEl) ytdYoyChart = echarts.init(ytdYoyEl);
+        }
+        if (ytdYoyChart) {
+            const ytdYoyPercent = (item.yoy || 0) + 100;
+            const ytdYoyDiff = (item.yoy || 0);
+            ytdYoyChart.setOption(getEmpresaGaugeOption(ytdYoyPercent, ytdYoyDiff));
+            ytdYoyChart.resize();
+        }
+    }
+
+    // Renderizar Comparativos abaixo do velocímetro
+    const compContainer = document.getElementById('empresa-comparisons');
+    if (compContainer) {
+        let badgesHtml = '';
+        if (item.realizado !== undefined) {
+            badgesHtml += renderAmountBadge('Realizado', item.realizado);
+        }
+        if (item.meta !== undefined && item.meta > 0) {
+            badgesHtml += renderAmountBadge('Meta', item.meta);
+        }
+        if (currentView === 'mes') {
+            const mom = item.mom || 0;
+            const prevMonth = item.prev_month_percent !== undefined ? item.prev_month_percent : 0;
+            if (prevMonth > 0) badgesHtml += renderValueBadge('Mês Ant', prevMonth);
+            if (mom !== 0) badgesHtml += renderTrendBadge('MoM', mom);
+        }
+        compContainer.innerHTML = badgesHtml;
+    }
+
+    const ytdCompContainer = document.getElementById('ytd-comparisons');
+    if (ytdCompContainer) {
+        if (currentView === 'acumulado') {
+            let badgesHtml = '';
+            const prevYear = item.prev_year_percent !== undefined ? item.prev_year_percent : 0;
+            const yoy = item.yoy || 0;
+            if (prevYear > 0) badgesHtml += renderValueBadge('Ano Anterior', prevYear);
+            badgesHtml += renderTrendBadge('YoY (Crescimento)', yoy);
+            ytdCompContainer.innerHTML = badgesHtml;
+            ytdCompContainer.style.display = 'flex';
+        } else {
+            ytdCompContainer.style.display = 'none';
+        }
+    }
+    
+    // Ensure charts resize accurately after layout recalculations
+    setTimeout(() => {
+        if (empresaChart) empresaChart.resize();
+        if (ytdYoyChart && currentView === 'acumulado') ytdYoyChart.resize();
+    }, 150);
 }
 
 async function fetchData(forceRefresh = false) {
