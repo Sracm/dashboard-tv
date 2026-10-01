@@ -13,6 +13,590 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260926_4">
+
+    <style>
+        /* ========================================================= */
+        /* TABELA HIERÁRQUICA EXECUTIVA: PAÍSES -> CATEGORIAS -> PRODUTOS */
+        /* ========================================================= */
+        /* ========================================================= */
+        /* TABELA HIERÁRQUICA EXECUTIVA: PAÍSES -> CATEGORIAS -> PRODUTOS */
+        /* ========================================================= */
+        .table-card-container {
+            display: flex !important;
+            flex-direction: column !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            padding: 4px 20px 14px 20px !important;
+            height: calc(100vh - 225px) !important;
+            overflow: hidden !important;
+        }
+
+        .table-responsive-wrapper {
+            flex: 1 !important;
+            overflow-y: scroll !important;
+            overflow-x: auto !important;
+            background: #0d111a !important;
+            border: 1px solid rgba(255, 215, 0, 0.25) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+            scrollbar-width: auto !important;
+            scrollbar-color: #ffd700 #10141f !important;
+        }
+
+        .table-responsive-wrapper::-webkit-scrollbar {
+            width: 14px !important;
+            height: 10px !important;
+        }
+        .table-responsive-wrapper::-webkit-scrollbar-track {
+            background: #10141f !important;
+            border-radius: 7px !important;
+            border-left: 1px solid rgba(255, 215, 0, 0.2) !important;
+        }
+        .table-responsive-wrapper::-webkit-scrollbar-thumb {
+            background: #ffd700 !important;
+            border-radius: 7px !important;
+            border: 3px solid #10141f !important;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.5) !important;
+        }
+        .table-responsive-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #ffe033 !important;
+            box-shadow: 0 0 14px rgba(255, 215, 0, 0.9) !important;
+        }
+
+        /* ========================================================= */
+        /* BARRA EXECUTIVA DE KPIS (COCKPIT GLOBAL COMEX) */
+        /* ========================================================= */
+        .exec-kpi-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            padding: 6px 20px 8px 20px;
+            background: transparent;
+            flex-shrink: 0;
+        }
+
+        .kpi-mini-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, rgba(20, 25, 38, 0.95) 0%, rgba(13, 17, 26, 0.98) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 8px 14px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .kpi-mini-card:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 215, 0, 0.35);
+        }
+
+        .kpi-card-positive {
+            border-left: 3px solid #22c55e !important;
+        }
+        .kpi-card-negative {
+            border-left: 3px solid #ef4444 !important;
+        }
+        .kpi-card-keyprod {
+            border-left: 3px solid #ffd700 !important;
+        }
+        .kpi-card-total {
+            border-left: 3px solid #60a5fa !important;
+        }
+
+        .kpi-mini-icon {
+            font-size: 1.45rem;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .kpi-mini-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .kpi-mini-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .kpi-mini-val-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .kpi-mini-val {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #ffffff;
+            font-family: 'Montserrat', sans-serif;
+            line-height: 1.1;
+        }
+
+        .val-glow-green {
+            color: #4ade80 !important;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.4);
+        }
+        .val-glow-red {
+            color: #f87171 !important;
+            text-shadow: 0 0 10px rgba(248, 113, 113, 0.4);
+        }
+        .val-glow-gold {
+            color: #ffd700 !important;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            font-size: 0.95rem !important;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .kpi-mini-sub {
+            font-size: 0.68rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        .kpi-mini-tag {
+            font-size: 0.62rem;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.4px;
+        }
+        .tag-green {
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+        }
+        .tag-red {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.4);
+        }
+
+        /* Célula do Produto Chave (Carro-Chefe) */
+        .country-flag-img {
+            width: 26px !important;
+            height: 18px !important;
+            object-fit: cover !important;
+            border-radius: 3px !important;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5) !important;
+            border: 1px solid rgba(255, 255, 255, 0.25) !important;
+            display: inline-block !important;
+            vertical-align: middle !important;
+            margin-right: 9px !important;
+            flex-shrink: 0 !important;
+        }
+        .country-flag-fallback {
+            font-size: 1.25rem !important;
+            margin-right: 9px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+        }
+
+        .prod-chave-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .prod-chave-title-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .prod-medal {
+            font-size: 0.95rem;
+            line-height: 1;
+        }
+        .prod-chave-name {
+            font-weight: 800;
+            color: #ffffff;
+            font-size: 0.82rem;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 250px;
+        }
+        .prod-chave-sub-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.68rem;
+        }
+        .prod-chave-share-pill {
+            background: rgba(255, 215, 0, 0.16);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-weight: 700;
+        }
+        .prod-chave-sec {
+            color: #94a3b8;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 140px;
+        }
+
+        /* Célula da Categoria Líder */
+        .cat-lider-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .cat-lider-name-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cat-lider-icon {
+            font-size: 0.85rem;
+        }
+        .cat-lider-name {
+            font-weight: 700;
+            color: #e2e8f0;
+            font-size: 0.80rem;
+        }
+        .cat-lider-pct-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cat-lider-bar {
+            width: 44px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .cat-lider-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #60a5fa);
+            border-radius: 2px;
+        }
+        .cat-lider-pct {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #93c5fd;
+        }
+
+        .exec-table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-size: 0.82rem !important;
+        }
+
+        .exec-table thead th {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 30 !important;
+            background: #141926 !important;
+            color: #94a3b8 !important;
+            padding: 10px 14px !important;
+            font-size: 0.72rem !important;
+            font-weight: 800 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.8px !important;
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3) !important;
+            white-space: nowrap !important;
+        }
+
+        .exec-table thead th.sortable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .exec-table thead th.sortable:hover {
+            color: #ffd700 !important;
+            background: #1a2234 !important;
+        }
+
+        /* NÍVEL 1: LINHA DO PAÍS */
+        .exec-table tbody tr.row-pais {
+            background: linear-gradient(90deg, #141925 0%, #10131d 100%) !important;
+            border-top: 1px solid rgba(255, 215, 0, 0.25) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+            cursor: pointer;
+            transition: background 0.15s ease, transform 0.1s ease;
+        }
+        .exec-table tbody tr.row-pais:hover {
+            background: linear-gradient(90deg, #1d2538 0%, #151b29 100%) !important;
+        }
+        .exec-table tbody tr.row-pais td {
+            padding: 10px 14px !important;
+            font-weight: 700 !important;
+            font-size: 0.86rem !important;
+            color: #ffffff !important;
+            vertical-align: middle !important;
+        }
+
+        /* NÍVEL 2: LINHA DA CATEGORIA */
+        .exec-table tbody tr.row-categoria {
+            background: #0f131d !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .exec-table tbody tr.row-categoria:hover {
+            background: #182030 !important;
+        }
+        .exec-table tbody tr.row-categoria td {
+            padding: 8px 14px !important;
+            font-weight: 600 !important;
+            font-size: 0.80rem !important;
+            color: #e2e8f0 !important;
+            vertical-align: middle !important;
+        }
+
+        /* NÍVEL 3: LINHA DO PRODUTO */
+        .exec-table tbody tr.row-produto {
+            background: #0a0d14 !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02) !important;
+            transition: background 0.15s ease;
+        }
+        .exec-table tbody tr.row-produto:hover {
+            background: #131824 !important;
+        }
+        .exec-table tbody tr.row-produto td {
+            padding: 6px 14px !important;
+            font-weight: 500 !important;
+            font-size: 0.76rem !important;
+            color: #cbd5e1 !important;
+            vertical-align: middle !important;
+        }
+
+        /* Ícones e Chevrons */
+        .tree-chevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            font-size: 0.70rem;
+            color: #ffd700;
+            margin-right: 6px;
+            transition: transform 0.2s ease;
+        }
+
+        .tree-chevron-cat {
+            color: #60a5fa;
+            font-size: 0.65rem;
+            margin-right: 6px;
+        }
+
+        .count-pill {
+            font-size: 0.62rem;
+            font-weight: 700;
+            padding: 1px 7px;
+            border-radius: 10px;
+            margin-left: 8px;
+            letter-spacing: 0.3px;
+        }
+        .count-pill-pais {
+            background: rgba(255, 215, 0, 0.15);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.35);
+        }
+        .count-pill-cat {
+            background: rgba(96, 165, 250, 0.15);
+            color: #93c5fd;
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
+
+        /* Coluna Share Visual */
+        .share-cell-box {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .share-bar-mini-track {
+            width: 48px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .share-bar-mini-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        .fill-gold {
+            background: linear-gradient(90deg, #cb9727, #ffd700);
+        }
+        .fill-cyan {
+            background: linear-gradient(90deg, #2563eb, #60a5fa);
+        }
+        .fill-muted {
+            background: linear-gradient(90deg, #64748b, #94a3b8);
+        }
+
+        /* Valores monetários e de share */
+        .share-val-gold {
+            color: #ffd700 !important;
+            font-weight: 800 !important;
+            font-variant-numeric: tabular-nums;
+        }
+        .share-val-cyan {
+            color: #93c5fd !important;
+            font-weight: 700 !important;
+            font-variant-numeric: tabular-nums;
+        }
+        .share-val-muted {
+            color: #cbd5e1 !important;
+            font-weight: 600 !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .fat-ytd-val {
+            font-weight: 800 !important;
+            color: #ffffff !important;
+            font-variant-numeric: tabular-nums;
+        }
+        .fat-ytd-pais {
+            color: #ffd700 !important;
+            font-size: 0.88rem !important;
+        }
+        .fat-ytd-cat {
+            color: #60a5fa !important;
+        }
+        .fat-ytd-muted {
+            color: #94a3b8 !important;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Badges de Evolução com Animação Piscante */
+        .evol-badge, .evol-badge-sub {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.78rem;
+            letter-spacing: 0.3px;
+            border: 1px solid transparent;
+            font-variant-numeric: tabular-nums;
+            transition: all 0.2s ease;
+        }
+
+        .evol-badge-sub {
+            font-size: 0.72rem;
+            padding: 2px 6px;
+        }
+
+        /* Positivo Piscando em Verde */
+        .evol-blink-positive {
+            animation: pulse-green 1.2s infinite ease-in-out !important;
+        }
+
+        /* Negativo Piscando em Vermelho */
+        .evol-blink-negative {
+            animation: pulse-red 1.2s infinite ease-in-out !important;
+        }
+
+        .val-neutral {
+            color: #94a3b8;
+            font-weight: 600;
+            padding: 2px 6px;
+        }
+
+        @keyframes pulse-green {
+            0%, 100% {
+                background: rgba(34, 197, 94, 0.15);
+                color: #4ade80;
+                border-color: rgba(74, 222, 128, 0.4);
+                box-shadow: 0 0 4px rgba(74, 222, 128, 0.2);
+            }
+            50% {
+                background: rgba(34, 197, 94, 0.50);
+                color: #ffffff;
+                border-color: #22c55e;
+                box-shadow: 0 0 14px rgba(34, 197, 94, 0.85);
+            }
+        }
+
+        @keyframes pulse-red {
+            0%, 100% {
+                background: rgba(239, 68, 68, 0.15);
+                color: #f87171;
+                border-color: rgba(248, 113, 113, 0.4);
+                box-shadow: 0 0 4px rgba(248, 113, 113, 0.2);
+            }
+            50% {
+                background: rgba(239, 68, 68, 0.50);
+                color: #ffffff;
+                border-color: #ef4444;
+                box-shadow: 0 0 14px rgba(239, 68, 68, 0.85);
+            }
+        }
+
+        /* Rodapé totalizador */
+        .exec-table tfoot tr {
+            position: sticky !important;
+            bottom: 0 !important;
+            z-index: 40 !important;
+            border-top: 2px solid #ffd700 !important;
+            box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.6) !important;
+        }
+        .exec-table tfoot td {
+            background: #121722 !important;
+            padding: 10px 14px !important;
+            font-weight: 800 !important;
+            font-size: 0.84rem !important;
+        }
+
+        /* Botões de controle da árvore */
+        .tree-toggle-btn {
+            background: #161c28 !important;
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            color: #cbd5e1 !important;
+            font-family: 'Montserrat', sans-serif !important;
+            font-size: 0.74rem !important;
+            font-weight: 700 !important;
+            padding: 5px 12px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            transition: all 0.15s ease !important;
+        }
+        .tree-toggle-btn:hover, .tree-toggle-btn.active {
+            background: rgba(203, 151, 39, 0.25) !important;
+            color: #ffd700 !important;
+            border-color: #ffd700 !important;
+        }
+
+        /* OVERRIDE: Mantém compatibilidade com o Mural se alternado */
+        #container-map {
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+            gap: 14px !important;
+            padding: 14px 20px !important;
+            height: calc(100vh - 200px) !important;
+            overflow-y: auto !important;
+            align-content: start !important;
+            background: transparent !important;
+        }
+    </style>
 </head>
 <body>
     <div class="dashboard-container">
@@ -37,7 +621,7 @@
                     <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
                     <button onclick="navigateTab('/paises')" class="tab-btn active">Países</button>
-                    <button onclick="navigateTab('/estoque')" class="tab-btn">Estoque/Previsão</button>
+                    <button onclick="navigateTab('/teste_estoque')" class="tab-btn"><span class="tab-icon">🚨</span> Estoque e Previsão</button>
                 </div>
             </div>
 
@@ -122,39 +706,85 @@
             </div>
         </header>
 
+        <!-- Strip Executiva de KPIs: Cockpit Global COMEX -->
+        <section class="exec-kpi-strip" id="exec-kpi-strip">
+            <div class="kpi-mini-card kpi-card-total">
+                <div class="kpi-mini-icon">🌐</div>
+                <div class="kpi-mini-info">
+                    <span class="kpi-mini-label">Países Monitorados</span>
+                    <div class="kpi-mini-val-row">
+                        <span class="kpi-mini-val" id="kpi-total-paises">46</span>
+                        <span class="kpi-mini-sub">100% COMEX</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-mini-card kpi-card-positive">
+                <div class="kpi-mini-icon">🚀</div>
+                <div class="kpi-mini-info">
+                    <span class="kpi-mini-label">Em Evolução (Ganhando Share)</span>
+                    <div class="kpi-mini-val-row">
+                        <span class="kpi-mini-val val-glow-green" id="kpi-paises-pos">--</span>
+                        <span class="kpi-mini-tag tag-green">▲ ALTA</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-mini-card kpi-card-negative">
+                <div class="kpi-mini-icon">⚠️</div>
+                <div class="kpi-mini-info">
+                    <span class="kpi-mini-label">Em Atenção (Perdendo Share)</span>
+                    <div class="kpi-mini-val-row">
+                        <span class="kpi-mini-val val-glow-red" id="kpi-paises-neg">--</span>
+                        <span class="kpi-mini-tag tag-red">▼ QUEDA</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kpi-mini-card kpi-card-keyprod">
+                <div class="kpi-mini-icon">🥇</div>
+                <div class="kpi-mini-info">
+                    <span class="kpi-mini-label">Carro-Chefe Global COMEX</span>
+                    <div class="kpi-mini-val-row">
+                        <span class="kpi-mini-val val-glow-gold" id="kpi-prod-global">--</span>
+                        <span class="kpi-mini-sub" id="kpi-prod-global-sub">--</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- View Controls & Filters -->
         <section class="controls-bar">
             <div class="controls-left-group">
                 <div class="view-switch-container">
-                    <button class="view-btn active" id="btn-mode-cards" onclick="switchViewMode('cards')" title="Visualização em Colunas Lado a Lado">
+                    <button class="view-btn active" id="btn-mode-table" onclick="switchViewMode('table')" title="Visualização em Tabela Detalhada com Hierarquia">
+                        📋 Tabela Hierárquica
+                    </button>
+                    <button class="view-btn" id="btn-mode-cards" onclick="switchViewMode('cards')" title="Visualização em Colunas Lado a Lado">
                         📊 Colunas Lado a Lado
                     </button>
-                    <button class="view-btn" id="btn-mode-table" onclick="switchViewMode('table')" title="Visualização em Tabela Detalhada com Hierarquia">
-                        📋 Tabela Detalhada
+                    <button class="view-btn" id="btn-mode-map" onclick="switchViewMode('map')" title="Visão Global TV">
+                        🌍 Visão Global (TV)
                     </button>
                 </div>
 
-                <div class="metric-switch-container" id="table-tree-controls" style="display: none;">
-                    <button class="tree-toggle-btn" onclick="expandAllPaises()" title="Expandir todos os produtos">▾ Expandir Todos</button>
-                    <button class="tree-toggle-btn" onclick="collapseAllPaises()" title="Recolher e ver apenas países">▸ Recolher Todos</button>
+                <div class="metric-switch-container" id="table-tree-controls" style="display: flex; gap: 8px;">
+                    <button class="tree-toggle-btn active" id="btn-tree-none" onclick="collapseAll()" title="Visão Executiva: Todos os países com categoria líder e produto chave em 1 tela">📋 Visão Executiva (1 Tela)</button>
+                    <button class="tree-toggle-btn" id="btn-tree-cats" onclick="showOnlyCategories()" title="Expandir para ver categorias de cada país">▾ Expandir Categorias</button>
+                    <button class="tree-toggle-btn" id="btn-tree-all" onclick="expandAll()" title="Expandir árvore completa com todos os produtos">▾ Expandir Tudo</button>
                 </div>
             </div>
 
             <div class="search-and-stats">
                 <div class="search-box">
                     <span class="search-icon">🔍</span>
-                    <input type="text" id="table-search" placeholder="Buscar país ou produto..." oninput="handleSearchInput()">
+                    <input type="text" id="table-search" placeholder="Buscar país, categoria ou produto..." oninput="handleSearchInput()">
                 </div>
             </div>
         </section>
 
-        <!-- Container 1: Colunas Lado a Lado (Cards) -->
-        <main class="columns-grid-container" id="container-cards" style="display: grid;">
-            <!-- Cards gerados dinamicamente via JS -->
-        </main>
-
-        <!-- Container 2: Tabela Detalhada com Hierarquia -->
-        <main class="table-card-container" id="container-table" style="display: none;">
+        <!-- Container 2: Tabela Detalhada com Hierarquia (PADRÃO PRINCIPAL) -->
+        <main class="table-card-container" id="container-table" style="display: flex;">
             <div class="table-responsive-wrapper">
                 <table class="exec-table" id="table-paises">
                     <thead>
@@ -163,7 +793,11 @@
                         </tr>
                     </thead>
                     <tbody id="table-body">
-                        <!-- Linhas geradas dinamicamente via JS -->
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 50px; color: #ffd700; font-size: 0.95rem; font-weight: 600;">
+                                ⏳ Carregando dados da tabela executiva de Países...
+                            </td>
+                        </tr>
                     </tbody>
                     <tfoot id="table-footer">
                         <!-- Rodapé totalizador gerado dinamicamente via JS -->
@@ -171,12 +805,24 @@
                 </table>
             </div>
         </main>
+
+        <!-- Container 0: Visão Global (Mural Analítico de Cards) -->
+        <main id="container-map" style="display: none;">
+            <!-- Preenchido via JS (Mural de Cards) -->
+        </main>
+
+        <!-- Container 1: Colunas Lado a Lado (Cards) -->
+        <main class="columns-grid-container" id="container-cards" style="display: none;">
+            <!-- Cards gerados dinamicamente via JS -->
+        </main>
     </div>
 
     <!-- Áudio de Comemoração da Meta -->
     <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
+    <!-- ECharts e GeoJSON -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 
-    <script src="{{ url_for('static', filename='js/paises.js') }}?v=20260926_4"></script>
+    <script src="{{ url_for('static', filename='js/paises.js') }}?v=20261001_REAL_FLAGS"></script>
 </body>
 </html>

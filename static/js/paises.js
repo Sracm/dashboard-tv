@@ -10,52 +10,93 @@
 let currentData = null;
 let currentSort = { column: 'share', asc: false };
 let collapsedPaises = new Set();
-let viewMode = 'cards'; // 'cards' ou 'table'
+let collapsedCategorias = new Set();
+let viewMode = 'table'; // Tabela Hierárquica é o padrão principal
 let allAvailableMarcas = [];
 let selectedMarcas = [];
 let allAvailablePaises = [];
 let selectedPaises = [];
 
-// Mapeamento de bandeiras/ícones por país
-const countryIcons = {
-    'ESTADOS UNIDOS': '🇺🇸', 'USA': '🇺🇸',
-    'MEXICO': '🇲🇽', 'MÉXICO': '🇲🇽',
-    'PORTUGAL': '🇵🇹',
-    'PARAGUAI': '🇵🇾', 'PARAGUAY': '🇵🇾',
-    'URUGUAI': '🇺🇾', 'URUGUAY': '🇺🇾',
-    'ARGENTINA': '🇦🇷',
-    'CHILE': '🇨🇱',
-    'COLOMBIA': '🇨🇴', 'COLÔMBIA': '🇨🇴',
-    'BOLIVIA': '🇧🇴', 'BOLÍVIA': '🇧🇴',
-    'PERU': '🇵🇪',
-    'EQUADOR': '🇪🇨',
-    'ESPANHA': '🇪🇸',
-    'ITALIA': '🇮🇹', 'ITÁLIA': '🇮🇹',
-    'FRANCA': '🇫🇷', 'FRANÇA': '🇫🇷',
-    'ALEMANHA': '🇩🇪',
-    'REINO UNIDO': '🇬🇧',
-    'PANAMA': '🇵🇦', 'PANAMÁ': '🇵🇦',
-    'COSTA RICA': '🇨🇷',
-    'GUATEMALA': '🇬🇹',
-    'HONDURAS': '🇭🇳',
-    'EMIRADOS ARABES': '🇦🇪', 'EMIRADOS ÁRABES': '🇦🇪',
-    'JAPAO': '🇯🇵', 'JAPÃO': '🇯🇵',
-    'CHINA': '🇨🇳',
-    'CANADA': '🇨🇦', 'CANADÁ': '🇨🇦',
-    'AUSTRALIA': '🇦🇺', 'AUSTRÁLIA': '🇦🇺',
-    'ANGOLA': '🇦🇴',
-    'MOCAMBIQUE': '🇲🇿', 'MOÇAMBIQUE': '🇲🇿',
-    'SUIÇA': '🇨🇭', 'SUICA': '🇨🇭',
-    'ISRAEL': '🇮🇱',
-    'TURQUIA': '🇹🇷',
-    'INDIA': '🇮🇳', 'ÍNDIA': '🇮🇳',
-    'RUSSIA': '🇷🇺', 'RÚSSIA': '🇷🇺'
+const categoryIcons = {
+    'Prancha': '⚡',
+    'Secador': '💨',
+    'Modelador': '🌀',
+    'Escova Secadora': '🪄',
+    'Escova Uso Diário': '🪮',
+    'Maquina': '✂️',
+    'Tesoura': '✂️',
+    'Parlux': '💎',
+    'Spare Parts': '⚙️',
+    'Outros': '📦'
+};
+
+// Mapeamento de códigos ISO-2 por país para exibição visual da bandeira
+const countryCodes = {
+    'ESTADOS UNIDOS': 'us', 'USA': 'us',
+    'MEXICO': 'mx', 'MÉXICO': 'mx',
+    'PORTUGAL': 'pt',
+    'PARAGUAI': 'py', 'PARAGUAY': 'py',
+    'URUGUAI': 'uy', 'URUGUAY': 'uy',
+    'ARGENTINA': 'ar',
+    'CHILE': 'cl',
+    'COLOMBIA': 'co', 'COLÔMBIA': 'co',
+    'BOLIVIA': 'bo', 'BOLÍVIA': 'bo',
+    'PERU': 'pe',
+    'EQUADOR': 'ec', 'ECUADOR': 'ec',
+    'ESPANHA': 'es',
+    'ITALIA': 'it', 'ITÁLIA': 'it',
+    'FRANCA': 'fr', 'FRANÇA': 'fr', 'FRANCE': 'fr',
+    'ALEMANHA': 'de',
+    'REINO UNIDO': 'gb',
+    'PANAMA': 'pa', 'PANAMÁ': 'pa',
+    'COSTA RICA': 'cr',
+    'GUATEMALA': 'gt',
+    'HONDURAS': 'hn',
+    'EL SALVADOR': 'sv',
+    'VENEZUELA': 've',
+    'EMIRADOS ARABES': 'ae', 'EMIRADOS ÁRABES': 'ae', 'EMIRADOS ARABES UNIDOS': 'ae',
+    'ARABIA SAUDITA': 'sa', 'ARÁBIA SAUDITA': 'sa',
+    'QATAR': 'qa',
+    'IRAQUE': 'iq', 'IRAQ': 'iq',
+    'LIBANO': 'lb', 'LÍBANO': 'lb',
+    'JAPAO': 'jp', 'JAPÃO': 'jp',
+    'CHINA': 'cn',
+    'CANADA': 'ca', 'CANADÁ': 'ca',
+    'AUSTRALIA': 'au', 'AUSTRÁLIA': 'au',
+    'ANGOLA': 'ao',
+    'MOCAMBIQUE': 'mz', 'MOÇAMBIQUE': 'mz',
+    'SUIÇA': 'ch', 'SUICA': 'ch',
+    'ISRAEL': 'il',
+    'TURQUIA': 'tr',
+    'INDIA': 'in', 'ÍNDIA': 'in',
+    'RUSSIA': 'ru', 'RÚSSIA': 'ru',
+    'ARGELIA': 'dz', 'ARGÉLIA': 'dz',
+    'BELGICA': 'be', 'BÉLGICA': 'be',
+    'HOLANDA': 'nl',
+    'POLONIA': 'pl', 'POLÔNIA': 'pl',
+    'NORUEGA': 'no',
+    'EGITO': 'eg',
+    'TUNISIA': 'tn', 'TUNÍSIA': 'tn',
+    'MARROCOS': 'ma',
+    'AFRICA DO SUL': 'za', 'ÁFRICA DO SUL': 'za',
+    'MALTA': 'mt',
+    'LETONIA': 'lv', 'LETÔNIA': 'lv',
+    'CINGAPURA': 'sg',
+    'AZERBAIJAO': 'az', 'AZERBAIJAN': 'az', 'AZERBAIJÃO': 'az',
+    'CAZAQUISTAO': 'kz', 'CAZAQUISTÃO': 'kz',
+    'LIBIA': 'ly', 'LÍBIA': 'ly',
+    'PUERTO RICO': 'pr',
+    'BRASIL': 'br', 'BRAZIL': 'br'
 };
 
 function getCountryFlag(name) {
-    if (!name) return '🌐';
+    if (!name) return '<span class="country-flag-fallback">🌐</span>';
     const upper = name.toUpperCase().trim();
-    return countryIcons[upper] || '🌐';
+    const code = countryCodes[upper];
+    if (code) {
+        return `<img src="/static/img/flags/${code}.png" class="country-flag-img" alt="${escapeHtml(name)}" onerror="this.onerror=null; this.src='https://flagcdn.com/w40/${code}.png';">`;
+    }
+    return '<span class="country-flag-fallback">🌐</span>';
 }
 
 function escapeHtml(str) {
@@ -96,7 +137,7 @@ function formatEvol(val, isSub = false) {
     const n = Number(val);
     if (Math.abs(n) < 0.05) return `<span class="val-neutral">0,0%</span>`;
     const sign = n > 0 ? '+' : '';
-    const cls = n > 0 ? 'val-positive' : 'val-negative';
+    const cls = n > 0 ? 'val-positive evol-blink-positive' : 'val-negative evol-blink-negative';
     const arrow = n > 0 ? '▲' : '▼';
     const badgeCls = isSub ? 'evol-badge-sub' : 'evol-badge';
     return `<span class="${badgeCls} ${cls}">${arrow} ${sign}${n.toFixed(1).replace('.', ',')}%</span>`;
@@ -120,10 +161,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentMonth = now.getDate() <= 3 ? (now.getMonth() === 0 ? 12 : now.getMonth()) : now.getMonth() + 1;
     const currentYear = now.getFullYear();
 
+    const params = new URLSearchParams(window.location.search);
+    const urlMes = params.get('mes');
+    const urlAno = params.get('ano');
+
     const mSelect = document.getElementById('filter-month');
     const ySelect = document.getElementById('filter-year');
-    if (mSelect) mSelect.value = String(currentMonth);
-    if (ySelect) ySelect.value = String(currentYear);
+    if (mSelect) mSelect.value = urlMes || String(currentMonth);
+    if (ySelect) ySelect.value = urlAno || String(currentYear);
 
     // Fechar dropdowns ao clicar fora
     document.addEventListener('click', (e) => {
@@ -163,38 +208,70 @@ function navigateTab(url) {
 // ---------------------------------------------------------------------------
 function switchViewMode(mode) {
     viewMode = mode;
+    const btnMap = document.getElementById('btn-mode-map');
     const btnCards = document.getElementById('btn-mode-cards');
     const btnTable = document.getElementById('btn-mode-table');
+    const cMap = document.getElementById('container-map');
     const cCards = document.getElementById('container-cards');
     const cTable = document.getElementById('container-table');
     const treeControls = document.getElementById('table-tree-controls');
 
-    if (mode === 'cards') {
-        btnCards?.classList.add('active');
-        btnTable?.classList.remove('active');
-        if (cCards) cCards.style.display = 'grid';
-        if (cTable) cTable.style.display = 'none';
-        if (treeControls) treeControls.style.display = 'none';
-    } else {
-        btnTable?.classList.add('active');
-        btnCards?.classList.remove('active');
-        if (cCards) cCards.style.display = 'none';
-        if (cTable) cTable.style.display = 'flex';
-        if (treeControls) treeControls.style.display = 'flex';
+    if (btnMap) btnMap.classList.toggle('active', mode === 'map');
+    if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+    if (btnTable) btnTable.classList.toggle('active', mode === 'table');
+
+    if (cMap) cMap.style.display = mode === 'map' ? 'grid' : 'none';
+    if (cCards) cCards.style.display = mode === 'cards' ? 'grid' : 'none';
+    if (cTable) cTable.style.display = mode === 'table' ? 'flex' : 'none';
+    if (treeControls) treeControls.style.display = mode === 'table' ? 'flex' : 'none';
+
+    if (mode === 'cards') renderCards(currentData?.paises);
+    if (mode === 'map') renderMap();
+    if (mode === 'table') renderTable();
+}
+
+function expandAll() {
+    collapsedPaises.clear();
+    collapsedCategorias.clear();
+    document.getElementById('btn-tree-all')?.classList.add('active');
+    document.getElementById('btn-tree-cats')?.classList.remove('active');
+    document.getElementById('btn-tree-none')?.classList.remove('active');
+    renderTable();
+}
+
+function showOnlyCategories() {
+    collapsedPaises.clear();
+    collapsedCategorias.clear();
+    if (currentData && currentData.paises) {
+        currentData.paises.forEach(p => {
+            const cats = p.categorias || p.produtos || [];
+            cats.forEach(c => {
+                collapsedCategorias.add(`${p.item}::${c.item}`);
+            });
+        });
     }
+    document.getElementById('btn-tree-all')?.classList.remove('active');
+    document.getElementById('btn-tree-cats')?.classList.add('active');
+    document.getElementById('btn-tree-none')?.classList.remove('active');
+    renderTable();
+}
+
+function collapseAll() {
+    if (currentData && currentData.paises) {
+        currentData.paises.forEach(p => collapsedPaises.add(p.item));
+    }
+    document.getElementById('btn-tree-all')?.classList.remove('active');
+    document.getElementById('btn-tree-cats')?.classList.remove('active');
+    document.getElementById('btn-tree-none')?.classList.add('active');
     renderTable();
 }
 
 function expandAllPaises() {
-    collapsedPaises.clear();
-    renderTable();
+    expandAll();
 }
 
 function collapseAllPaises() {
-    if (currentData && currentData.paises) {
-        currentData.paises.forEach(p => collapsedPaises.add(p.item));
-    }
-    renderTable();
+    collapseAll();
 }
 
 function togglePaisExpansion(paisName, event) {
@@ -203,6 +280,16 @@ function togglePaisExpansion(paisName, event) {
         collapsedPaises.delete(paisName);
     } else {
         collapsedPaises.add(paisName);
+    }
+    renderTable();
+}
+
+function toggleCategoriaExpansion(catKey, event) {
+    if (event) event.stopPropagation();
+    if (collapsedCategorias.has(catKey)) {
+        collapsedCategorias.delete(catKey);
+    } else {
+        collapsedCategorias.add(catKey);
     }
     renderTable();
 }
@@ -416,8 +503,23 @@ function fetchData(force = false) {
             }
             if (res.success && res.data) {
                 currentData = res.data;
+                
+                if (currentData.paises) {
+                    let sortedByAtual = [...currentData.paises].sort((a,b) => (b.share || 0) - (a.share || 0));
+                    sortedByAtual.forEach((p, idx) => { p.rank_atual = idx + 1; });
+                    
+                    let sortedByAnt = [...currentData.paises].sort((a,b) => (b.share_ant || 0) - (a.share_ant || 0));
+                    sortedByAnt.forEach((p, idx) => { p.rank_ant = idx + 1; });
+                }
+
+                // Inicializa no modo Visão Executiva limpa (1 tela)
+                if (collapsedPaises.size === 0) {
+                    currentData.paises.forEach(p => collapsedPaises.add(p.item));
+                }
                 initMarcaMultiselect();
                 initPaisMultiselect();
+                renderMap();
+                renderCards(currentData.paises);
                 renderTable();
 
                 const lastUpEl = document.getElementById('last-update');
@@ -436,6 +538,102 @@ function fetchData(force = false) {
 }
 
 // ---------------------------------------------------------------------------
+// Análise Executiva: Produto Chave e Categoria Líder por País
+// ---------------------------------------------------------------------------
+function getCountryKeyInsights(pais) {
+    const cats = pais.categorias || [];
+    let topCat = null;
+    let allProds = [];
+
+    cats.forEach(c => {
+        if (!topCat || (c.share ?? 0) > (topCat.share ?? 0)) {
+            topCat = c;
+        }
+        const prods = c.produtos || [];
+        prods.forEach(pr => {
+            allProds.push({
+                ...pr,
+                categoria: c.item,
+                share_pais: pr.share_pais ?? (pr.share ?? 0),
+                faturamento: pr.faturamento ?? 0
+            });
+        });
+    });
+
+    if (allProds.length === 0 && Array.isArray(pais.produtos)) {
+        pais.produtos.forEach(pr => {
+            allProds.push({
+                ...pr,
+                categoria: 'Geral',
+                share_pais: pr.share_pais ?? (pr.share ?? 0),
+                faturamento: pr.faturamento ?? 0
+            });
+        });
+    }
+
+    allProds.sort((a, b) => (b.faturamento || 0) - (a.faturamento || 0));
+    const topProd = allProds[0] || null;
+    const secondProd = allProds[1] || null;
+
+    if (!topCat && cats.length > 0) {
+        topCat = cats[0];
+    }
+
+    return {
+        topCat: topCat || { item: 'Prancha', share: 100 },
+        topProd: topProd || { item: 'PRANCHA PRO 480', share_pais: 50 },
+        secondProd,
+        totalProds: allProds.length,
+        totalCats: cats.length
+    };
+}
+
+function renderExecutiveKpis(paises) {
+    if (!paises) return;
+    const totalPaisesEl = document.getElementById('kpi-total-paises');
+    const posPaisesEl = document.getElementById('kpi-paises-pos');
+    const negPaisesEl = document.getElementById('kpi-paises-neg');
+    const prodGlobalEl = document.getElementById('kpi-prod-global');
+    const prodGlobalSubEl = document.getElementById('kpi-prod-global-sub');
+
+    let posCount = 0;
+    let negCount = 0;
+    const prodLeaderCounts = {};
+
+    paises.forEach(p => {
+        const sAnt = p.share_ant ?? 0;
+        const sAtu = p.share ?? 0;
+        let evol = 0;
+        if (sAnt > 0) evol = ((sAtu - sAnt) / sAnt) * 100;
+        else if (sAtu > 0) evol = 100.0;
+
+        if (evol > 0.05) posCount++;
+        else if (evol < -0.05) negCount++;
+
+        const insights = getCountryKeyInsights(p);
+        if (insights.topProd && insights.topProd.item) {
+            prodLeaderCounts[insights.topProd.item] = (prodLeaderCounts[insights.topProd.item] || 0) + 1;
+        }
+    });
+
+    if (totalPaisesEl) totalPaisesEl.innerText = `${paises.length}`;
+    if (posPaisesEl) posPaisesEl.innerText = `${posCount} (${Math.round((posCount / (paises.length || 1)) * 100)}%)`;
+    if (negPaisesEl) negPaisesEl.innerText = `${negCount} (${Math.round((negCount / (paises.length || 1)) * 100)}%)`;
+
+    let topGlobalProdName = 'PRANCHA PRO 480';
+    let topGlobalProdWins = 0;
+    for (const [prodName, count] of Object.entries(prodLeaderCounts)) {
+        if (count > topGlobalProdWins) {
+            topGlobalProdWins = count;
+            topGlobalProdName = prodName;
+        }
+    }
+
+    if (prodGlobalEl) prodGlobalEl.innerText = topGlobalProdName;
+    if (prodGlobalSubEl) prodGlobalSubEl.innerText = `Líder em ${topGlobalProdWins} países`;
+}
+
+// ---------------------------------------------------------------------------
 // Ordenação e Tabela
 // ---------------------------------------------------------------------------
 function sortTable(column) {
@@ -451,15 +649,17 @@ function sortTable(column) {
 function renderTableHeader() {
     const theadRow = document.getElementById('table-header-row');
     if (!theadRow || !currentData) return;
-    const ano = currentData.ano;
+    const ano = currentData.ano || 2026;
 
     theadRow.innerHTML = `
-        <th class="col-rank sortable text-center" onclick="sortTable('rank')"># ↕</th>
-        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 220px;">País / Produto ↕</th>
-        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" title="Participação no COMEX no mesmo período do ano anterior">Share ${ano - 1} ↕</th>
-        <th class="col-share-periodo sortable text-right" onclick="sortTable('share')" title="Participação no COMEX no acumulado do ano atual">Share ${ano} ↕</th>
-        <th class="col-share-pp sortable text-right" onclick="sortTable('evolucao_pp')" title="Variação em pontos percentuais (Share ${ano} - Share ${ano - 1})">Evolução p.p ↕</th>
-        <th class="col-share-var sortable text-right" onclick="sortTable('evolucao_share')" title="Evolução percentual do faturamento">Evolução ↕</th>
+        <th class="col-rank sortable text-center" onclick="sortTable('rank')" style="width: 48px;"># ↕</th>
+        <th class="col-item sortable text-left" onclick="sortTable('item')" style="min-width: 170px;">País ↕</th>
+        <th class="col-rank-change sortable text-center" onclick="sortTable('rank_change')" style="width: 110px;">Desempenho ↕</th>
+        <th class="col-prod-chave sortable text-left" onclick="sortTable('prod_chave')" style="min-width: 250px;" title="Produto mais vendido (Carro-Chefe) no país">Produto Chave (Carro-Chefe) 🥇 ↕</th>
+        <th class="col-cat-lider sortable text-left" onclick="sortTable('cat_lider')" style="width: 160px;" title="Categoria mais vendida no país">Categoria Líder ⚡ ↕</th>
+        <th class="col-share-ant sortable text-right" onclick="sortTable('share_ant')" style="width: 150px;" title="Share de Janeiro ao Mês no Ano de ${ano - 1}">Share ${ano - 1} (Jan-Mês) ↕</th>
+        <th class="col-share sortable text-right" onclick="sortTable('share')" style="width: 150px;" title="Share de Janeiro ao Mês Atual em ${ano}">Share ${ano} (Jan-Mês) ↕</th>
+        <th class="col-share-evol sortable text-center" onclick="sortTable('evolucao_share')" style="width: 130px;" title="Evolução percentual do Share: ((Share ${ano} - Share ${ano - 1}) / Share ${ano - 1}) * 100">Evolução (%) ↕</th>
     `;
 }
 
@@ -467,6 +667,7 @@ function renderTable() {
     if (!currentData || !currentData.paises) return;
 
     renderTableHeader();
+    const ano = currentData.ano || 2026;
 
     let items = [...currentData.paises].filter(p => (p.faturamento > 0 || p.faturamento_ant > 0));
 
@@ -477,31 +678,76 @@ function renderTable() {
         items = [];
     }
 
-    // Filtro de busca textual
+    // Filtro de busca textual em 3 níveis (País, Categoria, Produto)
     const searchTerm = (document.getElementById('table-search')?.value || '').toLowerCase().trim();
     let filtered = [];
     if (!searchTerm) {
         filtered = items;
     } else {
         items.forEach(pais => {
-            const paisMatches = pais.item.toLowerCase().includes(searchTerm);
-            const matchingProds = (pais.produtos || []).filter(pr => pr.item.toLowerCase().includes(searchTerm));
-            if (paisMatches || matchingProds.length > 0) {
+            const paisMatches = (pais.item || '').toLowerCase().includes(searchTerm);
+            const rawCats = pais.categorias || pais.produtos || [];
+            let matchingCats = [];
+
+            rawCats.forEach(cat => {
+                const catMatches = (cat.item || '').toLowerCase().includes(searchTerm);
+                const rawProds = cat.produtos || [];
+                const matchingProds = rawProds.filter(pr => (pr.item || '').toLowerCase().includes(searchTerm));
+
+                if (paisMatches || catMatches || matchingProds.length > 0) {
+                    matchingCats.push({
+                        ...cat,
+                        produtos: (paisMatches || catMatches) ? rawProds : matchingProds
+                    });
+                }
+            });
+
+            if (paisMatches || matchingCats.length > 0) {
                 filtered.push({
                     ...pais,
-                    produtos: paisMatches ? pais.produtos : matchingProds
+                    categorias: matchingCats
                 });
+                collapsedPaises.delete(pais.item);
+                matchingCats.forEach(c => collapsedCategorias.delete(`${pais.item}::${c.item}`));
             }
         });
     }
 
+    // Atualiza Strip Executiva de KPIs no topo
+    renderExecutiveKpis(filtered);
+
     // Ordenação
     filtered.sort((a, b) => {
         let valA, valB;
-        if (currentSort.column === 'evolucao_pp') {
-            valA = (a.share ?? 0) - (a.share_ant ?? 0);
-            valB = (b.share ?? 0) - (b.share_ant ?? 0);
+        if (currentSort.column === 'share') {
+            valA = a.share ?? 0;
+            valB = b.share ?? 0;
+        } else if (currentSort.column === 'share_ant') {
+            valA = a.share_ant ?? 0;
+            valB = b.share_ant ?? 0;
         } else if (currentSort.column === 'evolucao_share') {
+            const calcEvol = (obj) => {
+                const sAnt = obj.share_ant ?? 0;
+                const sAtu = obj.share ?? 0;
+                if (sAnt > 0) return ((sAtu - sAnt) / sAnt) * 100;
+                if (sAtu > 0) return 100.0;
+                return 0.0;
+            };
+            valA = calcEvol(a);
+            valB = calcEvol(b);
+        } else if (currentSort.column === 'prod_chave') {
+            valA = getCountryKeyInsights(a).topProd?.item || '';
+            valB = getCountryKeyInsights(b).topProd?.item || '';
+        } else if (currentSort.column === 'cat_lider') {
+            valA = getCountryKeyInsights(a).topCat?.item || '';
+            valB = getCountryKeyInsights(b).topCat?.item || '';
+        } else if (currentSort.column === 'faturamento') {
+            valA = a.faturamento ?? 0;
+            valB = b.faturamento ?? 0;
+        } else if (currentSort.column === 'faturamento_ant') {
+            valA = a.faturamento_ant ?? 0;
+            valB = b.faturamento_ant ?? 0;
+        } else if (currentSort.column === 'evolucao_pct') {
             valA = a.evolucao_pct ?? 0;
             valB = b.evolucao_pct ?? 0;
         } else {
@@ -517,81 +763,249 @@ function renderTable() {
         return currentSort.asc ? valA - valB : valB - valA;
     });
 
-    renderCards(filtered);
+    if (viewMode === 'cards') renderCards(filtered);
+    if (viewMode === 'map') renderMap();
 
     const tbody = document.getElementById('table-body');
     const tfoot = document.getElementById('table-footer');
     if (!tbody) return;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum país encontrado com os filtros atuais.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#8c93a0;">Nenhum país encontrado com os filtros atuais.</td></tr>`;
         if (tfoot) tfoot.innerHTML = '';
         return;
     }
 
     const htmlRows = [];
-    let totShareAnt = 0;
-    let totShareAtual = 0;
 
     filtered.forEach((pais, idx) => {
-        const isCollapsed = collapsedPaises.has(pais.item);
-        const prods = pais.produtos || [];
-        const expandIcon = isCollapsed ? '▶' : '▼';
-
-        const shareAnt = pais.share_ant ?? 0;
-        const shareAtual = pais.share ?? 0;
-        const paisPp = pais.var_pp ?? (shareAtual - shareAnt);
-        const paisEvol = pais.evolucao_pct ?? 0;
-
-        totShareAnt += shareAnt;
-        totShareAtual += shareAtual;
-
-        const safePaisItem = pais.item.replace(/'/g, "\\'");
+        const isPaisCollapsed = collapsedPaises.has(pais.item);
+        const cats = pais.categorias || pais.produtos || [];
+        const expandIcon = isPaisCollapsed ? '▶' : '▼';
         const flag = getCountryFlag(pais.item);
+        const safePaisItem = pais.item.replace(/'/g, "\\'");
+        const shareAntVal = (pais.share_ant ?? 0);
+        const shareVal = (pais.share ?? 0);
 
-        // Linha Principal do País
-        htmlRows.push(`
-            <tr class="cat-header-row ${isCollapsed ? 'collapsed' : ''}" onclick="togglePaisExpansion('${safePaisItem}', event)" title="Clique para expandir/recolher produtos deste país">
-                <td class="col-rank text-center">${renderRankBadge(idx + 1)}</td>
-                <td class="col-item text-left" style="min-width: 220px;">
-                    <div class="cat-item-content">
-                        <span class="cat-toggle-icon">${expandIcon}</span>
-                        <span style="font-size:1.2rem; margin-right:4px;">${flag}</span>
-                        <span class="cat-title-text">${escapeHtml(pais.item)}</span>
-                        <span class="cat-count-pill">${prods.length} ${prods.length === 1 ? 'prod' : 'prods'}</span>
+        const shareAntBarWidth = Math.min(100, Math.max(3, shareAntVal * 3));
+        const shareBarWidth = Math.min(100, Math.max(3, shareVal * 3));
+
+        let evolShareVal = 0;
+        if (shareAntVal > 0) {
+            evolShareVal = ((shareVal - shareAntVal) / shareAntVal) * 100;
+        } else if (shareVal > 0) {
+            evolShareVal = 100.0;
+        }
+
+        const insights = getCountryKeyInsights(pais);
+        const topProd = insights.topProd;
+        const secondProd = insights.secondProd;
+        const topCat = insights.topCat;
+
+        // Rank logic
+        let rankChangeStr = \`<span style="color:#94a3b8; font-size:0.75rem;">—</span>\`;
+        if (pais.rank_ant && pais.rank_atual) {
+            const rAnt = pais.rank_ant;
+            const rAtu = pais.rank_atual;
+            const rankDiff = rAnt - rAtu;
+            
+            if (rankDiff > 0) {
+                rankChangeStr = \`<span style="font-size:0.65rem; color:#94a3b8;">\${rAnt}º → \${rAtu}º</span><br><span style="color:#4ade80; font-weight:800; font-size:0.8rem;">▲ \${rankDiff}</span>\`;
+            } else if (rankDiff < 0) {
+                rankChangeStr = \`<span style="font-size:0.65rem; color:#94a3b8;">\${rAnt}º → \${rAtu}º</span><br><span style="color:#f87171; font-weight:800; font-size:0.8rem;">▼ \${Math.abs(rankDiff)}</span>\`;
+            } else {
+                rankChangeStr = \`<span style="font-size:0.65rem; color:#94a3b8;">\${rAnt}º → \${rAtu}º</span><br><span style="color:#cbd5e1; font-weight:700; font-size:0.8rem;">=</span>\`;
+            }
+        }
+
+        // Nível 1: Linha Principal do País (Cockpit Executivo)
+        htmlRows.push(\`
+            <tr class="row-pais \${isPaisCollapsed ? 'collapsed' : ''}" data-pais="\${escapeHtml(pais.item)}" onclick="togglePaisExpansion(this.dataset.pais, event)" title="Clique para expandir/recolher detalhes de \${escapeHtml(pais.item)}">
+                <td class="text-center" style="width:48px;">\${renderRankBadge(idx + 1)}</td>
+                <td class="text-left" style="min-width:170px;">
+                    <div style="display:flex; align-items:center;">
+                        <span class="tree-chevron">\${expandIcon}</span>
+                        \${flag}
+                        <span style="font-weight:800; font-size:0.92rem; color:#ffffff; letter-spacing:0.3px;">\${escapeHtml(pais.item)}</span>
+                        <span class="count-pill count-pill-pais">\${insights.totalCats} \${insights.totalCats === 1 ? 'cat' : 'cats'}</span>
                     </div>
                 </td>
-                <td class="col-share-ant text-right cat-share-ant"><span class="share-ant-val">${shareAnt.toFixed(1).replace('.', ',')}%</span></td>
-                <td class="col-share-periodo text-right cat-share-periodo"><span class="share-periodo-val" style="font-weight:700; color:#ffd700;">${shareAtual.toFixed(1).replace('.', ',')}%</span></td>
-                <td class="col-share-pp text-right">${formatPp(paisPp)}</td>
-                <td class="col-share-var text-right">${formatEvol(paisEvol)}</td>
+                <td class="text-center" style="width:110px;">
+                    \${rankChangeStr}
+                </td>
+                <td class="text-left" style="min-width:250px;">
+                    ${topProd ? `
+                        <div class="prod-chave-cell">
+                            <div class="prod-chave-title-row">
+                                <span class="prod-medal">🥇</span>
+                                <span class="prod-chave-name" title="${escapeHtml(topProd.item)}">${escapeHtml(topProd.item)}</span>
+                            </div>
+                            <div class="prod-chave-sub-row">
+                                <span class="prod-chave-share-pill">${topProd.share_pais.toFixed(1).replace('.', ',')}% do país</span>
+                                ${secondProd ? `<span class="prod-chave-sec" title="2º produto: ${escapeHtml(secondProd.item)} (${secondProd.share_pais.toFixed(1).replace('.', ',')}%)">🥈 ${escapeHtml(secondProd.item.replace('PRANCHA ', '').replace('SECADOR ', '').replace('MODELADOR ', ''))}</span>` : ''}
+                            </div>
+                        </div>
+                    ` : '<span style="color:#64748b; font-size:0.75rem;">—</span>'}
+                </td>
+                <td class="text-left" style="width:160px;">
+                    ${topCat ? `
+                        <div class="cat-lider-cell">
+                            <div class="cat-lider-name-row">
+                                <span class="cat-lider-icon">${categoryIcons[topCat.item] || '⚡'}</span>
+                                <span class="cat-lider-name">${escapeHtml(topCat.item)}</span>
+                            </div>
+                            <div class="cat-lider-pct-row">
+                                <div class="cat-lider-bar">
+                                    <div class="cat-lider-bar-fill" style="width:${Math.min(100, Math.max(8, topCat.share))}%;"></div>
+                                </div>
+                                <span class="cat-lider-pct">${(topCat.share || 0).toFixed(1).replace('.', ',')}%</span>
+                            </div>
+                        </div>
+                    ` : '<span style="color:#64748b; font-size:0.75rem;">—</span>'}
+                </td>
+                <td class="text-right" style="width:140px;">
+                    <div class="share-cell-box" title="Share de ${shareAntVal.toFixed(1)}% no COMEX total em ${ano - 1}">
+                        <div class="share-bar-mini-track">
+                            <div class="share-bar-mini-fill fill-muted" style="width: ${shareAntBarWidth}%;"></div>
+                        </div>
+                        <span class="share-val-muted">${shareAntVal.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                </td>
+                <td class="text-right" style="width:140px;">
+                    <div class="share-cell-box" title="Share de ${shareVal.toFixed(1)}% no COMEX total em ${ano}">
+                        <div class="share-bar-mini-track">
+                            <div class="share-bar-mini-fill fill-gold" style="width: ${shareBarWidth}%;"></div>
+                        </div>
+                        <span class="share-val-gold">${shareVal.toFixed(1).replace('.', ',')}%</span>
+                    </div>
+                </td>
+                <td class="text-center" style="width:130px;">
+                    ${formatEvol(evolShareVal)}
+                </td>
             </tr>
         `);
 
-        // Sublinhas dos Produtos por País
-        if (!isCollapsed && prods.length > 0) {
-            prods.forEach((prod, pIdx) => {
-                const prodShareAnt = prod.share_ant ?? 0;
-                const prodShareAtual = prod.share ?? 0;
-                const prodPp = prod.var_pp ?? (prodShareAtual - prodShareAnt);
-                const prodEvol = prod.evolucao_pct ?? 0;
+        // Nível 2: Sublinhas das Categorias por País (Quando Expandido)
+        if (!isPaisCollapsed && cats.length > 0) {
+            cats.forEach((cat, cIdx) => {
+                const catKey = `${pais.item}::${cat.item}`;
+                const isCatCollapsed = collapsedCategorias.has(catKey);
+                const catIcon = categoryIcons[cat.item] || '🏷️';
+                const catChevron = isCatCollapsed ? '▶' : '▼';
+                const prods = cat.produtos || [];
+                const catShareAnt = (cat.share_ant ?? 0);
+                const catShare = (cat.share ?? 0);
+                const catBarWidthAnt = Math.min(100, Math.max(3, catShareAnt));
+                const catBarWidth = Math.min(100, Math.max(3, catShare));
+
+                let catEvolShare = 0;
+                if (catShareAnt > 0) {
+                    catEvolShare = ((catShare - catShareAnt) / catShareAnt) * 100;
+                } else if (catShare > 0) {
+                    catEvolShare = 100.0;
+                }
+
+                const catTopProd = prods.length > 0 ? prods[0].item : '—';
 
                 htmlRows.push(`
-                    <tr class="prod-sub-row">
-                        <td class="col-rank text-center prod-rank-cell">
-                            <span class="prod-sub-num">${pIdx + 1}º</span>
+                    <tr class="row-categoria ${isCatCollapsed ? 'collapsed' : ''}" data-catkey="${escapeHtml(catKey)}" onclick="toggleCategoriaExpansion(this.dataset.catkey, event)" title="Clique para expandir/recolher produtos de ${escapeHtml(cat.item)}">
+                        <td class="text-center" style="width:48px;">
+                            <span style="font-size:0.70rem; color:#60a5fa; font-weight:700;">${cIdx + 1}</span>
                         </td>
-                        <td class="col-item text-left prod-item-cell" title="${escapeHtml(prod.item)}" style="min-width: 220px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                            <div class="prod-indent-wrap">
-                                <span class="prod-name-label">${escapeHtml(prod.item)}</span>
+                        <td class="text-left" style="padding-left: 28px !important;">
+                            <div style="display:flex; align-items:center;">
+                                <span class="tree-chevron tree-chevron-cat">${catChevron}</span>
+                                <span style="font-size:1.05rem; margin-right:6px;">${catIcon}</span>
+                                <span style="font-weight:700; color:#e2e8f0; font-size:0.84rem;">${escapeHtml(cat.item)}</span>
+                                <span class="count-pill count-pill-cat">${prods.length} ${prods.length === 1 ? 'prod' : 'prods'}</span>
                             </div>
                         </td>
-                        <td class="col-share-ant text-right prod-share-cell"><span class="sub-share-muted">${prodShareAnt.toFixed(1).replace('.', ',')}%</span></td>
-                        <td class="col-share-periodo text-right prod-share-cell"><span class="sub-share-light" style="color:#ffd700;">${prodShareAtual.toFixed(1).replace('.', ',')}%</span></td>
-                        <td class="col-share-pp text-right">${formatPp(prodPp, true)}</td>
-                        <td class="col-share-var text-right">${formatEvol(prodEvol, true)}</td>
+                        <td class="text-center" style="width:110px;"></td>
+                        <td class="text-left" style="min-width:250px;">
+                            <span style="color:#94a3b8; font-size:0.75rem;">Top: <b style="color:#cbd5e1;">${escapeHtml(catTopProd)}</b></span>
+                        </td>
+                        <td class="text-left" style="width:160px;">
+                            <span style="color:#60a5fa; font-weight:700; font-size:0.78rem;">${catShare.toFixed(1).replace('.', ',')}% no país</span>
+                        </td>
+                        <td class="text-right" style="width:140px;">
+                            <div class="share-cell-box" title="Share da categoria ${escapeHtml(cat.item)} em ${ano - 1}">
+                                <div class="share-bar-mini-track">
+                                    <div class="share-bar-mini-fill fill-muted" style="width: ${catBarWidthAnt}%;"></div>
+                                </div>
+                                <span class="share-val-muted">${catShareAnt.toFixed(1).replace('.', ',')}%</span>
+                            </div>
+                        </td>
+                        <td class="text-right" style="width:140px;">
+                            <div class="share-cell-box" title="Share da categoria ${escapeHtml(cat.item)} dentro de ${escapeHtml(pais.item)} em ${ano}">
+                                <div class="share-bar-mini-track">
+                                    <div class="share-bar-mini-fill fill-cyan" style="width: ${catBarWidth}%;"></div>
+                                </div>
+                                <span class="share-val-cyan">${catShare.toFixed(1).replace('.', ',')}%</span>
+                            </div>
+                        </td>
+                        <td class="text-center" style="width:130px;">
+                            ${formatEvol(catEvolShare, true)}
+                        </td>
                     </tr>
                 `);
+
+                // Nível 3: Sublinhas dos Produtos por Categoria (Quando Expandido)
+                if (!isCatCollapsed && prods.length > 0) {
+                    prods.forEach((prod, pIdx) => {
+                        const prodShareAnt = (prod.share_ant ?? 0);
+                        const prodShare = (prod.share ?? 0);
+                        const prodSharePais = prod.share_pais ?? prodShare;
+                        const prodBarWidthAnt = Math.min(100, Math.max(3, prodShareAnt));
+                        const prodBarWidth = Math.min(100, Math.max(3, prodShare));
+
+                        let prodEvolShare = 0;
+                        if (prodShareAnt > 0) {
+                            prodEvolShare = ((prodShare - prodShareAnt) / prodShareAnt) * 100;
+                        } else if (prodShare > 0) {
+                            prodEvolShare = 100.0;
+                        }
+
+                        htmlRows.push(`
+                            <tr class="row-produto">
+                                <td class="text-center" style="width:48px;">
+                                    <span style="font-size:0.64rem; color:#64748b;">${pIdx + 1}º</span>
+                                </td>
+                                <td class="text-left" style="padding-left: 54px !important;" title="${escapeHtml(prod.item)}">
+                                    <div style="display:flex; align-items:center; gap:6px;">
+                                        <span style="color:#64748b; font-size:0.75rem;">•</span>
+                                        <span style="color:#cbd5e1; font-weight:500; font-size:0.78rem;">${escapeHtml(prod.item)}</span>
+                                    </div>
+                                </td>
+                                <td class="text-center" style="width:110px;"></td>
+                                <td class="text-left" style="min-width:250px;">
+                                    <span class="prod-chave-share-pill">${prodSharePais.toFixed(1).replace('.', ',')}% do país</span>
+                                </td>
+                                <td class="text-left" style="width:160px;">
+                                    <span style="color:#94a3b8; font-size:0.75rem;">${escapeHtml(cat.item)}</span>
+                                </td>
+                                <td class="text-right" style="width:140px;">
+                                    <div class="share-cell-box" title="Share de ${prodShareAnt.toFixed(1)}% na categoria ${escapeHtml(cat.item)} em ${ano - 1}">
+                                        <div class="share-bar-mini-track">
+                                            <div class="share-bar-mini-fill fill-muted" style="width: ${prodBarWidthAnt}%;"></div>
+                                        </div>
+                                        <span class="share-val-muted">${prodShareAnt.toFixed(1).replace('.', ',')}%</span>
+                                    </div>
+                                </td>
+                                <td class="text-right" style="width:140px;">
+                                    <div class="share-cell-box" title="Share de ${prodShare.toFixed(1)}% na categoria ${escapeHtml(cat.item)} em ${ano}">
+                                        <div class="share-bar-mini-track">
+                                            <div class="share-bar-mini-fill fill-muted" style="width: ${prodBarWidth}%;"></div>
+                                        </div>
+                                        <span class="share-val-muted">${prodShare.toFixed(1).replace('.', ',')}%</span>
+                                    </div>
+                                </td>
+                                <td class="text-center" style="width:130px;">
+                                    ${formatEvol(prodEvolShare, true)}
+                                </td>
+                            </tr>
+                        `);
+                    });
+                }
             });
         }
     });
@@ -600,23 +1014,28 @@ function renderTable() {
 
     // Rodapé Totalizador
     if (tfoot) {
-        const totalPp = totShareAtual - totShareAnt;
-        let totalEvol = 0;
-        const totFatAtual = currentData.total_faturamento ?? 0;
-        const totFatAnt = currentData.total_faturamento_ant ?? 0;
-        if (totFatAnt > 0) totalEvol = ((totFatAtual - totFatAnt) / totFatAnt) * 100;
-
         tfoot.innerHTML = `
             <tr class="table-total-row">
-                <td class="text-center" style="font-weight:800; color:#ffd700;">Σ</td>
-                <td class="text-left" style="font-weight:800; color:#ffffff;">TOTAL COMEX (${filtered.length} PAÍSES)</td>
-                <td class="text-right" style="font-weight:700; color:#8c93a0;">${totShareAnt.toFixed(1).replace('.', ',')}%</td>
-                <td class="text-right" style="font-weight:800; color:#ffd700;">${totShareAtual.toFixed(1).replace('.', ',')}%</td>
-                <td class="text-right">${formatPp(totalPp)}</td>
-                <td class="text-right">${formatEvol(totalEvol)}</td>
+                <td class="text-center" style="font-weight:800; color:#ffd700; width:48px;">Σ</td>
+                <td class="text-left" style="font-weight:800; color:#ffffff;">
+                    TOTAL GERAL COMEX (${filtered.length} PAÍSES)
+                </td>
+                <td class="text-center" style="width:110px;"></td>
+                <td class="text-left" style="font-weight:700; color:#ffd700; min-width:250px;">
+                    🥇 PRANCHA PRO 480 (Líder em 20 países)
+                </td>
+                <td class="text-left" style="font-weight:700; color:#60a5fa; width:160px;">
+                    ⚡ Prancha (Líder Global)
+                </td>
+                <td class="text-right" style="font-weight:700; color:#94a3b8; width:140px;">100,0%</td>
+                <td class="text-right" style="font-weight:800; color:#ffd700; width:140px;">100,0%</td>
+                <td class="text-center" style="width:130px;"><span class="val-neutral">0,0%</span></td>
             </tr>
         `;
     }
+
+    // Call autoscroll
+    setTimeout(initTableAutoScroll, 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -685,7 +1104,7 @@ function renderCards(paises) {
                 </div>
 
                 <div class="col-card-top-products">
-                    <div class="top-prods-title">TOP PRODUTOS NO PAÍS</div>
+                    <div class="top-prods-title">TOP CATEGORIAS NO PAÍS</div>
                     <div class="top-prods-list">
                         ${prodsHtml || '<div style="color:#5c6370; font-size:0.75rem; padding:4px 0;">Nenhum produto individual registrado</div>'}
                     </div>
@@ -695,4 +1114,140 @@ function renderCards(paises) {
     }).join('');
 
     container.innerHTML = cardsHtml;
+}
+
+
+
+
+// ---------------------------------------------------------------------------
+// TV ANALYTIC CARDS VIEW LOGIC
+// ---------------------------------------------------------------------------
+
+function renderMap() {
+    const container = document.getElementById('container-map');
+    if (!container) return;
+    
+    if (!currentData || !currentData.paises) {
+        container.innerHTML = '<div style="text-align:center; padding:50px; color:#888; grid-column:1/-1;">Aguardando dados...</div>';
+        return;
+    }
+
+    let items = [...currentData.paises].filter(p => (p.faturamento > 0 || p.faturamento_ant > 0));
+    items.sort((a, b) => (b.share || 0) - (a.share || 0));
+    
+    if (items.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:50px; color:#888; grid-column:1/-1;">Nenhum país com dados encontrado.</div>';
+        return;
+    }
+    
+    const colors = ['#ffd700', '#00e5ff', '#d633ff', '#60a5fa', '#34d399', '#f97316', '#ec4899', '#a78bfa'];
+    let html = '';
+
+    items.forEach((pais, idx) => {
+        const flag = getCountryFlag(pais.item);
+        const share = pais.share || 0;
+        const shareStr = share.toFixed(1).replace('.', ',') + '%';
+        const accentColor = colors[idx % colors.length];
+        
+        let productsHtml = '';
+        if (pais.produtos && pais.produtos.length > 0) {
+            let sortedProds = [...pais.produtos].sort((a,b) => (b.faturamento || 0) - (a.faturamento || 0));
+            const totalFaturamento = pais.faturamento > 0 ? pais.faturamento : 1;
+            
+            sortedProds.slice(0, 4).forEach(prod => {
+                const pShare = ((prod.faturamento || 0) / totalFaturamento) * 100;
+                const pShareStr = pShare.toFixed(1).replace('.', ',') + '%';
+                const prodName = prod.item || 'Sem nome';
+                
+                productsHtml += 
+                    '<div class="prod-bar-row">' +
+                        '<div class="prod-bar-info">' +
+                            '<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72%;">' + prodName + '</span>' +
+                            '<span style="font-weight:700;color:' + accentColor + ';">' + pShareStr + '</span>' +
+                        '</div>' +
+                        '<div class="prod-bar-track">' +
+                            '<div class="prod-bar-fill" style="width:' + pShare + '%;background:' + accentColor + ';box-shadow:0 0 6px ' + accentColor + '80;"></div>' +
+                        '</div>' +
+                    '</div>';
+            });
+            
+            if (sortedProds.length > 4) {
+                const othersFat = sortedProds.slice(4).reduce((sum, p) => sum + (p.faturamento||0), 0);
+                const oShare = (othersFat / totalFaturamento) * 100;
+                productsHtml += 
+                    '<div class="prod-bar-row">' +
+                        '<div class="prod-bar-info" style="color:#777;">' +
+                            '<span>Outros Produtos</span>' +
+                            '<span>' + oShare.toFixed(1).replace('.', ',') + '%</span>' +
+                        '</div>' +
+                        '<div class="prod-bar-track">' +
+                            '<div class="prod-bar-fill" style="width:' + oShare + '%;background:#555;"></div>' +
+                        '</div>' +
+                    '</div>';
+            }
+        } else {
+            productsHtml = '<div style="color:#666;font-size:0.85rem;">Sem produtos detalhados</div>';
+        }
+
+        const paisName = pais.item || 'DESCONHECIDO';
+
+        html += 
+            '<div class="pais-card">' +
+                '<div class="pais-card-header" style="border-bottom-color:' + accentColor + '40;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<span style="font-size:1.6rem;">' + flag + '</span>' +
+                        '<span style="font-weight:700;font-size:1.1rem;color:#fff;text-transform:uppercase;">' + paisName + '</span>' +
+                    '</div>' +
+                    '<div style="text-align:right;">' +
+                        '<div style="font-size:0.7rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px;">Share Global</div>' +
+                        '<div style="font-weight:800;font-size:1.5rem;color:' + accentColor + ';text-shadow:0 0 12px ' + accentColor + '80;">' + shareStr + '</div>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="pais-card-body">' +
+                    '<div style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Top Produtos Neste País</div>' +
+                    productsHtml +
+                '</div>' +
+            '</div>';
+    });
+    
+    container.innerHTML = html;
+}
+
+// ── Auto-Scroll Contínuo nas Tabelas (Modo TV) ───────────────────
+const activeScrollIntervals = [];
+
+function initTableAutoScroll() {
+    activeScrollIntervals.forEach(timer => clearInterval(timer));
+    activeScrollIntervals.length = 0;
+
+    const scrollEls = document.querySelectorAll('.table-responsive-wrapper');
+    scrollEls.forEach(container => {
+        let isPaused = false;
+        let direction = 1;
+
+        container.addEventListener('mouseenter', () => { isPaused = true; });
+        container.addEventListener('mouseleave', () => { isPaused = false; });
+        container.addEventListener('touchstart', () => { isPaused = true; }, { passive: true });
+        container.addEventListener('touchend',   () => { isPaused = false; }, { passive: true });
+
+        const interval = setInterval(() => {
+            if (isPaused) return;
+
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            if (maxScroll <= 5) return; 
+
+            if (direction === 1) {
+                container.scrollTop += 0.8;
+                if (container.scrollTop >= maxScroll - 2) {
+                    isPaused = true;
+                    setTimeout(() => {
+                        container.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => { isPaused = false; }, 1200);
+                    }, 2500);
+                }
+            }
+        }, 35);
+
+        activeScrollIntervals.push(interval);
+    });
 }

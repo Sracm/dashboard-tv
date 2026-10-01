@@ -115,6 +115,9 @@ def invalidar_todos_os_caches(ano=None):
     if 'cached_estoque_previsao' in globals() and isinstance(cached_estoque_previsao, dict):
         cached_estoque_previsao['data'] = None
         cached_estoque_previsao['timestamp'] = 0
+    if 'cached_teste_estoque' in globals() and isinstance(cached_teste_estoque, dict):
+        cached_teste_estoque['data'] = None
+        cached_teste_estoque['timestamp'] = 0
 
 def carregar_metas_e_setores(mes, ano, force_refresh=False):
     global cached_df_metas, cached_df_setores, last_excel_read
@@ -944,6 +947,11 @@ def estoque_previsao():
 def estoque():
     return render_template('estoque_previsao.html')
 
+@app.route('/teste_estoque')
+@app.route('/teste_estoque_previsao')
+def teste_estoque():
+    return render_template('teste_estoque.html')
+
 @app.route('/tv-alertas')
 def tv_alertas():
     return render_template('tv_alertas.html')
@@ -1357,6 +1365,33 @@ def api_categorias_dados():
 cached_paises_data = {}
 cached_paises_raw_df = {}
 
+def _mapear_cat_row_paises(row):
+    marca = str(row.get('MARCA', '')).upper()
+    gp_pai = str(row.get('GRUPO_PAI', '')).upper()
+    gp_sint = str(row.get('GRUPO_SINTETICO', '')).upper()
+    gp_anal = str(row.get('GRUPO_ANALITICO', '')).upper()
+    descr = str(row.get('PRODUTO', '')).upper()
+
+    if 'SPARE' in gp_pai or 'SPARE' in gp_sint or marca.startswith('SP ') or 'SPARE PARTS' in gp_anal or ' - SP' in descr or 'SPARE' in descr:
+        return 'Spare Parts'
+    if 'PARLUX' in marca or 'PARLUX' in descr or 'PARLUX' in gp_anal:
+        return 'Parlux'
+    if 'ESCOVA ELETRICA' in gp_sint or 'SECADORA' in descr or 'TRISCOVA' in descr or 'LIZIN' in descr or 'ESCOVA ALISADORA' in descr:
+        return 'Escova Secadora'
+    if 'ESCOVA' in gp_pai or 'ESCOVA' in gp_sint or 'ESCOVA' in gp_anal or 'ESCOVA' in descr:
+        return 'Escova Uso Diário'
+    if 'PRANCHA' in gp_sint or 'PRANCHA' in gp_anal or 'PRANCHA' in descr:
+        return 'Prancha'
+    if 'SECADOR' in gp_sint or 'SECADOR' in gp_anal or 'SECADOR' in descr:
+        return 'Secador'
+    if 'MODELADOR' in gp_sint or 'MODELADOR' in gp_anal or 'MODELADOR' in descr:
+        return 'Modelador'
+    if 'MAQUINA' in gp_sint or 'MAQUINA' in gp_anal or 'MAQUINA' in descr or 'BARBER' in gp_sint or 'BARBER' in gp_anal:
+        return 'Maquina'
+    if 'TESOURA' in gp_sint or 'TESOURA' in gp_anal or 'TESOURA' in descr or 'TESOURA' in marca or descr.startswith('TES '):
+        return 'Tesoura'
+    return 'Outros'
+
 def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refresh=False):
     cache_key = f"{ano}_{mes}_{marca_filter}_{pais_filter}"
     now_ts = time.time()
@@ -1393,14 +1428,19 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
         query = f"""
         SELECT 
             NVL(V.NOME_PAIS, 'NÃO INFORMADO') AS NOME_PAIS,
-            NVL(TRIM(V.DESCRPROD), 'OUTROS') AS PRODUTO,
-            NVL(TRIM(V.MARCA), 'OUTRAS') AS MARCA,
+            V.CODPROD,
+            NVL(TRIM(P.DESCRPROD), NVL(TRIM(V.DESCRPROD), 'OUTROS')) AS PRODUTO,
+            NVL(TRIM(P.MARCA), NVL(TRIM(V.MARCA), 'OUTRAS')) AS MARCA,
+            NVL(TRIM(P.GRUPO_PAI), 'OUTROS') AS GRUPO_PAI,
+            NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS') AS GRUPO_SINTETICO,
+            NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS') AS GRUPO_ANALITICO,
             TRUNC(V.DTENTSAI) AS DATA,
             V.ANO,
             V.MES,
             SUM(V.CALCULO_LIQUIDO_COM_IPI) AS CALCULO_LIQUIDO_COM_IPI
         FROM (
             SELECT 
+                ITE.CODPROD,
                 (SELECT descricao FROM tsipai WHERE codpais=(SELECT codpais FROM tsiufs WHERE coduf = (SELECT uf FROM tsicid WHERE codcid=(SELECT codcid FROM tgfpar WHERE codparc=cab.codparc)))) AS NOME_PAIS,
                 PRO.DESCRPROD,
                 PRO.MARCA,
@@ -1439,8 +1479,9 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
               AND CAB.DTENTSAI >= TO_DATE('01/01/{ano_ant}','DD/MM/YYYY')
               AND CAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}','DD/MM/YYYY')
         ) V
+        LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.CODPROD) = TO_CHAR(P.CODPROD)
         WHERE UPPER(TRIM(NVL(V.NOME_PAIS, 'NÃO INFORMADO'))) NOT IN ('BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX')
-        GROUP BY V.NOME_PAIS, NVL(TRIM(V.DESCRPROD), 'OUTROS'), NVL(TRIM(V.MARCA), 'OUTRAS'), TRUNC(V.DTENTSAI), V.ANO, V.MES
+        GROUP BY V.NOME_PAIS, V.CODPROD, NVL(TRIM(P.DESCRPROD), NVL(TRIM(V.DESCRPROD), 'OUTROS')), NVL(TRIM(P.MARCA), NVL(TRIM(V.MARCA), 'OUTRAS')), NVL(TRIM(P.GRUPO_PAI), 'OUTROS'), NVL(TRIM(P.GRUPO_SINTETICO), 'OUTROS'), NVL(TRIM(P.GRUPO_ANALITICO), 'OUTROS'), TRUNC(V.DTENTSAI), V.ANO, V.MES
         """
 
         conn = get_db_connection()
@@ -1452,13 +1493,24 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
         df['NOME_PAIS'] = df['NOME_PAIS'].astype(str).str.strip().str.upper()
         df = df[~df['NOME_PAIS'].isin(['BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX', 'NONE', 'NAN', ''])]
         df['DATA'] = pd.to_datetime(df['DATA'])
-        df['PRODUTO'] = df['PRODUTO'].astype(str).str.strip()
+        df['PRODUTO'] = df['GRUPO_ANALITICO'].where(
+            (df['GRUPO_ANALITICO'] != 'OUTROS') & (df['GRUPO_ANALITICO'] != '') & (df['GRUPO_ANALITICO'].notna()),
+            df['PRODUTO'].astype(str).str.strip()
+        )
         df['MARCA'] = df['MARCA'].astype(str).str.strip().str.upper()
+        df['CATEGORIA'] = df.apply(_mapear_cat_row_paises, axis=1)
+
         cached_paises_raw_df[ano_ref] = (df.copy(), now_ts)
         try:
             df.to_pickle(disk_file)
         except Exception as e:
             print(f"[CACHE DISCO] Erro ao salvar arquivo de cache {disk_file}: {e}")
+
+    # Garantir que colunas essenciais existem
+    if 'CATEGORIA' not in df.columns:
+        df['CATEGORIA'] = df.apply(_mapear_cat_row_paises, axis=1)
+    if 'PRODUTO' not in df.columns:
+        df['PRODUTO'] = 'OUTROS'
 
     # Lista de todas as marcas e países únicos disponíveis para os filtros
     marcas_unicas = sorted([m for m in df['MARCA'].dropna().unique() if m and m not in ('OUTRAS', 'NONE', 'NAN')])
@@ -1488,16 +1540,20 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
     mask_atual = (df_filtrado['DATA'].dt.date >= p_ytd[0]) & (df_filtrado['DATA'].dt.date <= p_ytd[1])
     mask_ant = (df_filtrado['DATA'].dt.date >= p_ytda[0]) & (df_filtrado['DATA'].dt.date <= p_ytda[1])
 
-    # Agrupamento por País
+    # 1. Agrupamento por País
     v_ytd = df_filtrado[mask_atual].groupby('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
     v_ytda = df_filtrado[mask_ant].groupby('NOME_PAIS')['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
 
     tot_ytd = sum(v_ytd.values())
     tot_ytda = sum(v_ytda.values())
 
-    # Agrupamento por Produto dentro de cada País
-    v_prod_ytd = df_filtrado[mask_atual].groupby(['NOME_PAIS', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
-    v_prod_ytda = df_filtrado[mask_ant].groupby(['NOME_PAIS', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+    # 2. Agrupamento por Categoria dentro de cada País
+    v_cat_ytd = df_filtrado[mask_atual].groupby(['NOME_PAIS', 'CATEGORIA'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+    v_cat_ytda = df_filtrado[mask_ant].groupby(['NOME_PAIS', 'CATEGORIA'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+
+    # 3. Agrupamento por Produto dentro de cada País e Categoria
+    v_prod_ytd = df_filtrado[mask_atual].groupby(['NOME_PAIS', 'CATEGORIA', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
+    v_prod_ytda = df_filtrado[mask_ant].groupby(['NOME_PAIS', 'CATEGORIA', 'PRODUTO'])['CALCULO_LIQUIDO_COM_IPI'].sum().to_dict()
 
     paises_todos = set(v_ytd.keys()) | set(v_ytda.keys())
     ordenados = sorted(paises_todos, key=lambda p: v_ytd.get(p, 0.0), reverse=True)
@@ -1519,38 +1575,71 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
         share = round(fat / tot_ytd * 100, 1) if tot_ytd > 0 else 0.0
         share_ant = round(fat_ant / tot_ytda * 100, 1) if tot_ytda > 0 else 0.0
         var_pp = round(share - share_ant, 1)
-
         evolucao_pct = round(((fat - fat_ant) / fat_ant * 100), 1) if fat_ant > 0 else (100.0 if fat > 0 else 0.0)
 
-        # Montar produtos filhos para este país
-        prods_pais = set()
-        for k in v_prod_ytd.keys():
+        # Categorias do País
+        cats_pais = set()
+        for k in v_cat_ytd.keys():
             if k[0] == p:
-                prods_pais.add(k[1])
-        for k in v_prod_ytda.keys():
+                cats_pais.add(k[1])
+        for k in v_cat_ytda.keys():
             if k[0] == p:
-                prods_pais.add(k[1])
+                cats_pais.add(k[1])
 
-        prods_lista = []
-        for prod_nome in sorted(prods_pais, key=lambda pr: v_prod_ytd.get((p, pr), 0.0), reverse=True):
-            fat_pr = float(v_prod_ytd.get((p, prod_nome), 0.0))
-            fat_pr_ant = float(v_prod_ytda.get((p, prod_nome), 0.0))
-            if fat_pr == 0.0 and fat_pr_ant == 0.0:
+        cats_lista = []
+        for cat_nome in sorted(cats_pais, key=lambda c: v_cat_ytd.get((p, c), 0.0), reverse=True):
+            fat_c = float(v_cat_ytd.get((p, cat_nome), 0.0))
+            fat_c_ant = float(v_cat_ytda.get((p, cat_nome), 0.0))
+            if fat_c == 0.0 and fat_c_ant == 0.0:
                 continue
 
-            share_pr = round(fat_pr / fat * 100, 1) if fat > 0 else 0.0
-            share_pr_ant = round(fat_pr_ant / fat_ant * 100, 1) if fat_ant > 0 else 0.0
-            var_pp_pr = round(share_pr - share_pr_ant, 1)
-            evol_pct_pr = round(((fat_pr - fat_pr_ant) / fat_pr_ant * 100), 1) if fat_pr_ant > 0 else (100.0 if fat_pr > 0 else 0.0)
+            share_c = round(fat_c / fat * 100, 1) if fat > 0 else 0.0
+            share_c_ant = round(fat_c_ant / fat_ant * 100, 1) if fat_ant > 0 else 0.0
+            var_pp_c = round(share_c - share_c_ant, 1)
+            evol_c = round(((fat_c - fat_c_ant) / fat_c_ant * 100), 1) if fat_c_ant > 0 else (100.0 if fat_c > 0 else 0.0)
 
-            prods_lista.append({
-                "item": prod_nome,
-                "faturamento": round(fat_pr, 2),
-                "faturamento_ant": round(fat_pr_ant, 2),
-                "share": share_pr,
-                "share_ant": share_pr_ant,
-                "var_pp": var_pp_pr,
-                "evolucao_pct": evol_pct_pr
+            # Produtos da Categoria
+            prods_cat = set()
+            for k in v_prod_ytd.keys():
+                if k[0] == p and k[1] == cat_nome:
+                    prods_cat.add(k[2])
+            for k in v_prod_ytda.keys():
+                if k[0] == p and k[1] == cat_nome:
+                    prods_cat.add(k[2])
+
+            prods_lista = []
+            for prod_nome in sorted(prods_cat, key=lambda pr: v_prod_ytd.get((p, cat_nome, pr), 0.0), reverse=True):
+                fat_pr = float(v_prod_ytd.get((p, cat_nome, prod_nome), 0.0))
+                fat_pr_ant = float(v_prod_ytda.get((p, cat_nome, prod_nome), 0.0))
+                if fat_pr == 0.0 and fat_pr_ant == 0.0:
+                    continue
+
+                share_pr = round(fat_pr / fat_c * 100, 1) if fat_c > 0 else 0.0
+                share_pr_pais = round(fat_pr / fat * 100, 1) if fat > 0 else 0.0
+                share_pr_ant = round(fat_pr_ant / fat_c_ant * 100, 1) if fat_c_ant > 0 else 0.0
+                var_pp_pr = round(share_pr - share_pr_ant, 1)
+                evol_pr = round(((fat_pr - fat_pr_ant) / fat_pr_ant * 100), 1) if fat_pr_ant > 0 else (100.0 if fat_pr > 0 else 0.0)
+
+                prods_lista.append({
+                    "item": prod_nome,
+                    "faturamento": round(fat_pr, 2),
+                    "faturamento_ant": round(fat_pr_ant, 2),
+                    "share": share_pr,
+                    "share_pais": share_pr_pais,
+                    "share_ant": share_pr_ant,
+                    "var_pp": var_pp_pr,
+                    "evolucao_pct": evol_pr
+                })
+
+            cats_lista.append({
+                "item": cat_nome,
+                "faturamento": round(fat_c, 2),
+                "faturamento_ant": round(fat_c_ant, 2),
+                "share": share_c,
+                "share_ant": share_c_ant,
+                "var_pp": var_pp_c,
+                "evolucao_pct": evol_c,
+                "produtos": prods_lista
             })
 
         linhas.append({
@@ -1564,7 +1653,8 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
             "share_ant": share_ant,
             "var_pp": var_pp,
             "evolucao_pct": evolucao_pct,
-            "produtos": prods_lista
+            "categorias": cats_lista,
+            "produtos": cats_lista
         })
 
     nomes_meses_br = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
@@ -1833,6 +1923,463 @@ def api_estoque_previsao():
         data = obter_dados_estoque_previsao(force=force)
         meta = cached_estoque_previsao.get('meta', {})
         return jsonify({'success': True, 'data': data, 'meta': meta})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+# ==============================================================================
+# GUIA TESTE ESTOQUE E PREVISÃO — COCKPIT DIRETORIA & LOGÍSTICA
+# ==============================================================================
+cached_teste_estoque = {
+    'data': None,
+    'top10': [],
+    'categorias': [],
+    'kpis': {},
+    'timestamp': 0,
+    'meta': {}
+}
+
+def map_categoria_simplificada(cat, marca=''):
+    c = str(cat or '').upper().strip()
+    m = str(marca or '').upper().strip()
+
+    # Peças de reposição / Spare Parts (marcas SP MQ PRO, SP PARLUX, SP FORCE B, etc.)
+    if m.startswith('SP ') or m.startswith('SPARE') or c.startswith('SPARE') or 'PECA' in c or 'PEÇA' in c:
+        return 'Spare Parts'
+
+    # Linha Parlux (se marca Parlux):
+    if 'PARLUX' in m:
+        return 'Parlux'
+
+    # Regra estrita por GRUPO_SINTETICO da query conforme exigência do usuário:
+    if c == 'PRANCHA':
+        return 'Pranchas'
+    if c == 'SECADOR':
+        return 'Secadores'
+    if c == 'MODELADOR':
+        return 'Modeladores'
+    if 'ESCOVA' in c:
+        if 'ELETRICA' in c or 'ELÉTRICA' in c:
+            return 'Escovas Elétricas'
+        return 'Escovas'
+    if c == 'TESOURA':
+        return 'Tesouras'
+    if 'MAQUINA' in c:
+        return 'Máquinas'
+    return c.title()
+
+def obter_dados_teste_estoque(force=False):
+    global cached_teste_estoque
+    disk_file = os.path.join(DISK_CACHE_DIR, 'teste_estoque.pkl')
+    now_ts = time.time()
+
+    if not force and cached_teste_estoque['data'] is not None and (now_ts - cached_teste_estoque['timestamp'] < CACHE_TTL):
+        return cached_teste_estoque
+
+    if not force and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL:
+            try:
+                import pickle
+                with open(disk_file, 'rb') as f:
+                    payload = pickle.load(f)
+                    cached_teste_estoque['data'] = payload['data']
+                    cached_teste_estoque['produtos_em_risco'] = payload.get('produtos_em_risco', [])
+                    cached_teste_estoque['top10'] = payload.get('top10', [])
+                    cached_teste_estoque['categorias'] = payload.get('categorias', [])
+                    cached_teste_estoque['kpis'] = payload.get('kpis', {})
+                    cached_teste_estoque['timestamp'] = now_ts
+                    cached_teste_estoque['meta'] = payload.get('meta', {})
+                    return cached_teste_estoque
+            except Exception as e:
+                print(f"[CACHE DISCO] Erro ao ler {disk_file}: {e}")
+
+    import numpy as np
+    from dateutil.relativedelta import relativedelta
+    hoje = date.today()
+    nomes_meses_br = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+    
+    # Define os 4 meses fechados + mes atual (conforme Power BI: Mai, Jun, Jul, Ago + Set)
+    meses_fechados = []
+    meses_fechados_nomes = []
+    for i in range(4, 0, -1):
+        d = hoje - relativedelta(months=i)
+        meses_fechados.append(f"{d.year}-{d.month:02d}")
+        meses_fechados_nomes.append(f"{nomes_meses_br[d.month]}/{str(d.year)[2:]}")
+        
+    mes_atual_periodo = f"{hoje.year}-{hoje.month:02d}"
+    label_mes_atual = f"VENDA(+) BONIF {nomes_meses_br[hoje.month].upper()} {str(hoje.year)[2:]}"
+
+    data_inicio_obj = hoje - relativedelta(months=4)
+    data_inicio_str = f"01/{data_inicio_obj.month:02d}/{data_inicio_obj.year}"
+
+    conn = get_db_connection()
+    try:
+        # 1. Consulta1 oficial idêntica ao Power BI agrupada por DTENTSAI
+        sql_sales = f"""
+        SELECT 
+            CAB.CODEMP,
+            (SELECT E.NOMEFANTASIA FROM TSIEMP E WHERE E.CODEMP = CAB.CODEMP) as empresa,
+            (SELECT tpp.descrtipparc FROM tgftpp tpp WHERE tpp.codtipparc=PAR.codtipparc) AS perfil_cli,
+            (SELECT apelido FROM tgfven WHERE codvend=cab.codvend) AS vendedor,
+            TO_CHAR(CAB.DTENTSAI, 'YYYY-MM') as MES_ENTSAI,
+            TO_CHAR(ITE.CODPROD) as CODPROD,
+            PRO.DESCRPROD AS PRODUTO,
+            PRO.MARCA,
+            (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,1),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,2),8,'0') END) AS GRUPO_GERAL,
+            (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,4),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,5),8,'0') END) AS GRUPO_SINTETICO,
+            GRU.DESCRGRUPOPROD AS GRUPO_ANALITICO,
+            NVL(CASE WHEN CAB.CODEMP <> 501 AND NVL (TOP.BONIFICACAO, 'N') = 'N' THEN (ITE.QTDNEG) END * DECODE(CAB.TIPMOV,'D',0,'V',1), 0) AS QTDVENDIDA,
+            NVL(CASE WHEN NVL (TOP.BONIFICACAO, 'N') = 'S' THEN (ITE.QTDNEG) END, 0) AS QTDBONIFIC
+        FROM TGFCAB CAB,
+             TGFITE ITE,
+             TGFTOP TOP,
+             TGFPAR PAR,
+             TGFTPP TPP,
+             TGFGRU GRU,
+             TGFPRO PRO,
+             TSICID CID,
+             VGFCAB VCA
+        WHERE CAB.DTENTSAI >= TO_DATE('{data_inicio_str}','DD/MM/YYYY')
+          AND CAB.CODTIPOPER = TOP.CODTIPOPER
+          AND CAB.DHTIPOPER = TOP.DHALTER
+          AND CAB.NUNOTA = ITE.NUNOTA
+          AND CAB.CODPARC = PAR.CODPARC
+          AND PRO.CODPROD = ITE.CODPROD
+          AND PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
+          AND PAR.CODTIPPARC = TPP.CODTIPPARC
+          AND PAR.CODCID = CID.CODCID
+          AND CAB.TIPMOV IN ('V', 'D')
+          AND CAB.STATUSNOTA = 'L' 
+          AND CAB.NUNOTA = VCA.NUNOTA
+          AND (TOP.GOLSINAL = -1 OR BONIFICACAO='S')
+          AND (NOT EXISTS(SELECT 1 FROM TGFVAR VAR WHERE VAR.NUNOTA = ITE.NUNOTA AND VAR.NUNOTAORIG = VAR.NUNOTA AND VAR.SEQUENCIAORIG = ITE.SEQUENCIA))
+          AND (TOP.ATUALFINTERC <> 'N' OR TOP.ATUALESTTERC = 'N' OR  ITE.TERCEIROS <> 'S')
+          AND ITE.SEQUENCIA > 0    
+          AND TOP.GOLDEV IN (1,-1)
+        """
+        df_sales = pd.read_sql(sql_sales, conn)
+
+        # 2. Cadastro de Produtos Ativos
+        sql_prods = """
+        SELECT 
+            TO_CHAR(PRO.CODPROD) AS CODPROD,
+            PRO.DESCRPROD AS PRODUTO,
+            PRO.MARCA,
+            (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,1),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,2),8,'0') END) AS GRUPO_GERAL,
+            (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,4),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,5),8,'0') END) AS GRUPO_SINTETICO,
+            GRU.DESCRGRUPOPROD AS GRUPO_ANALITICO
+        FROM TGFPRO PRO, TGFGRU GRU
+        WHERE PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
+          AND PRO.ATIVO = 'S'
+        """
+        df_prods = pd.read_sql(sql_prods, conn)
+
+        # 3. Estoque Oficial: VMQ_ESTLOC2
+        q_est = "SELECT TO_CHAR(CODPROD) AS CODPROD, CODEMP, SALDO FROM VMQ_ESTLOC2"
+        df_est = pd.read_sql(q_est, conn)
+
+    finally:
+        conn.close()
+
+    # Aplicação dos filtros globais idênticos aos do Power BI
+    df_sales['TOTAL_QTD'] = df_sales['QTDVENDIDA'] + df_sales['QTDBONIFIC']
+
+    df_filt = df_sales[
+        ~df_sales['EMPRESA'].isin(['EKOS - SP', 'GLOBRAL - SP', 'QUALITY - MATRIZ']) &
+        ~df_sales['PERFIL_CLI'].isin(['ATEND. DIRETO', 'INDUSTRIA VIDRACEIRA']) &
+        ~df_sales['VENDEDOR'].isin(['MULTIMAQ REPRES']) &
+        ~df_sales['GRUPO_GERAL'].isin(['EMBALAGENS', 'FABRICA', 'MAQUINAS P/ IND VIDRACARIA', 'SERVICOS', 'USO E CONSUMO']) &
+        (df_sales['MARCA'] != 'TERMIX')
+    ].copy()
+
+    # Pivot vendas
+    df_pivot = df_filt.pivot_table(
+        index='CODPROD', 
+        columns='MES_ENTSAI', 
+        values='TOTAL_QTD', 
+        aggfunc='sum', 
+        fill_value=0
+    ).reset_index()
+
+    for m in meses_fechados + [mes_atual_periodo]:
+        if m not in df_pivot.columns:
+            df_pivot[m] = 0
+
+    # Metadados de produto unificados
+    df_meta_sales = df_filt[['CODPROD', 'PRODUTO', 'MARCA', 'GRUPO_GERAL', 'GRUPO_SINTETICO', 'GRUPO_ANALITICO']].drop_duplicates('CODPROD')
+    df_meta_all = pd.concat([df_meta_sales, df_prods], ignore_index=True).drop_duplicates('CODPROD')
+
+    # Agrupamento Estoque:
+    # ESTOQUE EMPRESA = Total Grupo (todas empresas VMQ_ESTLOC2)
+    # ESTOQUE MCR = CD Santa Catarina (CODEMP = 2)
+    # ESTOQUE EMPRESA MCR = Matriz SP (CODEMP = 1)
+    df_est_total = df_est.groupby('CODPROD')['SALDO'].sum().reset_index().rename(columns={'SALDO': 'ESTOQUE_EMPRESA'})
+    df_est_mcr = df_est[df_est['CODEMP'] == 2].groupby('CODPROD')['SALDO'].sum().reset_index().rename(columns={'SALDO': 'ESTOQUE_MCR'})
+    df_est_matriz = df_est[df_est['CODEMP'] == 1].groupby('CODPROD')['SALDO'].sum().reset_index().rename(columns={'SALDO': 'ESTOQUE_EMPRESA_MCR'})
+
+    # Universo consolidado de produtos (com vendas ou estoque)
+    all_cods = pd.DataFrame({'CODPROD': list(set(df_pivot['CODPROD']).union(set(df_est_total['CODPROD'])))})
+    df_res = pd.merge(all_cods, df_meta_all, on='CODPROD', how='left')
+    df_res = pd.merge(df_res, df_pivot, on='CODPROD', how='left')
+    df_res = pd.merge(df_res, df_est_total, on='CODPROD', how='left')
+    df_res = pd.merge(df_res, df_est_mcr, on='CODPROD', how='left')
+    df_res = pd.merge(df_res, df_est_matriz, on='CODPROD', how='left')
+
+    for m in meses_fechados + [mes_atual_periodo]:
+        df_res[m] = df_res[m].fillna(0)
+
+    df_res['ESTOQUE_EMPRESA'] = df_res['ESTOQUE_EMPRESA'].fillna(0).astype(int)
+    df_res['ESTOQUE_MCR'] = df_res['ESTOQUE_MCR'].fillna(0).astype(int)
+    df_res['ESTOQUE_EMPRESA_MCR'] = df_res['ESTOQUE_EMPRESA_MCR'].fillna(0).astype(int)
+    df_res['ESTOQUE_TOTAL'] = df_res['ESTOQUE_EMPRESA']
+
+    df_res['NOME_PRODUTO'] = df_res['PRODUTO'].fillna('PRODUTO ' + df_res['CODPROD'].astype(str))
+
+    # MEDIA CONSUMO = soma dos 4 meses fechados / 4 (DAX: [VENDA (+) BONIF SOMA] / 4)
+    df_res['MEDIA_CONSUMO'] = ((df_res[meses_fechados].sum(axis=1)) / 4.0).round()
+    df_res['VENDA_MES_ATUAL'] = df_res[mes_atual_periodo].round().astype(int)
+    df_res['CONSUMO_DIARIO'] = (df_res['MEDIA_CONSUMO'] / 30.0).round(1)
+
+    # DIAS DE ESTOQUE (CONF. CONS.) = (ESTOQUE_EMPRESA / MEDIA_CONSUMO) * 30 (DAX: [DIASESTOQUE])
+    mask_cons = df_res['MEDIA_CONSUMO'] > 0
+    df_res['DIAS_ESTOQUE_TOTAL'] = 0
+    df_res.loc[mask_cons, 'DIAS_ESTOQUE_TOTAL'] = ((df_res.loc[mask_cons, 'ESTOQUE_EMPRESA'] / df_res.loc[mask_cons, 'MEDIA_CONSUMO']) * 30.0).round().astype(int)
+
+    df_res['DIAS_ESTOQUE_EMPRESA'] = 0
+    df_res.loc[mask_cons, 'DIAS_ESTOQUE_EMPRESA'] = ((df_res.loc[mask_cons, 'ESTOQUE_EMPRESA_MCR'] / df_res.loc[mask_cons, 'MEDIA_CONSUMO']) * 30.0).round().astype(int)
+
+    # GIRO DO ESTOQUE = ESTOQUE_MCR / (MEDIA_CONSUMO / 2) (DAX: [GIRO DO ESTOQUE])
+    df_res['GIRO_ESTOQUE'] = 0.0
+    df_res.loc[mask_cons, 'GIRO_ESTOQUE'] = (df_res.loc[mask_cons, 'ESTOQUE_MCR'] / (df_res.loc[mask_cons, 'MEDIA_CONSUMO'] / 2.0)).round(1)
+
+    # TT. A TRANSFERIR (CAIXA) = ROUNDUP((MEDIA_CONSUMO / 2) / 12, 0) (DAX: [QTDE A TRANSFERIR CALCULO 2])
+    df_res['TT_TRANSFERIR_CX'] = 0
+    df_res.loc[mask_cons, 'TT_TRANSFERIR_CX'] = np.ceil((df_res.loc[mask_cons, 'MEDIA_CONSUMO'] / 2.0) / 12.0).astype(int)
+    df_res['SUGESTAO_TRANSF'] = df_res['TT_TRANSFERIR_CX'] * 12
+
+    # Categorias simplificadas
+    df_res['GRUPO_SINTETICO'] = df_res['GRUPO_SINTETICO'].fillna('OUTROS').astype(str)
+    df_res['MARCA'] = df_res['MARCA'].fillna('MQ Professional').astype(str)
+    df_res['GRUPO_GERAL'] = df_res['GRUPO_GERAL'].fillna('OUTROS').astype(str)
+    df_res['GRUPO_ANALITICO'] = df_res['GRUPO_ANALITICO'].fillna('OUTROS').astype(str)
+    df_res['CATEGORIA_SIMP'] = [map_categoria_simplificada(c, m) for c, m in zip(df_res['GRUPO_SINTETICO'], df_res['MARCA'])]
+    df_res['CATEGORIA'] = df_res['CATEGORIA_SIMP']
+
+    # Filtrar itens de uso interno / embalagens / materiais de apoio
+    df_res = df_res[~df_res['NOME_PRODUTO'].str.startswith(('MANUAL ', 'CAIXA ', 'TAG ', 'CERTIFICADO ', 'SACOLA ', 'DISPLAY '))]
+    df_res = df_res[~df_res['NOME_PRODUTO'].str.contains(' - TAG - ')]
+
+    # REGRA DO USUÁRIO: Excluir produtos sem nenhuma atividade ou com ZERO em todas as colunas
+    # Se consumo médio for 0, venda no mês for 0, estoque empresa for 0 e estoque SC for 0:
+    # (ou seja, produto zerado em todas as colunas da tela) -> NÃO MOSTRAR O PRODUTO NA TABELA.
+    cond_zero_todas_colunas = (
+        (df_res['MEDIA_CONSUMO'] == 0) &
+        (df_res['VENDA_MES_ATUAL'] == 0) &
+        (df_res['ESTOQUE_EMPRESA'] == 0) &
+        (df_res['ESTOQUE_MCR'] == 0)
+    )
+
+    ultimos_3_fechados = meses_fechados[-3:] if len(meses_fechados) >= 3 else meses_fechados
+    soma_vendas_3m = df_res[ultimos_3_fechados].sum(axis=1)
+    cond_inativo = (
+        (soma_vendas_3m == 0) &
+        (df_res['MEDIA_CONSUMO'] == 0) &
+        (df_res['VENDA_MES_ATUAL'] == 0) &
+        (df_res['DIAS_ESTOQUE_TOTAL'] == 0) &
+        (df_res['ESTOQUE_EMPRESA'] == 0) &
+        (df_res['ESTOQUE_MCR'] == 0) &
+        (df_res['GIRO_ESTOQUE'] == 0)
+    )
+    df_res = df_res[~(cond_zero_todas_colunas | cond_inativo)].copy()
+
+    # Também excluir marcas de peças de reposição (SP MQ PRO, SP PARLUX, SP FORCE B, SP MQ B, etc.)
+    df_res = df_res[~df_res['MARCA'].str.startswith(('SP ', 'SPARE'))].copy()
+
+    # Previsão de Mês e Ano de Ruptura (baseado em DIAS_ESTOQUE_TOTAL)
+    from datetime import timedelta
+    def calc_previsao_ruptura(row):
+        dias = int(row['DIAS_ESTOQUE_TOTAL'])
+        med = float(row['MEDIA_CONSUMO'])
+        est_tot = int(row['ESTOQUE_EMPRESA'])
+
+        if est_tot <= 0 or dias <= 0:
+            return 'Imediata'
+        if med <= 0:
+            return 'Sem Consumo'
+        if dias > 730:
+            return '> 2 anos'
+        dt_rup = hoje + timedelta(days=dias)
+        return f"{nomes_meses_br[dt_rup.month]}/{str(dt_rup.year)}"
+
+    df_res['PREVISAO_RUPTURA'] = df_res.apply(calc_previsao_ruptura, axis=1)
+
+    # Cálculo de Riscos & Ações Logísticas (alinhadas ao FAROL e STATUS FINAL do PBI)
+    def calc_risco_pbi(row):
+        med = float(row['MEDIA_CONSUMO'])
+        e_emp = int(row['ESTOQUE_EMPRESA_MCR'])
+        e_mcr = int(row['ESTOQUE_MCR'])
+        e_tot = int(row['ESTOQUE_EMPRESA'])
+        d_tot = int(row['DIAS_ESTOQUE_TOTAL'])
+        d_emp = int(row['DIAS_ESTOQUE_EMPRESA'])
+        giro = float(row['GIRO_ESTOQUE'])
+
+        if med <= 0:
+            return 'SEM_GIRO', 'Sem Giro / Sem Consumo', 5
+        if e_tot <= 0:
+            return 'RUPTURA_TOTAL', 'Ruptura Geral (Esgotado)', 1
+        if d_tot <= 10:
+            return 'CRITICO_GERAL', f'Ruptura Crítica ({d_tot}d no Grupo)', 1
+        # DAX PBI: IF([DIASESTOQUE] <= 21 && [GIRO DO ESTOQUE] > 1.5, "TRANSFERE", "NÃO TRANSFERE")
+        if e_emp <= 5 and e_mcr > 0 and med > 0:
+            return 'REPOR_URGENTE_MCR', f'Matriz Zerada ({e_emp} un)', 2
+        if d_emp <= 15 and e_mcr > 0 and med > 0:
+            return 'REPOR_MCR', f'Matriz Baixa ({d_emp}d) — Transferir de SC', 2
+        if d_tot <= 21 and giro > 1.5 and e_mcr > 0 and med > 0:
+            return 'TRANSFERE_PBI', f'Status PBI: TRANSFERE (≤21d e Giro > 1.5)', 2
+        if d_tot <= 30:
+            return 'ATENCAO_GERAL', f'Atenção Reposição ({d_tot} dias)', 3
+        if d_tot <= 60:
+            return 'SAUDAVEL', f'Estoque Saudável ({d_tot} dias)', 4
+        return 'ESTOQUE_ALTO', f'Estoque Alto ({d_tot} dias)', 4
+
+    riscos = df_res.apply(calc_risco_pbi, axis=1)
+    df_res['STATUS_RUPTURA'] = [r[0] for r in riscos]
+    df_res['STATUS_RUPTURA_LABEL'] = [r[1] for r in riscos]
+    df_res['PRIORIDADE_RUPTURA'] = [r[2] for r in riscos]
+
+    # Cálculo da Curva ABC por Categoria baseado no consumo médio
+    df_res['CURVA'] = 'C'
+    for cat_name, grp_idx in df_res.groupby('CATEGORIA_SIMP').groups.items():
+        grp_sub = df_res.loc[grp_idx].sort_values(by='MEDIA_CONSUMO', ascending=False)
+        tot_c = grp_sub['MEDIA_CONSUMO'].sum()
+        if tot_c > 0:
+            cum = grp_sub['MEDIA_CONSUMO'].cumsum() / tot_c
+            curva_s = pd.Series('C', index=grp_sub.index)
+            curva_s[cum <= 0.80] = 'A'
+            curva_s[(cum > 0.80) & (cum <= 0.95)] = 'B'
+            df_res.loc[grp_sub.index, 'CURVA'] = curva_s
+
+    # Mapear ordem da Curva: A=1, B=2, C=3 e ordenar: Curva A, depois B, depois C e MEDIA_CONSUMO decrescente
+    ordem_map = {'A': 1, 'B': 2, 'C': 3}
+    df_res['ORDEM_CURVA'] = df_res['CURVA'].map(ordem_map).fillna(3)
+    df_res = df_res.sort_values(by=['ORDEM_CURVA', 'MEDIA_CONSUMO'], ascending=[True, False]).reset_index(drop=True)
+    df_res['RANK_GERAL'] = df_res.index + 1
+    df_res['IS_TOP10'] = df_res['RANK_GERAL'] <= 10
+    df_res['RANK_CATEGORIA'] = df_res.groupby('CATEGORIA_SIMP')['MEDIA_CONSUMO'].rank(ascending=False, method='min').astype(int)
+
+    # Sanitizar NaN em todo o dataframe para evitar JSON inválido
+    df_res = df_res.fillna(0)
+
+    # Helper para sanitizar listas de dicionários
+    import math
+    def sanitize_records(records):
+        clean_list = []
+        for r in records:
+            clean_r = {}
+            for k, v in r.items():
+                if hasattr(v, 'item'):
+                    v = v.item()
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    clean_r[k] = 0.0
+                elif v is None:
+                    clean_r[k] = ""
+                else:
+                    clean_r[k] = v
+            clean_list.append(clean_r)
+        return clean_list
+
+    # TOP 10
+    df_top10 = df_res[df_res['IS_TOP10']].copy()
+    top10_list = sanitize_records(df_top10.to_dict('records'))
+
+    # Produtos em Risco (Prioridades 1, 2 e 3)
+    df_risco = df_res[df_res['PRIORIDADE_RUPTURA'].isin([1, 2, 3])].sort_values(by=['PRIORIDADE_RUPTURA', 'MEDIA_CONSUMO'], ascending=[True, False]).copy()
+    produtos_em_risco = sanitize_records(df_risco.to_dict('records'))
+
+    # Sumário por categoria
+    cat_summary = []
+    for cat_name, grp in df_res.groupby('CATEGORIA_SIMP'):
+        skus_criticos_geral = int((grp['PRIORIDADE_RUPTURA'] == 1).sum())
+        skus_repor_matriz = int((grp['PRIORIDADE_RUPTURA'] == 2).sum())
+        skus_atencao = int((grp['PRIORIDADE_RUPTURA'] == 3).sum())
+        total_risco = skus_criticos_geral + skus_repor_matriz + skus_atencao
+
+        nivel = 'CRITICO' if skus_criticos_geral > 0 else ('REPOR' if skus_repor_matriz > 0 else ('ATENCAO' if skus_atencao > 0 else 'SEGURO'))
+
+        cat_summary.append({
+            'categoria': cat_name,
+            'total_skus': len(grp),
+            'skus_em_risco': total_risco,
+            'skus_ruptura_geral': skus_criticos_geral,
+            'skus_repor_matriz': skus_repor_matriz,
+            'skus_atencao': skus_atencao,
+            'media_consumo_tot': round(float(grp['MEDIA_CONSUMO'].sum()), 1),
+            'consumo_diario_tot': round(float(grp['CONSUMO_DIARIO'].sum()), 1),
+            'estoque_emp_tot': int(grp['ESTOQUE_EMPRESA_MCR'].sum()),
+            'estoque_mcr_tot': int(grp['ESTOQUE_MCR'].sum()),
+            'estoque_geral_tot': int(grp['ESTOQUE_EMPRESA'].sum()),
+            'nivel_risco': nivel
+        })
+    cat_summary.sort(key=lambda x: (x['skus_ruptura_geral'] * 1000 + x['skus_repor_matriz'] * 100 + x['media_consumo_tot']), reverse=True)
+
+    kpis = {
+        'total_produtos': len(df_res),
+        'top10_count': len(top10_list),
+        'total_produtos_risco': len(produtos_em_risco),
+        'total_repor_urgente_mcr': int((df_res['PRIORIDADE_RUPTURA'] == 2).sum()),
+        'total_ruptura_critica': int((df_res['PRIORIDADE_RUPTURA'] == 1).sum()),
+        'total_atencao': int((df_res['PRIORIDADE_RUPTURA'] == 3).sum()),
+        'estoque_empresa_mcr_total': int(df_res['ESTOQUE_EMPRESA_MCR'].sum()),
+        'estoque_mcr_total': int(df_res['ESTOQUE_MCR'].sum()),
+        'estoque_grupo_total': int(df_res['ESTOQUE_EMPRESA'].sum()),
+        'transf_sugerida_total': int(df_res['SUGESTAO_TRANSF'].sum()),
+        'transf_sugerida_cx_total': int(df_res['TT_TRANSFERIR_CX'].sum()),
+        'consumo_diario_global': round(float(df_res['CONSUMO_DIARIO'].sum()), 1),
+        'media_consumo_global': round(float(df_res['MEDIA_CONSUMO'].sum()), 1)
+    }
+
+    meta = {
+        'meses_fechados': meses_fechados_nomes,
+        'label_mes_atual': label_mes_atual,
+        'mes_atual_periodo': mes_atual_periodo,
+        'gerado_em': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+    }
+
+    data = sanitize_records(df_res.to_dict('records'))
+
+    cached_teste_estoque['data'] = data
+    cached_teste_estoque['produtos_em_risco'] = produtos_em_risco
+    cached_teste_estoque['top10'] = top10_list
+    cached_teste_estoque['categorias'] = cat_summary
+    cached_teste_estoque['kpis'] = kpis
+    cached_teste_estoque['timestamp'] = time.time()
+    cached_teste_estoque['meta'] = meta
+
+    try:
+        import pickle
+        with open(disk_file, 'wb') as f:
+            pickle.dump(cached_teste_estoque, f)
+    except Exception as e:
+        print(f"[CACHE DISCO] Erro ao salvar {disk_file}: {e}")
+
+    return cached_teste_estoque
+
+@app.route('/api/teste_estoque')
+def api_teste_estoque():
+    try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
+        res = obter_dados_teste_estoque(force=force)
+        return jsonify({
+            'success': True,
+            'data': res['data'],
+            'produtos_em_risco': res.get('produtos_em_risco', []),
+            'top10': res['top10'],
+            'categorias': res['categorias'],
+            'kpis': res['kpis'],
+            'meta': res['meta']
+        })
     except Exception as e:
         import traceback
         traceback.print_exc()

@@ -14,6 +14,16 @@
     --font-main: 'Montserrat', sans-serif;
 }
 
+/* Escala Responsiva para TVs e Telas Grandes */
+html {
+    font-size: 16px;
+}
+@media screen and (min-width: 1600px) { html { font-size: 18px; } }
+@media screen and (min-width: 1920px) { html { font-size: 22px; } }
+@media screen and (min-width: 2560px) { html { font-size: 28px; } }
+@media screen and (min-width: 3840px) { html { font-size: 44px; } }
+
+
 * {
     margin: 0;
     padding: 0;
@@ -24,7 +34,7 @@ body {
     background-color: var(--bg-dark);
     color: var(--mq-white);
     font-family: var(--font-main);
-    overflow-x: hidden;
+    overflow-x: auto;
     overflow-y: auto;
     min-height: 100vh;
     display: flex;

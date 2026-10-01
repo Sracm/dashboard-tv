@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar de Ruptura & Reabastecimento — TV Diretoria | MQ Hair</title>
+
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=10">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/teste_estoque.css') }}?v=30">
+</head>
+<body class="tv-dashboard-body">
+    <!-- ══════════ TOP BAR DE NAVEGAÇÃO GERAL ══════════ -->
+    <div class="top-bar">
+        <button onclick="navigateTab('/tv')"                   class="tab-btn">Mensal(%)</button>
+        <button onclick="navigateTab('/acumulado')"            class="tab-btn">Acumulado(%)</button>
+        <button onclick="navigateTab('/trimestre')"            class="tab-btn">Trimestre</button>
+        <button onclick="navigateTab('/todos_canais')"         class="tab-btn">Todos os Canais</button>
+        <button onclick="navigateTab('/categorias')"           class="tab-btn">Categorias</button>
+        <button onclick="navigateTab('/marcas')"               class="tab-btn">Marcas</button>
+        <button onclick="navigateTab('/canal/distribuicao')"   class="tab-btn">Distribuição</button>
+        <button onclick="navigateTab('/canal/ecommerce_mq')"   class="tab-btn">E-commerce MQ</button>
+        <button onclick="navigateTab('/canal/varejo_sp')"      class="tab-btn">Varejo SP</button>
+        <button onclick="navigateTab('/canal/comex')"          class="tab-btn">Comex</button>
+        <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+        <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+        <button onclick="navigateTab('/canal/regional_sul')"   class="tab-btn">Regional Sul</button>
+        <button onclick="navigateTab('/empresa')"              class="tab-btn">Empresa</button>
+        <button onclick="navigateTab('/diario_canal')"         class="tab-btn">Diário Canal</button>
+        <button onclick="navigateTab('/diario_marcas')"        class="tab-btn">Diário Marcas</button>
+        <button onclick="navigateTab('/paises')"               class="tab-btn">Países</button>
+        <button onclick="navigateTab('/teste_estoque')"        class="tab-btn active">
+            <span class="tab-icon">🚨</span> Estoque e Previsão
+        </button>
+    </div>
+
+    <!-- ══════════ CABEÇALHO EXECUTIVO TV & SELETOR DE TELAS ══════════ -->
+    <div class="tv-cockpit-header">
+        <div class="header-branding">
+            <div class="brand-title">
+                <i class="fas fa-shield-halved" style="color:var(--gold)"></i>
+                <span>RADAR DE REABASTECIMENTO & RUPTURA</span>
+                <span class="badge-live"><i class="fas fa-circle live-dot"></i> TV DIRETORIA</span>
+            </div>
+            <div class="brand-sub">
+                Monitoramento Estratégico por Categoria — Power BI & Sankhya Oficial
+            </div>
+        </div>
+
+        <!-- SELETOR DE TELAS TV DIRETORIA -->
+        <div class="tv-screen-switcher">
+            <button id="btn-screen-tela1" class="screen-tab-btn active" onclick="switchTvScreen(0)">
+                <span class="screen-num">TELA 1</span>
+                <span class="screen-title"><i class="fas fa-fire"></i> Pranchas e Secadores</span>
+            </button>
+            <button id="btn-screen-tela2" class="screen-tab-btn" onclick="switchTvScreen(1)">
+                <span class="screen-num">TELA 2</span>
+                <span class="screen-title"><i class="fas fa-wand-magic-sparkles"></i> Modeladores &amp; Escovas</span>
+            </button>
+            <button id="btn-screen-tela3" class="screen-tab-btn" onclick="switchTvScreen(2)">
+                <span class="screen-num">TELA 3</span>
+                <span class="screen-title"><i class="fas fa-bolt"></i> Escovas, Parlux &amp; Máquinas</span>
+            </button>
+        </div>
+
+        <!-- CONTROLES DA ROTAÇÃO E BUSCA -->
+        <div class="tv-controls-group">
+            <div class="tv-rotation-badge" id="tv-rotation-indicator" title="Tempo restante até a rotação para a próxima tela">
+                <i class="fas fa-rotate"></i>
+                <span>Próxima Tela: <strong id="tv-countdown">2m 00s</strong></span>
+                <button class="btn-tv-pause" id="btn-tv-pause" onclick="toggleTvRotation()" title="Pausar / Retomar rotação automática">
+                    <i class="fas fa-pause"></i>
+                </button>
+            </div>
+
+            <!-- FILTRO DE MARCAS -->
+            <div class="brand-filter-wrap" id="brand-filter-wrap">
+                <button class="brand-filter-btn" id="btn-brand-filter" onclick="toggleBrandDropdown(event)">
+                    <i class="fas fa-tags" style="color:var(--gold);"></i>
+                    <span id="lbl-brand-filter">Todas as Marcas</span>
+                    <i class="fas fa-chevron-down arrow-icon"></i>
+                </button>
+                <div class="brand-dropdown-menu" id="menu-brand-filter" style="display: none;">
+                    <div class="brand-dropdown-header">
+                        <label class="brand-check-item check-all">
+                            <input type="checkbox" id="check-all-brands" checked onchange="toggleAllBrands(this.checked)">
+                            <strong>Selecionar Todas</strong>
+                        </label>
+                    </div>
+                    <div class="brand-options-list" id="brand-options-list">
+                        <!-- Gerado dinamicamente via JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-wrap">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-input" class="search-flt" placeholder="Buscar produto, código..." oninput="onSearchInput(this.value)">
+            </div>
+
+            <div class="header-actions">
+                <span class="clock-tag" id="clock-text"><i class="fas fa-clock"></i> Carregando...</span>
+                <button id="btn-refresh" class="btn-refresh-primary" onclick="loadTesteEstoqueData(true)" title="Recarregar dados do Sankhya">
+                    <i class="fas fa-sync-alt"></i> Atualizar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ VIEWPORT DAS TELAS (LAYOUT MULTI-QUADRANTE / BENTO) ══════════ -->
+    <div class="tv-viewport" id="tv-viewport">
+        <!-- Container gerado dinamicamente via JS -->
+        <div class="tv-screens-container" id="tv-screens-container">
+            <div class="tv-loading-state">
+                <div class="spinner"></div>
+                <div class="loading-text">Carregando dados de estoque, demanda e calculando curvas ABC...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/teste_estoque.js') }}?v=30"></script>
+</body>
+</html>
