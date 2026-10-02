@@ -66,6 +66,10 @@
                     </select>
                     <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
                     
+                    <!-- Botões Rápidos de Teste de Alerta -->
+                    <button id="btn-testar-caixa" onclick="simularOscilacaoTV('cima', 'distribuicao')" class="btn-refresh" style="background: rgba(16, 185, 129, 0.25); border-color: #10b981; color: #10b981; font-weight: 700;" title="Testar Alerta de Subida: Piscar Verde + Som da Caixa Registradora">💵 Testar Caixa</button>
+                    <button id="btn-testar-sirene" onclick="simularOscilacaoTV('baixo', 'distribuicao')" class="btn-refresh" style="background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: #ef4444; font-weight: 700;" title="Testar Alerta de Queda: Piscar Vermelho + Som da Sirene">🚨 Testar Sirene</button>
+
                     <button id="btn-tocar-metas" onclick="tocarSequenciaMetas(true)" class="btn-refresh" style="background: rgba(40, 167, 69, 0.2); border-color: #28a745; color: #00FF66;" title="Tocar sequência de músicas das metas batidas">
                         🎵 Tocar Metas
                     </button>
@@ -94,7 +98,7 @@
                             <button onclick="testarAudioIndividual('caixa')" class="drop-item"><span class="drop-dot" style="background:#28a745;"></span><strong>Oscilação Positiva:</strong> 💵 Caixa Registradora</button>
                             <button onclick="testarAudioIndividual('policia')" class="drop-item"><span class="drop-dot" style="background:#dc3545;"></span><strong>Oscilação Negativa:</strong> 🚨 Sirene de Polícia</button>
                             <button onclick="simularOscilacaoTV('cima', 'empresa')" class="drop-item" style="border-top: 1px dashed rgba(255,255,255,0.15);"><span class="drop-dot" style="background:#10b981;"></span><strong>Testar Alerta:</strong> 💵 Subida (Verde + Caixa)</button>
-                            <button onclick="simularOscilacaoTV('baixo', 'empresa')" class="drop-item"><span class="drop-dot" style="background:#ef4444;"></span><strong>Testar Alerta:</strong> 🚨 Queda (Vermelho + Sirene)</button>
+                            <button onclick="simularOscilacaoTV('baixo', 'empresa')" class="drop-item" style="border-top: 1px dashed rgba(255,255,255,0.15);"><span class="drop-dot" style="background:#ef4444;"></span><strong>Testar Alerta:</strong> 🚨 Queda (Vermelho + Sirene)</button>
                         </div>
                     </div>
                 </div>
@@ -134,14 +138,14 @@
     <audio id="audio-varejo-reg" src="/static/audio/zztop_lagrange.mp3" preload="none"></audio>
     <audio id="audio-parlux" src="/static/audio/heart_barracuda.mp3" preload="none"></audio>
     
-    <!-- Áudios de Oscilação -->
-    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=1" preload="none"></audio>
-    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=1" preload="none"></audio>
+    <!-- Áudios de Oscilação (Preload Auto para Execução Imediata) -->
+    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=2" preload="auto"></audio>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=2" preload="auto"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=36"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=37"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
-    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=4"></script>
 </body>
 </html>
 

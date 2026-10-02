@@ -295,15 +295,60 @@
         }
     }
 
+    function mostrarToastTV(msg, cor = '#20c997') {
+        let toast = document.getElementById('tv-toast-notification');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'tv-toast-notification';
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                background: rgba(18, 22, 34, 0.96);
+                border: 1px solid ${cor};
+                color: #ffffff;
+                padding: 10px 18px;
+                border-radius: 8px;
+                font-family: Montserrat, sans-serif;
+                font-size: 0.85rem;
+                font-weight: 700;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.7);
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                pointer-events: none;
+            `;
+            document.body.appendChild(toast);
+        }
+        toast.style.borderColor = cor;
+        toast.innerHTML = msg;
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+        setTimeout(() => {
+            if (toast) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(10px)';
+            }
+        }, 5000);
+    }
+
     // Recarrega os dados da página que está atualmente visível sem forçar troca de tela
     function recarregarPaginaCorrenteSemOscilacao() {
-        const isTV = (window.location.pathname === '/tv' || window.location.pathname === '/');
-        if (isTV && window.fetchData) {
+        const timeStr = new Date().toLocaleTimeString('pt-BR');
+        mostrarToastTV(`🔄 [Atualização 10m]: Dados sincronizados às ${timeStr}. Nenhuma oscilação detectada.`, '#0dcaf0');
+
+        const lastUp = document.getElementById('last-update');
+        if (lastUp) lastUp.innerText = `Última atualização: ${timeStr}`;
+
+        if (typeof window.fetchData === 'function') {
             window.fetchData(true);
         } else if (typeof window.carregarDados === 'function') {
             window.carregarDados();
+        } else if (typeof window.carregarDadosDashboard === 'function') {
+            window.carregarDadosDashboard();
         } else {
-            // Em guias estáticas ou baseadas em templates Jinja2, faz reload mantendo parâmetros
             console.log('[TV DADOS 10 MIN] Recarregando página corrente para atualizar dados...');
             window.location.reload();
         }
@@ -325,6 +370,7 @@
             <span class="rotator-data-label">Dados:</span>
             <span class="rotator-data-time" id="tv-data-refresh-time">10:00</span>
             <button type="button" class="rotator-toggle-btn" id="tv-rotator-toggle-btn" title="Pausar / Retomar Rotação">⏸</button>
+            <button type="button" class="rotator-test-btn" id="tv-rotator-test-btn" title="Testar Alerta de Oscilação (Simula Subida e Caixa Registradora)" onclick="window.simularOscilacaoGlobal('cima', 'distribuicao'); event.stopPropagation();">⚡ Alerta</button>
         `;
 
         pill.addEventListener('click', togglePause);
@@ -371,7 +417,110 @@
     }
 
     // Inicialização ao carregar a página
+    function injectRotatorStyles() {
+        if (document.getElementById('tv-rotator-injected-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'tv-rotator-injected-styles';
+        style.textContent = `
+            .tv-rotator-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(19, 23, 34, 0.90);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 20px;
+                padding: 4px 10px;
+                font-family: Montserrat, sans-serif;
+                font-size: 0.80rem;
+                font-weight: 700;
+                color: #e2e8f0;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+                user-select: none;
+                cursor: default;
+                backdrop-filter: blur(4px);
+            }
+            .tv-rotator-pill.paused {
+                border-color: #ffc107;
+                background: rgba(255, 193, 7, 0.15);
+            }
+            .rotator-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: #10b981;
+                display: inline-block;
+            }
+            .rotator-dot.pulse {
+                animation: rotatorDotPulse 1.5s infinite;
+            }
+            @keyframes rotatorDotPulse {
+                0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+                70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            }
+            .rotator-label {
+                color: #94a3b8;
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .rotator-time {
+                color: #38bdf8;
+                font-weight: 800;
+                font-variant-numeric: tabular-nums;
+            }
+            .rotator-divider {
+                color: rgba(255,255,255,0.2);
+            }
+            .rotator-data-label {
+                color: #94a3b8;
+                font-size: 0.72rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            .rotator-data-time {
+                color: #f59e0b;
+                font-weight: 800;
+                font-variant-numeric: tabular-nums;
+            }
+            .rotator-toggle-btn {
+                background: rgba(255,255,255,0.1);
+                border: 1px solid rgba(255,255,255,0.2);
+                color: #ffffff;
+                border-radius: 4px;
+                padding: 1px 6px;
+                font-size: 0.72rem;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .rotator-toggle-btn:hover {
+                background: rgba(203, 151, 39, 0.4);
+                border-color: var(--mq-gold);
+            }
+            .rotator-test-btn {
+                background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.15));
+                border: 1px solid #10b981;
+                color: #10b981;
+                border-radius: 4px;
+                padding: 1px 7px;
+                font-size: 0.70rem;
+                font-weight: 800;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-family: Montserrat, sans-serif;
+            }
+            .rotator-test-btn:hover {
+                background: #10b981;
+                color: #000;
+                box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Inicialização ao carregar a página
     function init() {
+        injectRotatorStyles();
         mountRotatorUI();
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(tick, 1000);
@@ -386,7 +535,7 @@
     }
 
     // Simulador global para testes rápidos no console ou botões
-    window.simularOscilacaoGlobal = function (tipo = 'cima', canal = 'empresa') {
+    window.simularOscilacaoGlobal = function (tipo = 'cima', canal = 'distribuicao') {
         const now = new Date();
         const mesAtual = now.getMonth() + 1;
         const anoAtual = now.getFullYear();

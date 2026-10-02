@@ -358,8 +358,10 @@ function processarAlertaPendente() {
 window.dispararAlertaOscilacaoPendente = processarAlertaPendente;
 
 // Simulador para testes rápidos da TV
-window.simularOscilacaoTV = function(tipo = 'cima', canal = 'empresa') {
-    console.log(`[TESTE] Simulando oscilação ${tipo} no canal ${canal}...`);
+window.simularOscilacaoTV = function(tipo = 'cima', canal = 'distribuicao') {
+    pararTodosAudios();
+    desbloquearAudiosNavegador();
+    console.log(`[TESTE TV] Simulando oscilação ${tipo} no canal ${canal}...`);
     localStorage.setItem('tv_alerta_oscilacao_pendente', JSON.stringify({
         tipo: tipo,
         canais: [{ canal: canal, tipo: tipo, nome: canal.toUpperCase() }],
