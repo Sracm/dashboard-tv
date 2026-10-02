@@ -342,7 +342,7 @@ function processarAlertaPendente() {
             const cls = item.tipo === 'cima' ? 'oscilou-cima' : 'oscilou-baixo';
             cardEl.classList.remove('oscilou-cima', 'oscilou-baixo');
             cardEl.classList.add(cls);
-            setTimeout(() => cardEl.classList.remove(cls), 12000);
+            setTimeout(() => cardEl.classList.remove(cls), 20000);
         }
     });
 
@@ -426,7 +426,7 @@ function verificarOscilacao(data, mes, ano) {
                 if (cardElement) {
                     cardElement.classList.remove('oscilou-baixo');
                     cardElement.classList.add('oscilou-cima');
-                    setTimeout(() => cardElement.classList.remove('oscilou-cima'), 12000);
+                    setTimeout(() => cardElement.classList.remove('oscilou-cima'), 20000);
                 }
                 
                 if (!tocouSomPositivo) {
@@ -439,7 +439,7 @@ function verificarOscilacao(data, mes, ano) {
                 if (cardElement) {
                     cardElement.classList.remove('oscilou-cima');
                     cardElement.classList.add('oscilou-baixo');
-                    setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 12000);
+                    setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 20000);
                 }
                 
                 if (!tocouSomNegativo) {
@@ -1063,14 +1063,14 @@ function testarAudioIndividual(tipo) {
             if (cards && cards.length > 0) {
                 cards[0].classList.remove('oscilou-cima');
                 cards[0].classList.add('oscilou-baixo');
-                setTimeout(() => cards[0].classList.remove('oscilou-baixo'), 7500);
+                setTimeout(() => cards[0].classList.remove('oscilou-baixo'), 20000);
             }
         } else if (tipo === 'caixa') {
             const cards = document.querySelectorAll('.gauge-card');
             if (cards && cards.length > 0) {
                 cards[0].classList.remove('oscilou-baixo');
                 cards[0].classList.add('oscilou-cima');
-                setTimeout(() => cards[0].classList.remove('oscilou-cima'), 5000);
+                setTimeout(() => cards[0].classList.remove('oscilou-cima'), 20000);
             }
         }
 

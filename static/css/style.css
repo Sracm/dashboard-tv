@@ -510,34 +510,34 @@ body {
    ======================================================== */
 @keyframes policeBeaconRed {
     0% {
-        border-color: rgba(239, 68, 68, 0.4);
-        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3), inset 0 0 8px rgba(239, 68, 68, 0.15);
-        background-color: rgba(239, 68, 68, 0.05);
+        border-color: rgba(255, 36, 36, 0.4);
+        box-shadow: 0 0 10px rgba(255, 36, 36, 0.3), inset 0 0 8px rgba(255, 36, 36, 0.15);
+        background-color: rgba(255, 36, 36, 0.05);
     }
     50% {
-        border-color: #ef4444;
-        box-shadow: 0 0 45px rgba(239, 68, 68, 0.95), inset 0 0 25px rgba(239, 68, 68, 0.4), 0 0 80px rgba(220, 53, 69, 0.6);
-        background-color: rgba(239, 68, 68, 0.25);
+        border-color: #ff2424;
+        box-shadow: 0 0 45px rgba(255, 36, 36, 0.95), inset 0 0 25px rgba(255, 36, 36, 0.4), 0 0 80px rgba(255, 36, 36, 0.6);
+        background-color: rgba(255, 36, 36, 0.25);
     }
     100% {
-        border-color: rgba(239, 68, 68, 0.4);
-        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3), inset 0 0 8px rgba(239, 68, 68, 0.15);
-        background-color: rgba(239, 68, 68, 0.05);
+        border-color: rgba(255, 36, 36, 0.4);
+        box-shadow: 0 0 10px rgba(255, 36, 36, 0.3), inset 0 0 8px rgba(255, 36, 36, 0.15);
+        background-color: rgba(255, 36, 36, 0.05);
     }
 }
 
 @keyframes cashGlowGreen {
     0% {
-        border-color: rgba(16, 185, 129, 0.4);
-        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        border-color: rgba(0, 210, 106, 0.4);
+        box-shadow: 0 0 10px rgba(0, 210, 106, 0.3);
     }
     50% {
-        border-color: #10b981;
-        box-shadow: 0 0 35px rgba(16, 185, 129, 0.85), inset 0 0 15px rgba(16, 185, 129, 0.3);
+        border-color: #00d26a;
+        box-shadow: 0 0 35px rgba(0, 210, 106, 0.95), inset 0 0 20px rgba(0, 210, 106, 0.4);
     }
     100% {
-        border-color: rgba(16, 185, 129, 0.4);
-        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        border-color: rgba(0, 210, 106, 0.4);
+        box-shadow: 0 0 10px rgba(0, 210, 106, 0.3);
     }
 }
 
@@ -548,7 +548,7 @@ body {
 .trimestre-card.oscilou-baixo,
 .mini-gauge-card.oscilou-baixo {
     animation: policeBeaconRed 0.75s infinite ease-in-out !important;
-    border-color: #ef4444 !important;
+    border-color: #ff2424 !important;
     position: relative;
     z-index: 25;
 }
@@ -563,13 +563,13 @@ body {
     top: 6px;
     left: 50%;
     transform: translateX(-50%);
-    background: #ef4444;
+    background: #ff2424;
     color: #ffffff;
     font-size: 0.65rem;
     font-weight: 800;
     padding: 2px 8px;
     border-radius: 10px;
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.9);
+    box-shadow: 0 0 12px rgba(255, 36, 36, 0.9);
     z-index: 30;
     letter-spacing: 0.5px;
     pointer-events: none;
@@ -584,7 +584,7 @@ body {
 .trimestre-card.oscilou-cima,
 .mini-gauge-card.oscilou-cima {
     animation: cashGlowGreen 0.75s infinite ease-in-out !important;
-    border-color: #10b981 !important;
+    border-color: #00d26a !important;
     position: relative;
     z-index: 25;
 }
@@ -599,13 +599,13 @@ body {
     top: 6px;
     left: 50%;
     transform: translateX(-50%);
-    background: #10b981;
+    background: #00d26a;
     color: #ffffff;
     font-size: 0.65rem;
     font-weight: 800;
     padding: 2px 8px;
     border-radius: 10px;
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+    box-shadow: 0 0 12px rgba(0, 210, 106, 0.9);
     z-index: 30;
     letter-spacing: 0.5px;
     pointer-events: none;
@@ -1013,25 +1013,15 @@ body {
     padding-right: 24px;
 }
 
-/* Efeitos visuais de oscilação em tempo real */
+/* Efeitos visuais de oscilação em tempo real (Pulsando continuamente por 20 segundos) */
 .gauge-card.oscilou-cima, .canal-card.oscilou-cima {
-    animation: flash-verde 1.2s ease-in-out 3;
-    border-color: #00FF66 !important;
-}
-
-@keyframes flash-verde {
-    0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 102, 0.2); }
-    50% { box-shadow: 0 0 35px rgba(0, 255, 102, 0.95); border-color: #00FF66; }
+    animation: cashGlowGreen 0.75s infinite ease-in-out !important;
+    border-color: #00d26a !important;
 }
 
 .gauge-card.oscilou-baixo, .canal-card.oscilou-baixo {
-    animation: flash-policia 0.6s ease-in-out 6;
-    border-color: #FF3333 !important;
-}
-
-@keyframes flash-policia {
-    0%, 100% { box-shadow: 0 0 8px rgba(255, 51, 51, 0.4); border-color: #FF3333; }
-    50% { box-shadow: 0 0 40px rgba(255, 51, 51, 1), 0 0 50px rgba(13, 110, 253, 0.85); border-color: #0d6efd; }
+    animation: policeBeaconRed 0.75s infinite ease-in-out !important;
+    border-color: #ff2424 !important;
 }
 
 /* Overlay / Banner de Desbloqueio de Áudio na Smart TV */

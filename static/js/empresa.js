@@ -562,7 +562,7 @@ function verificarOscilacaoEmpresa(item) {
             if (cardEl) {
                 cardEl.classList.remove('oscilou-cima');
                 cardEl.classList.add('oscilou-baixo');
-                setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 8000);
+                setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 20000);
             }
             const audioPol = document.getElementById('audio-policia');
             if (audioPol) {
@@ -575,7 +575,7 @@ function verificarOscilacaoEmpresa(item) {
             if (cardEl) {
                 cardEl.classList.remove('oscilou-baixo');
                 cardEl.classList.add('oscilou-cima');
-                setTimeout(() => cardEl.classList.remove('oscilou-cima'), 5000);
+                setTimeout(() => cardEl.classList.remove('oscilou-cima'), 20000);
             }
             const audioCx = document.getElementById('audio-caixa');
             if (audioCx) {

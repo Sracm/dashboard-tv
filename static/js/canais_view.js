@@ -597,7 +597,7 @@ function verificarOscilacaoCanais(dadosEquipes) {
                 if (cardEl) {
                     cardEl.classList.remove('oscilou-baixo');
                     cardEl.classList.add('oscilou-cima');
-                    setTimeout(() => cardEl.classList.remove('oscilou-cima'), 6000);
+                    setTimeout(() => cardEl.classList.remove('oscilou-cima'), 20000);
                 }
                 if (!tocouPositivo) {
                     tocouPositivo = true;
@@ -609,7 +609,7 @@ function verificarOscilacaoCanais(dadosEquipes) {
                 if (cardEl) {
                     cardEl.classList.remove('oscilou-cima');
                     cardEl.classList.add('oscilou-baixo');
-                    setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 6000);
+                    setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 20000);
                 }
                 if (!tocouNegativo) {
                     tocouNegativo = true;
