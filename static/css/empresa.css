@@ -10,24 +10,27 @@
 
 .empresa-main-container {
     flex: 1;
-    min-height: calc(100vh - 170px);
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 6px 20px 14px;
+    padding: 2px 14px 6px;
     box-sizing: border-box;
     width: 100%;
+    overflow: hidden;
 }
 
 .empresa-card-wrapper {
-    width: 95%;
-    max-width: 1550px;
+    width: 100%;
+    max-width: 1750px;
     flex: 1;
-    min-height: 520px;
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: row;
-    gap: 20px;
+    gap: 16px;
     justify-content: center;
     align-items: stretch;
 }
@@ -35,47 +38,49 @@
 #main-gauge-container,
 #ytd-yoy-container {
     flex: 1;
-    max-width: 650px;
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    min-height: 500px;
+    max-width: none;
     transition: max-width 0.3s ease;
 }
 
 .empresa-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
+    background: linear-gradient(180deg, #131722 0%, #0d1017 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.5);
     overflow: hidden;
     flex: 1;
-    min-height: 480px;
+    min-height: 0;
+    height: 100%;
     position: relative;
     transition: all 0.3s ease;
 }
 
 .empresa-title {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 6px 12px;
     text-align: center;
-    font-size: 1.25rem;
-    line-height: 1.4;
-    font-weight: 800;
+    font-size: 0.88rem;
+    line-height: 1.25;
+    font-weight: 700;
     color: var(--mq-gold);
-    border-bottom: 1px solid var(--border-color);
-    letter-spacing: 1px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    letter-spacing: 0.6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 70px;
+    flex-shrink: 0;
 }
 
 .empresa-chart {
     flex: 1;
     width: 100%;
-    min-height: 380px;
+    min-height: 0;
     height: 100%;
 }
 
@@ -102,8 +107,8 @@
         transform: scale(1);
     }
     50% {
-        opacity: 0.75;
-        transform: scale(1.02);
+        opacity: 0.85;
+        transform: scale(1.01);
     }
 }
 
@@ -119,21 +124,21 @@
     text-align: center;
     background: linear-gradient(90deg, #0b3815, #28a745, #0b3815);
     color: #fff;
-    font-size: 1.15rem;
+    font-size: 0.92rem;
     font-weight: 800;
-    padding: 8px 16px;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    letter-spacing: 0.8px;
     text-transform: uppercase;
-    box-shadow: 0 0 20px rgba(40, 167, 69, 0.7);
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.6);
     transition: opacity 0.3s ease;
 }
 
 .meta-banner.show {
     opacity: 1;
     pointer-events: auto;
-    animation: bannerBlink 1s infinite ease-in-out;
+    animation: bannerBlink 1.2s infinite ease-in-out;
 }
 
 .empresa-comparisons {
@@ -141,31 +146,31 @@
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    gap: 14px;
-    padding: 12px 20px 18px;
-    background: rgba(0, 0, 0, 0.35);
-    border-top: 1px solid var(--border-color);
+    gap: 8px;
+    padding: 6px 14px 8px;
+    background: rgba(0, 0, 0, 0.45);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .empresa-comparisons .comparison-badge {
-    padding: 6px 16px;
-    font-size: 0.95rem;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 4px 12px;
+    font-size: 0.82rem;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    gap: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 .empresa-comparisons .badge-label {
-    font-size: 0.9rem;
+    font-size: 0.78rem;
     font-weight: 600;
     color: var(--text-muted, #8e95a5);
 }
 
 .empresa-comparisons .badge-value {
     font-weight: 800;
-    font-size: 1rem;
+    font-size: 0.85rem;
 }

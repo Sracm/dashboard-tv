@@ -68,20 +68,53 @@ function updateClock() {
     }
 }
 
+let currentPeriodo = 'mes'; // 'mes', 'T1', 'T2', 'T3', 'T4'
+let quarterlyCache = {};
+let lastPeriodLoaded = '';
+
+function formatCurrency(val) {
+    return Number(val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+
+function setPeriodoView(periodo) {
+    if (currentPeriodo === periodo) return;
+    currentPeriodo = periodo;
+
+    document.querySelectorAll('.sub-nav-canais .sub-tab-btn').forEach(b => {
+        b.classList.remove('active');
+    });
+
+    const activeBtn = document.getElementById(`btn-periodo-${periodo.toLowerCase()}`);
+    if (activeBtn) activeBtn.classList.add('active');
+
+    const monthSelect = document.getElementById('filter-month');
+    if (monthSelect) {
+        if (periodo === 'mes') {
+            monthSelect.disabled = false;
+            monthSelect.style.opacity = '1';
+            monthSelect.title = 'Filtrar mês específico';
+        } else {
+            monthSelect.disabled = true;
+            monthSelect.style.opacity = '0.4';
+            monthSelect.title = `Visualizando ${periodo} completo (soma do trimestre)`;
+        }
+    }
+
+    fetchData();
+}
+
 function getCanalGaugeOption(percent, isLarge) {
     const diff = percent - 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#28a745' : '#FF3333';
+    const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
 
-    const radius = isLarge ? '108%' : '98%';
-    const center = isLarge ? ['50%', '68%'] : ['50%', '64%'];
-    const lineWidth = isLarge ? 30 : 21;
-    const pointerWidth = isLarge ? 11 : 8;
-    const titleSize = isLarge ? 30 : 24;
-    const detailSize = isLarge ? 20 : 16;
-    const labelSize = isLarge ? 14 : 10.5;
-    const labelDistance = isLarge ? -40 : -25;
+    const radius = isLarge ? '115%' : '125%';
+    const center = isLarge ? ['50%', '70%'] : ['50%', '65%'];
+    const lineWidth = isLarge ? 26 : 18;
+    const pointerWidth = isLarge ? 9 : 7;
+    const titleSize = isLarge ? 28 : 22;
+    const detailSize = isLarge ? 17 : 14;
 
     return {
         series: [
@@ -98,45 +131,51 @@ function getCanalGaugeOption(percent, isLarge) {
                     lineStyle: {
                         width: lineWidth,
                         color: [
-                            [80 / 120, '#dc3545'],
-                            [100 / 120, '#ffc107'],
-                            [1, '#28a745']
+                            [80 / 120, '#ef4444'],
+                            [100 / 120, '#f59e0b'],
+                            [1, '#10b981']
                         ]
                     }
                 },
                 pointer: {
                     icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-                    length: '60%',
+                    length: '62%',
                     width: pointerWidth,
                     offsetCenter: [0, '-4%'],
-                    itemStyle: { color: '#0d6efd' }
+                    itemStyle: { 
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0,0,0,0.6)',
+                        shadowBlur: 4
+                    }
                 },
                 axisTick: {
-                    length: isLarge ? 10 : 7,
-                    lineStyle: { color: 'auto', width: 1.5 }
+                    length: isLarge ? 8 : 5,
+                    lineStyle: { color: 'auto', width: 1.2 }
                 },
                 splitLine: {
-                    length: isLarge ? 18 : 12,
-                    lineStyle: { color: 'auto', width: isLarge ? 3 : 2.5 }
+                    length: isLarge ? 14 : 10,
+                    lineStyle: { color: 'auto', width: 2 }
                 },
                 axisLabel: {
                     show: false
                 },
                 title: {
-                    offsetCenter: [0, '14%'],
+                    offsetCenter: [0, '15%'],
                     fontSize: titleSize,
-                    color: '#0d6efd',
-                    fontWeight: 'bolder'
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontFamily: 'Montserrat'
                 },
                 detail: {
                     fontSize: detailSize,
-                    offsetCenter: [0, '31%'],
+                    offsetCenter: [0, '38%'],
                     valueAnimation: true,
                     formatter: function () {
                         return diffText;
                     },
                     color: diffColor,
-                    fontWeight: 'bold'
+                    fontWeight: '700',
+                    fontFamily: 'Montserrat'
                 },
                 data: [{ value: Math.min(Math.max(percent, 0), 120), name: percent.toFixed(1) + '%' }]
             }
@@ -144,7 +183,208 @@ function getCanalGaugeOption(percent, isLarge) {
     };
 }
 
-function renderCards(dadosEquipes) {
+async function getTrimestreData(ano, forceRefresh = false) {
+    if (!forceRefresh && quarterlyCache[ano]) {
+        return quarterlyCache[ano];
+    }
+
+    // 1. Tenta endpoint direto do backend se já estiver disponível
+    try {
+        let url = `/api/canais_trimestre_tv?ano=${ano}`;
+        if (forceRefresh) url += `&refresh=1&_t=${Date.now()}`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const j = await res.json();
+            if (j.success && j.data) {
+                const raw = j.data;
+                const normalized = {
+                    T1: raw.T1 || [],
+                    T2: raw.T2 || [],
+                    T3: raw.T3 || [],
+                    T4: raw.T4 || [],
+                    by_canal: raw.by_canal || {}
+                };
+
+                // Se o backend retornou apenas indexado por canal, converte para arrays T1..T4
+                if ((!normalized.T1 || normalized.T1.length === 0) && Object.keys(raw).length > 0) {
+                    const canaisList = [
+                        "VAREJO ESPECIALIZADO - SP",
+                        "VAREJO ESPECIALIZADO REG.",
+                        "DISTRIBUIÇÃO",
+                        "COMEX",
+                        "E-COMMERCE - MQ",
+                        "E-COMMERCE - PARLUX"
+                    ];
+                    ['T1', 'T2', 'T3', 'T4'].forEach(tKey => {
+                        normalized[tKey] = [];
+                        canaisList.forEach(cName => {
+                            const cInfo = (raw[cName] && raw[cName][tKey]) || 
+                                          (cName.includes('MQ') && raw['E-COMMERCE'] && raw['E-COMMERCE'][tKey]) || {};
+                            normalized[tKey].push({
+                                name: cName,
+                                realizado: Number(cInfo.realizado) || 0,
+                                meta: Number(cInfo.meta) || 0,
+                                percent: Number(cInfo.percent) || 0,
+                                diff: Number(cInfo.diff) || 0
+                            });
+                        });
+                    });
+                }
+
+                quarterlyCache[ano] = normalized;
+                return normalized;
+            }
+        }
+    } catch (err) {
+        console.warn("Falha ao buscar /api/canais_trimestre_tv:", err);
+    }
+
+    // 2. Fallback de cálculo imediato no cliente caso a rota não responda
+    try {
+        const meses = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+        const responses = await Promise.all(
+            meses.map(m => fetch(`/api/vendas_tv?mes=${m}&ano=${ano}`).then(r => r.json()).catch(() => null))
+        );
+
+        const triMonths = {
+            T1: [1, 2, 3],
+            T2: [4, 5, 6],
+            T3: [7, 8, 9],
+            T4: [10, 11, 12]
+        };
+
+        const result = { T1: [], T2: [], T3: [], T4: [], by_canal: {} };
+        const canaisList = [
+            "VAREJO ESPECIALIZADO - SP",
+            "VAREJO ESPECIALIZADO REG.",
+            "DISTRIBUIÇÃO",
+            "COMEX",
+            "E-COMMERCE - MQ",
+            "E-COMMERCE - PARLUX"
+        ];
+
+        ['T1', 'T2', 'T3', 'T4'].forEach(triKey => {
+            const targetMonths = triMonths[triKey];
+            const mesesData = targetMonths.map(m => responses[m - 1]);
+
+            canaisList.forEach(canalNome => {
+                let totalReal = 0;
+                let totalMeta = 0;
+
+                mesesData.forEach(mResp => {
+                    if (mResp && mResp.success && mResp.data) {
+                        const item = mResp.data.find(c => 
+                            c.name === canalNome || 
+                            (canalNome === 'E-COMMERCE - MQ' && c.name === 'E-COMMERCE') ||
+                            (canalNome === 'E-COMMERCE' && c.name === 'E-COMMERCE - MQ')
+                        );
+                        if (item) {
+                            totalReal += Number(item.realizado || 0);
+                            totalMeta += Number(item.meta || 0);
+                        }
+                    }
+                });
+
+                const percent = totalMeta > 0 ? (totalReal / totalMeta) * 100 : 0.0;
+                result[triKey].push({
+                    name: canalNome,
+                    realizado: totalReal,
+                    meta: totalMeta,
+                    percent: percent
+                });
+            });
+        });
+
+        quarterlyCache[ano] = result;
+        return result;
+    } catch (e) {
+        console.error("Erro ao calcular trimestres:", e);
+        return null;
+    }
+}
+
+function normalizarNomeCanal(str) {
+    if (!str) return '';
+    return str.toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .trim();
+}
+
+function matchCanal(a, b) {
+    const na = normalizarNomeCanal(a);
+    const nb = normalizarNomeCanal(b);
+    if (!na || !nb) return false;
+    if (na === nb) return true;
+    if (na.includes('COMMERCE') && nb.includes('COMMERCE')) {
+        const aIsParlux = na.includes('PARLUX');
+        const bIsParlux = nb.includes('PARLUX');
+        return aIsParlux === bIsParlux;
+    }
+    if (na.includes('DISTRIBUI') && nb.includes('DISTRIBUI')) return true;
+    if (na.includes('VAREJO') && nb.includes('VAREJO')) {
+        const aIsReg = na.includes('REG');
+        const bIsReg = nb.includes('REG');
+        return aIsReg === bIsReg;
+    }
+    if (na.includes('COMEX') && nb.includes('COMEX')) return true;
+    return false;
+}
+
+function renderQuarterBadges(nomeCanal, triData, activePeriodo) {
+    if (!triData) return '';
+    const triLabels = { T1: 'T1', T2: 'T2', T3: 'T3', T4: 'T4' };
+    
+    return ['T1', 'T2', 'T3', 'T4'].map(tKey => {
+        let pct = null;
+        let meta = null;
+        const isSelected = (activePeriodo === tKey);
+
+        // 1. Procura no array triData[tKey]
+        const canalList = triData[tKey] || [];
+        const item = canalList.find(c => matchCanal(c.name, nomeCanal));
+
+        if (item) {
+            pct = Number(item.percent);
+            meta = Number(item.meta);
+        } else {
+            // 2. Procura no formato indexado por canal (triData.by_canal ou triData[nomeCanal])
+            const byCanal = triData.by_canal || triData;
+            for (const [k, v] of Object.entries(byCanal)) {
+                if (matchCanal(k, nomeCanal) && v && v[tKey]) {
+                    pct = Number(v[tKey].percent);
+                    meta = Number(v[tKey].meta);
+                    break;
+                }
+            }
+        }
+
+        let cls = 'val-neutral';
+        let valStr = '—';
+
+        if (pct !== null && !isNaN(pct) && (meta > 0 || pct > 0)) {
+            valStr = pct.toFixed(1) + '%';
+            if (pct >= 100) cls = 'val-success';
+            else if (pct >= 80) cls = 'val-warning';
+            else cls = 'val-danger';
+        } else if (pct === 0 && (meta === 0 || meta === null)) {
+            valStr = '0.0%';
+            cls = 'val-neutral';
+        }
+
+        const selClass = isSelected ? 'selected' : '';
+
+        return `
+            <div class="tri-badge-btn ${selClass}" onclick="setPeriodoView('${tKey}')" title="Clique para exibir o ${triLabels[tKey]} de todos os canais (${valStr})">
+                <span>${triLabels[tKey]}</span>
+                <span class="tri-badge-val ${cls}">${valStr}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCards(dadosEquipes, periodoKey = 'mes', triData = null) {
     const container = document.getElementById('canais-container');
     if (!container) return;
 
@@ -152,8 +392,15 @@ function renderCards(dadosEquipes) {
     chartInstances = {};
     container.innerHTML = '';
 
+    const triNames = {
+        'T1': '1º TRI (JAN-MAR)',
+        'T2': '2º TRI (ABR-JUN)',
+        'T3': '3º TRI (JUL-SET)',
+        'T4': '4º TRI (OUT-DEZ)'
+    };
+
     GRUPO_ESPECIFICO.forEach((nomeCanal, idx) => {
-        const canalItem = dadosEquipes.find(c => c.name === nomeCanal || (nomeCanal === 'E-COMMERCE - MQ' && c.name === 'E-COMMERCE') || (nomeCanal === 'E-COMMERCE' && c.name === 'E-COMMERCE - MQ')) || {
+        const canalItem = (dadosEquipes || []).find(c => matchCanal(c.name, nomeCanal)) || {
             name: nomeCanal,
             percent: 0.0,
             realizado: 0,
@@ -167,11 +414,20 @@ function renderCards(dadosEquipes) {
         }
         card.id = `card-canal-${idx}`;
 
-        const titleText = (nomeCanal === 'E-COMMERCE' || nomeCanal === 'E-COMMERCE - MQ') ? 'E-COMMERCE - MQ' : nomeCanal;
+        let baseTitle = (nomeCanal === 'E-COMMERCE' || nomeCanal === 'E-COMMERCE - MQ') ? 'E-COMMERCE - MQ' : nomeCanal;
+        let tagHtml = '';
+        if (periodoKey !== 'mes' && triNames[periodoKey]) {
+            tagHtml = `<span class="tri-tag">${triNames[periodoKey]}</span>`;
+        }
 
         card.innerHTML = `
-            <div class="canal-title">${titleText}</div>
+            <div class="canal-title">${baseTitle} ${tagHtml}</div>
             <div class="canal-chart" id="chart-canal-${idx}"></div>
+            <div class="canal-tri-footer">
+                <div class="canal-tri-badges">
+                    ${renderQuarterBadges(nomeCanal, triData, periodoKey)}
+                </div>
+            </div>
         `;
         container.appendChild(card);
 
@@ -184,31 +440,45 @@ function renderCards(dadosEquipes) {
     });
 }
 
-let lastPeriodLoaded = '';
-
 async function fetchData(forceRefresh = false) {
     const mes = document.getElementById('filter-month').value;
     const ano = document.getElementById('filter-year').value;
     
-    const currentPeriod = `${mes}_${ano}`;
+    const currentPeriod = `${currentPeriodo}_${mes}_${ano}`;
     if (lastPeriodLoaded && lastPeriodLoaded !== currentPeriod) {
         pararTodosAudios();
     }
     lastPeriodLoaded = currentPeriod;
     
     try {
-        let url = `/api/vendas_tv?mes=${mes}&ano=${ano}`;
-        if (forceRefresh) {
-            url += `&refresh=1&_t=${Date.now()}`;
-        }
-        const response = await fetch(url);
-        const json = await response.json();
-        
-        if (json.success && json.data) {
-            renderCards(json.data);
-            const lastUpdateEl = document.getElementById('last-update');
-            if (lastUpdateEl) {
-                lastUpdateEl.innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')}`;
+        const triPromise = getTrimestreData(ano, forceRefresh);
+
+        if (currentPeriodo === 'mes') {
+            let url = `/api/vendas_tv?mes=${mes}&ano=${ano}`;
+            if (forceRefresh) {
+                url += `&refresh=1&_t=${Date.now()}`;
+            }
+            const response = await fetch(url);
+            const json = await response.json();
+            const triData = await triPromise;
+            
+            if (json.success && json.data) {
+                renderCards(json.data, 'mes', triData);
+                verificarOscilacaoCanais(json.data);
+                const lastUpdateEl = document.getElementById('last-update');
+                if (lastUpdateEl) {
+                    lastUpdateEl.innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')}`;
+                }
+            }
+        } else {
+            // Trimestre selecionado (T1, T2, T3 ou T4)
+            const triData = await triPromise;
+            if (triData && triData[currentPeriodo]) {
+                renderCards(triData[currentPeriodo], currentPeriodo, triData);
+                const lastUpdateEl = document.getElementById('last-update');
+                if (lastUpdateEl) {
+                    lastUpdateEl.innerText = `Última atualização: ${new Date().toLocaleTimeString('pt-BR')}`;
+                }
             }
         }
     } catch (e) {
@@ -222,6 +492,7 @@ function manualRefresh() {
     const y = document.getElementById('filter-year').value;
     resetarTodasMetasTocadasDoMes(m, y);
     nextUpdateSeconds = 600;
+    quarterlyCache = {};
     fetchData(true);
 }
 
@@ -234,7 +505,8 @@ const AUDIO_CONFIG = {
     'varejo_sp':    { id: 'audio-varejo-sp',    duration: 18000, nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
     'varejo_reg':   { id: 'audio-varejo-reg',   duration: 12000, nome: 'Varejo Reg (ZZ Top - La Grange)' },
     'parlux':       { id: 'audio-parlux',       duration: 28000, nome: 'Parlux (Heart - Barracuda)' },
-    'sirene':       { id: 'victory-sound',      duration: 10000, nome: 'Sirene de Vitória' }
+    'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
+    'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }
 };
 
 let audioQueue = [];
@@ -257,9 +529,9 @@ function pararTodosAudios() {
     }
 
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
 
     allAudioIds.forEach(id => {
@@ -276,7 +548,6 @@ function pararTodosAudios() {
 
 function enfileirarAudio(tipo) {
     if (!AUDIO_CONFIG[tipo]) return;
-
     if (audioQueue.includes(tipo)) return;
 
     audioQueue.push(tipo);
@@ -285,6 +556,71 @@ function enfileirarAudio(tipo) {
     if (!audioQueueRunning) {
         processarFilaAudios();
     }
+}
+
+function enfileirarAudioFrente(tipo) {
+    if (!AUDIO_CONFIG[tipo]) return;
+    if (audioQueue.includes(tipo)) return;
+
+    audioQueue.unshift(tipo);
+    console.log(`[Áudio Fila] Adicionado à frente da fila: ${AUDIO_CONFIG[tipo].nome}. Fila:`, audioQueue);
+
+    if (!audioQueueRunning) {
+        processarFilaAudios();
+    }
+}
+
+let estadoAnteriorCanais = {};
+
+function verificarOscilacaoCanais(dadosEquipes) {
+    if (Object.keys(estadoAnteriorCanais).length === 0) {
+        (dadosEquipes || []).forEach(eq => {
+            estadoAnteriorCanais[eq.name] = Number(eq.percent) || 0;
+        });
+        return;
+    }
+
+    let tocouPositivo = false;
+    let tocouNegativo = false;
+
+    (dadosEquipes || []).forEach((eq, idx) => {
+        const nome = eq.name;
+        const percentAtual = Number(eq.percent) || 0;
+        const percentAntigo = Number(estadoAnteriorCanais[nome]);
+        const cardEl = document.getElementById(`card-canal-${idx}`);
+
+        if (percentAntigo !== undefined && !Number.isNaN(percentAntigo)) {
+            const delta = percentAtual - percentAntigo;
+
+            // 1. Oscilação para CIMA -> Caixa Registradora
+            if (delta > 0.005) {
+                if (cardEl) {
+                    cardEl.classList.remove('oscilou-baixo');
+                    cardEl.classList.add('oscilou-cima');
+                    setTimeout(() => cardEl.classList.remove('oscilou-cima'), 6000);
+                }
+                if (!tocouPositivo) {
+                    tocouPositivo = true;
+                    console.log(`[Todos Canais] 💵 SUBIDA em ${nome}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}%. Caixa Registradora.`);
+                    enfileirarAudioFrente('caixa');
+                }
+            // 2. Redução para BAIXO -> Sirene de Polícia
+            } else if (delta < -0.005) {
+                if (cardEl) {
+                    cardEl.classList.remove('oscilou-cima');
+                    cardEl.classList.add('oscilou-baixo');
+                    setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 6000);
+                }
+                if (!tocouNegativo) {
+                    tocouNegativo = true;
+                    console.log(`[Todos Canais] 🚨 REDUÇÃO em ${nome}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}%. Sirene Polícia.`);
+                    enfileirarAudioFrente('policia');
+                }
+            }
+        }
+
+        estadoAnteriorCanais[nome] = percentAtual;
+    });
 }
 
 function processarFilaAudios() {
@@ -312,9 +648,9 @@ function processarFilaAudios() {
     currentAudioElement = audioEl;
 
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
     allAudioIds.forEach(id => {
         if (id !== config.id) {
@@ -368,6 +704,8 @@ function processarFilaAudios() {
         currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
     }).catch(e => {
         console.warn(`Erro ao tocar áudio ${config.nome}:`, e);
+        audioQueueRunning = false;
+        currentAudioElement = null;
         finalizarAudio();
     });
 }
@@ -404,19 +742,50 @@ function testarAudio(tipo) {
     pararTodosAudios();
     if (tipo && AUDIO_CONFIG[tipo]) {
         enfileirarAudio(tipo);
-    } else {
-        enfileirarAudio('sirene');
     }
 }
 
+let userExplicitlyChangedMonth = false;
+
 document.addEventListener('DOMContentLoaded', () => {
-    const now = new Date();
-    // Na guia Todos os Canais, SEMPRE deixar setado o mês atual e ano atual
-    if (document.getElementById('filter-month')) {
-        document.getElementById('filter-month').value = now.getMonth() + 1;
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramMes = urlParams.get('mes');
+    const paramAno = urlParams.get('ano');
+
+    if (paramMes) {
+        userExplicitlyChangedMonth = true;
     }
-    if (document.getElementById('filter-year')) {
-        document.getElementById('filter-year').value = now.getFullYear();
+
+    const now = new Date();
+    const currentMonth = paramMes ? parseInt(paramMes) : (now.getMonth() + 1);
+    const currentYear = paramAno ? parseInt(paramAno) : now.getFullYear();
+
+    const monthSelect = document.getElementById('filter-month');
+    const yearSelect = document.getElementById('filter-year');
+
+    if (monthSelect) {
+        monthSelect.value = currentMonth;
+        monthSelect.addEventListener('change', () => {
+            userExplicitlyChangedMonth = true;
+        });
+    }
+    if (yearSelect) {
+        yearSelect.value = currentYear;
+        yearSelect.addEventListener('change', () => {
+            userExplicitlyChangedMonth = true;
+        });
+    }
+
+    const paramPeriodo = urlParams.get('periodo');
+    if (paramPeriodo && ['mes', 't1', 't2', 't3', 't4', 'T1', 'T2', 'T3', 'T4'].includes(paramPeriodo)) {
+        currentPeriodo = paramPeriodo.toUpperCase() === 'MES' ? 'mes' : paramPeriodo.toUpperCase();
+        document.querySelectorAll('.sub-nav-canais .sub-tab-btn').forEach(b => b.classList.remove('active'));
+        const activeBtn = document.getElementById(`btn-periodo-${currentPeriodo.toLowerCase()}`);
+        if (activeBtn) activeBtn.classList.add('active');
+        if (currentPeriodo !== 'mes' && monthSelect) {
+            monthSelect.disabled = true;
+            monthSelect.style.opacity = '0.4';
+        }
     }
 
     fetchData();

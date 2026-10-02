@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=14">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/canais.css') }}?v=2">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
@@ -96,6 +96,8 @@
         const IS_LARGE_VIEW = true;
     </script>
     <script src="{{ url_for('static', filename='js/canais_view.js') }}?v=9"></script>
+    <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=2"></script>
 </body>
 </html>
 

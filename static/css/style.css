@@ -14,15 +14,17 @@
     --font-main: 'Montserrat', sans-serif;
 }
 
-/* Escala Responsiva para TVs e Telas Grandes */
+/* Escala Responsiva Adaptativa para TVs (ex: LG 65" 1080p/4K) e Telas Grandes */
 html {
-    font-size: 16px;
+    font-size: 13.5px;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
 }
-@media screen and (min-width: 1600px) { html { font-size: 18px; } }
-@media screen and (min-width: 1920px) { html { font-size: 22px; } }
-@media screen and (min-width: 2560px) { html { font-size: 28px; } }
-@media screen and (min-width: 3840px) { html { font-size: 44px; } }
-
+@media screen and (min-width: 1600px) and (min-height: 850px) { html { font-size: 14px; } }
+@media screen and (min-width: 1920px) and (min-height: 950px) { html { font-size: 14.5px; } }
+@media screen and (min-width: 2560px) and (min-height: 1300px) { html { font-size: 19px; } }
+@media screen and (min-width: 3840px) and (min-height: 1900px) { html { font-size: 26px; } }
 
 * {
     margin: 0;
@@ -34,9 +36,9 @@ body {
     background-color: var(--bg-dark);
     color: var(--mq-white);
     font-family: var(--font-main);
-    overflow-x: auto;
-    overflow-y: auto;
-    min-height: 100vh;
+    overflow: hidden;
+    height: 100vh;
+    max-height: 100vh;
     display: flex;
     flex-direction: column;
 }
@@ -59,20 +61,23 @@ body {
 
 .dashboard-container {
     width: 100%;
-    min-height: 100vh;
+    height: 100vh;
+    max-height: 100vh;
     display: flex;
     flex-direction: column;
-    padding: 4px 12px 8px;
-    overflow: visible;
+    padding: 3px 10px 5px 10px;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 .header {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 6px;
-    margin-bottom: 6px;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
 }
 
 /* Linha 1: Guias em cima lado a lado e Título */
@@ -80,52 +85,66 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 15px;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 .nav-tabs-container {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 3px;
     align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.nav-tabs-container::-webkit-scrollbar {
+    display: none;
 }
 
 .tab-btn {
-    background: rgba(255, 255, 255, 0.05);
-    color: #ccc;
-    border: 1px solid var(--border-color);
-    padding: 5px 11px;
-    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #9aa7b9;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 3px 7px;
+    border-radius: 4px;
     cursor: pointer;
-    font-weight: 700;
-    font-size: 0.82rem;
+    font-weight: 600;
+    font-size: 0.69rem;
     font-family: 'Montserrat', sans-serif;
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
     white-space: nowrap;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.1px;
+    line-height: 1.15;
+    flex-shrink: 0;
 }
 
 .tab-btn:hover {
-    background: rgba(203, 151, 39, 0.2);
-    color: var(--mq-gold);
-    border-color: var(--mq-gold);
+    background: rgba(203, 151, 39, 0.18);
+    color: #ffffff;
+    border-color: rgba(203, 151, 39, 0.5);
 }
 
 .tab-btn.active {
-    background: var(--mq-gold);
-    color: #000;
-    border-color: var(--mq-gold);
-    box-shadow: 0 0 10px rgba(203, 151, 39, 0.4);
+    background: linear-gradient(135deg, rgba(203, 151, 39, 0.28) 0%, rgba(245, 197, 24, 0.18) 100%);
+    color: var(--mq-gold);
+    border: 1px solid var(--mq-gold);
+    box-shadow: 0 0 10px rgba(203, 151, 39, 0.35);
+    font-weight: 700;
 }
 
 .header-title-main {
     color: var(--mq-gold);
-    font-size: 1.45rem;
+    font-size: 1.15rem;
     font-weight: 800;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     text-align: right;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 /* Linha 2: Filtros de Mês e Ano, Atualizar, Sirene à esquerda e Relógio/Data à direita */
@@ -423,45 +442,56 @@ body {
     font-weight: bold;
 }
 
-/* Grid Principal */
+/* Grid Principal (Mensal - 3x3) */
 .grid-container {
     flex: 1;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 15px;
-    height: calc(100vh - 80px);
+    grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    height: 100%;
     min-height: 0;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .gauge-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, #131722 0%, #0d1017 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 5px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    padding: 3px 6px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
     height: 100%;
     min-height: 0;
     position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s, box-shadow 0.25s;
 }
 
 .gauge-title {
-    font-size: 1rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--mq-gold);
     text-align: center;
-    margin-bottom: 2px;
+    margin-bottom: 0px;
+    padding: 2px 4px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
 }
 
 .gauge-chart {
     width: 100%;
     flex: 1;
     min-height: 0;
+    height: 100%;
 }
 
 /* Animação para quando a meta for batida (>= 100%) */
@@ -473,6 +503,114 @@ body {
 
 .gauge-card.meta-batida {
     animation: blink-success 1.5s infinite;
+}
+
+/* ========================================================
+   ALERTAS VISUAIS DE OSCILAÇÃO: REDUÇÃO (POLÍCIA) & SUBIDA (CAIXA)
+   ======================================================== */
+@keyframes policeBeaconRed {
+    0% {
+        border-color: rgba(239, 68, 68, 0.4);
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3), inset 0 0 8px rgba(239, 68, 68, 0.15);
+        background-color: rgba(239, 68, 68, 0.05);
+    }
+    50% {
+        border-color: #ef4444;
+        box-shadow: 0 0 45px rgba(239, 68, 68, 0.95), inset 0 0 25px rgba(239, 68, 68, 0.4), 0 0 80px rgba(220, 53, 69, 0.6);
+        background-color: rgba(239, 68, 68, 0.25);
+    }
+    100% {
+        border-color: rgba(239, 68, 68, 0.4);
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.3), inset 0 0 8px rgba(239, 68, 68, 0.15);
+        background-color: rgba(239, 68, 68, 0.05);
+    }
+}
+
+@keyframes cashGlowGreen {
+    0% {
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+    50% {
+        border-color: #10b981;
+        box-shadow: 0 0 35px rgba(16, 185, 129, 0.85), inset 0 0 15px rgba(16, 185, 129, 0.3);
+    }
+    100% {
+        border-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+}
+
+.oscilou-baixo,
+.gauge-card.oscilou-baixo,
+.canal-card.oscilou-baixo,
+.empresa-card.oscilou-baixo,
+.trimestre-card.oscilou-baixo,
+.mini-gauge-card.oscilou-baixo {
+    animation: policeBeaconRed 0.75s infinite ease-in-out !important;
+    border-color: #ef4444 !important;
+    position: relative;
+    z-index: 25;
+}
+
+.oscilou-baixo::before,
+.gauge-card.oscilou-baixo::before,
+.canal-card.oscilou-baixo::before,
+.empresa-card.oscilou-baixo::before,
+.trimestre-card.oscilou-baixo::before {
+    content: '🚨 QUEDA NO PERCENTUAL';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.9);
+    z-index: 30;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    white-space: nowrap;
+    animation: pulseBadge 0.6s infinite alternate;
+}
+
+.oscilou-cima,
+.gauge-card.oscilou-cima,
+.canal-card.oscilou-cima,
+.empresa-card.oscilou-cima,
+.trimestre-card.oscilou-cima,
+.mini-gauge-card.oscilou-cima {
+    animation: cashGlowGreen 0.75s infinite ease-in-out !important;
+    border-color: #10b981 !important;
+    position: relative;
+    z-index: 25;
+}
+
+.oscilou-cima::before,
+.gauge-card.oscilou-cima::before,
+.canal-card.oscilou-cima::before,
+.empresa-card.oscilou-cima::before,
+.trimestre-card.oscilou-cima::before {
+    content: '💵 SUBIDA NO PERCENTUAL';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #10b981;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 10px;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.9);
+    z-index: 30;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    white-space: nowrap;
+    animation: pulseBadge 0.6s infinite alternate;
 }
 
 /* Ajuste para o item EMPRESA (Total) ficar centralizado e ocupando a largura total */
@@ -874,3 +1012,222 @@ body {
     transform: none;
     padding-right: 24px;
 }
+
+/* Efeitos visuais de oscilação em tempo real */
+.gauge-card.oscilou-cima, .canal-card.oscilou-cima {
+    animation: flash-verde 1.2s ease-in-out 3;
+    border-color: #00FF66 !important;
+}
+
+@keyframes flash-verde {
+    0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 102, 0.2); }
+    50% { box-shadow: 0 0 35px rgba(0, 255, 102, 0.95); border-color: #00FF66; }
+}
+
+.gauge-card.oscilou-baixo, .canal-card.oscilou-baixo {
+    animation: flash-policia 0.6s ease-in-out 6;
+    border-color: #FF3333 !important;
+}
+
+@keyframes flash-policia {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 51, 51, 0.4); border-color: #FF3333; }
+    50% { box-shadow: 0 0 40px rgba(255, 51, 51, 1), 0 0 50px rgba(13, 110, 253, 0.85); border-color: #0d6efd; }
+}
+
+/* Overlay / Banner de Desbloqueio de Áudio na Smart TV */
+.tv-audio-unlock-overlay {
+    position: fixed;
+    top: 14px;
+    right: 20px;
+    z-index: 99999;
+    background: rgba(18, 22, 30, 0.96);
+    border: 2px solid var(--mq-gold);
+    border-radius: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.85), 0 0 25px rgba(203, 151, 39, 0.55);
+    padding: 12px 20px;
+    cursor: pointer;
+    animation: pulse-gold 2s infinite ease-in-out;
+}
+
+@keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 12px rgba(203, 151, 39, 0.4); }
+    50% { box-shadow: 0 0 28px rgba(203, 151, 39, 0.9); }
+}
+
+.tv-audio-unlock-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.tv-audio-unlock-box .unlock-icon {
+    font-size: 1.8rem;
+    animation: shake-icon 1s infinite alternate;
+}
+
+@keyframes shake-icon {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.15) rotate(6deg); }
+}
+
+.tv-audio-unlock-box .unlock-text strong {
+    display: block;
+    color: var(--mq-gold);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.tv-audio-unlock-box .unlock-text p {
+    margin: 2px 0 0;
+    color: #e2e8f0;
+    font-size: 0.78rem;
+}
+
+.tv-audio-unlock-box .unlock-btn {
+    background: var(--mq-gold);
+    color: #000;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s;
+    font-family: var(--font-main);
+}
+
+.tv-audio-unlock-box .unlock-btn:hover {
+    transform: scale(1.05);
+}
+
+/* ========================================================= */
+/* AUTO-ROTAÇÃO TV (CARROSSEL AUTOMÁTICO DE TELAS A CADA 2.5 MIN) */
+/* ========================================================= */
+.tv-rotator-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(18, 24, 38, 0.92);
+    border: 1px solid rgba(203, 151, 39, 0.55);
+    border-radius: 20px;
+    padding: 3px 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), inset 0 0 8px rgba(203, 151, 39, 0.15);
+    backdrop-filter: blur(8px);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    letter-spacing: 0.3px;
+    user-select: none;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+    margin-right: 8px;
+    height: 28px;
+}
+
+.tv-rotator-pill:hover {
+    border-color: var(--mq-gold);
+    box-shadow: 0 4px 14px rgba(203, 151, 39, 0.35);
+    transform: translateY(-1px);
+}
+
+.tv-rotator-pill.paused {
+    border-color: rgba(239, 68, 68, 0.6);
+    background: rgba(30, 18, 22, 0.92);
+}
+
+.rotator-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    flex-shrink: 0;
+}
+
+.rotator-dot.pulse {
+    animation: rotatorPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes rotatorPulse {
+    0% { transform: scale(0.9); opacity: 0.7; }
+    50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px #10b981; }
+    100% { transform: scale(0.9); opacity: 0.7; }
+}
+
+.tv-rotator-pill.paused .rotator-dot {
+    background: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+    animation: none;
+}
+
+.rotator-label {
+    color: #94a3b8;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.rotator-time {
+    color: #ffd700;
+    font-family: 'Montserrat', monospace, sans-serif;
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 0.5px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.tv-rotator-pill.paused .rotator-time {
+    color: #f87171;
+    font-size: 0.70rem;
+}
+
+.rotator-toggle-btn {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    cursor: pointer;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.62rem;
+    line-height: 1;
+    padding: 0;
+    margin-left: 2px;
+    transition: all 0.2s ease;
+}
+
+.rotator-toggle-btn:hover {
+    background: var(--mq-gold);
+    color: #000000;
+    border-color: var(--mq-gold);
+    transform: scale(1.15);
+}
+
+.rotator-divider {
+    color: rgba(255, 255, 255, 0.25);
+    margin: 0 4px;
+    font-size: 0.75rem;
+}
+
+.rotator-data-label {
+    color: #94a3b8;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.rotator-data-time {
+    color: #38bdf8;
+    font-family: 'Montserrat', monospace, sans-serif;
+    font-weight: 800;
+    font-size: 0.80rem;
+    min-width: 38px;
+    text-align: center;
+}
+
+

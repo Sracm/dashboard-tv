@@ -78,14 +78,21 @@ def get_vendas_do_banco(mes, ano):
 
     return df_vendas
 
-CACHE_TTL = 300  # 5 minutos de cache em memória (antes era 30 min / 1800s)
+# ============================================================================
+# POLÍTICA DE CACHE INTELIGENTE & PERFORMANCE PARA TV
+# ============================================================================
+CACHE_TTL = 900             # 15 minutos (fallback legado)
+CACHE_TTL_REALTIME = 900    # 15 minutos para dados correntes do mês atual
+CACHE_TTL_HEAVY = 1800      # 30 minutos para dados agregados pesados (Categorias, Marcas, Países)
+CACHE_TTL_HISTORIC = 86400  # 24 horas para anos e meses já fechados no ERP
 
 cached_df_metas = None
 cached_df_setores = None
 last_excel_read = 0
+last_excel_mtime = 0
 
 def invalidar_todos_os_caches(ano=None):
-    global cached_df_metas, cached_df_setores, last_excel_read
+    global cached_df_metas, cached_df_setores, last_excel_read, last_excel_mtime
     global cached_painel_results, anos_carregados_no_cache, cached_vendas_diarias
     global cached_categorias_data, cached_paises_data, cached_paises_raw_df
     global cached_diario_data
@@ -94,6 +101,7 @@ def invalidar_todos_os_caches(ano=None):
     cached_df_metas = None
     cached_df_setores = None
     last_excel_read = 0
+    last_excel_mtime = 0
     
     if ano:
         anos_carregados_no_cache.discard(ano)
@@ -120,13 +128,15 @@ def invalidar_todos_os_caches(ano=None):
         cached_teste_estoque['timestamp'] = 0
 
 def carregar_metas_e_setores(mes, ano, force_refresh=False):
-    global cached_df_metas, cached_df_setores, last_excel_read
+    global cached_df_metas, cached_df_setores, last_excel_read, last_excel_mtime
     
     if force_refresh:
         cached_df_metas = None
         cached_df_setores = None
+        last_excel_mtime = 0
         
-    if cached_df_metas is None or time.time() - last_excel_read > CACHE_TTL:
+    excel_mtime = os.path.getmtime(EXCEL_METAS_PATH) if os.path.exists(EXCEL_METAS_PATH) else 0
+    if cached_df_metas is None or excel_mtime != last_excel_mtime or (time.time() - last_excel_read > CACHE_TTL_REALTIME):
         print("[CACHE] Recarregando metas e base_setores do Excel...")
         cached_df_metas = pd.read_excel(EXCEL_METAS_PATH, sheet_name='metas')
         cached_df_metas.columns = cached_df_metas.columns.str.strip().str.upper()
@@ -134,6 +144,7 @@ def carregar_metas_e_setores(mes, ano, force_refresh=False):
         cached_df_setores = pd.read_excel(EXCEL_METAS_PATH, sheet_name='base_setores')
         cached_df_setores.columns = cached_df_setores.columns.str.strip().str.upper()
         
+        last_excel_mtime = excel_mtime
         last_excel_read = time.time()
         
     df_metas = cached_df_metas.copy()
@@ -315,15 +326,17 @@ def obter_vendas_diarias(ano, force_refresh=False):
     """DataFrame de vendas diarias do ano, com cache em memória e em disco."""
     now_ts = time.time()
     disk_file = os.path.join(DISK_CACHE_DIR, f'vendas_diarias_{ano}.pkl')
+    ano_atual = datetime.now().year
+    ttl = CACHE_TTL_HISTORIC if ano < ano_atual else CACHE_TTL_REALTIME
 
     if not force_refresh and ano in cached_vendas_diarias:
         df, ts = cached_vendas_diarias[ano]
-        if now_ts - ts < CACHE_TTL:
+        if now_ts - ts < ttl:
             return df
 
     if not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
-        if file_age < CACHE_TTL:
+        if file_age < ttl:
             try:
                 df = pd.read_pickle(disk_file)
                 cached_vendas_diarias[ano] = (df, now_ts)
@@ -428,9 +441,11 @@ def calcular_medidas_tempo_canais(mes, ano, hoje=None, force_refresh=False):
 
 def carregar_ano_completo_no_cache(ano, force=False):
     now_ts = time.time()
+    ano_atual = datetime.now().year
+    ttl = CACHE_TTL_HISTORIC if ano < ano_atual else CACHE_TTL_REALTIME
     if not force and ano in anos_carregados_no_cache:
         mes_test = f"1_{ano}"
-        if mes_test in cached_painel_results and (now_ts - cached_painel_results[mes_test][1] < CACHE_TTL):
+        if mes_test in cached_painel_results and (now_ts - cached_painel_results[mes_test][1] < ttl):
             return
     try:
         print(f"[CACHE] Carregando vendas do ano {ano} completo no Oracle (force={force})...")
@@ -450,9 +465,11 @@ def carregar_ano_completo_no_cache(ano, force=False):
 def obter_dados_painel(mes, ano, force_refresh=False):
     cache_key = f"{mes}_{ano}"
     now_ts = time.time()
+    ano_atual = datetime.now().year
+    ttl = CACHE_TTL_HISTORIC if ano < ano_atual else CACHE_TTL_REALTIME
     if not force_refresh and cache_key in cached_painel_results:
         res, ts = cached_painel_results[cache_key]
-        if now_ts - ts < CACHE_TTL:
+        if now_ts - ts < ttl:
             return res
 
     carregar_ano_completo_no_cache(ano, force=force_refresh)
@@ -466,6 +483,34 @@ def obter_dados_painel(mes, ano, force_refresh=False):
     cached_painel_results[cache_key] = (res, now_ts)
     return res
 
+def obter_ultimo_mes_com_metas(ano=None):
+    """Retorna o último mês que possui metas cadastradas (evita abrir mês com meta zero)."""
+    if ano is None:
+        ano = datetime.now().year
+    now = datetime.now()
+    mes_atual = now.month if ano == now.year else 12
+    for m in range(mes_atual, 0, -1):
+        df_m, _ = carregar_metas_e_setores(m, ano, force_refresh=False)
+        total_meta = df_m['META'].sum() if ('META' in df_m.columns and len(df_m) > 0) else 0.0
+        if total_meta > 0:
+            return m
+    return mes_atual
+
+@app.route('/api/ultimo_mes_metas')
+def api_ultimo_mes_metas():
+    try:
+        ano = int(request.args.get('ano', datetime.now().year))
+        ultimo_mes = obter_ultimo_mes_com_metas(ano)
+        return jsonify({
+            "success": True,
+            "ano": ano,
+            "ultimo_mes": ultimo_mes,
+            "mes_atual": datetime.now().month,
+            "mes_atual_tem_metas": (ultimo_mes == datetime.now().month)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
 @app.route('/')
 @app.route('/tv')
 def dashboard_tv():
@@ -475,8 +520,13 @@ def dashboard_tv():
 def api_vendas_tv():
     try:
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
-        mes = int(request.args.get('mes', datetime.now().month))
-        ano = int(request.args.get('ano', datetime.now().year))
+        ano_req = request.args.get('ano')
+        ano = int(ano_req) if ano_req else datetime.now().year
+        mes_req = request.args.get('mes')
+        if mes_req:
+            mes = int(mes_req)
+        else:
+            mes = datetime.now().month
 
         if force:
             invalidar_todos_os_caches(ano)
@@ -616,6 +666,92 @@ def api_acumulado_tv():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/canais_trimestre_tv')
+def api_canais_trimestre_tv():
+    try:
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
+        ano = int(request.args.get('ano', datetime.now().year))
+        
+        if force:
+            invalidar_todos_os_caches(ano)
+
+        dados_meses = {}
+        for m in range(1, 13):
+            dados_meses[m] = obter_dados_painel(m, ano, force_refresh=force)
+
+        trimestres = {
+            "T1": {"nome": "1º Trimestre", "meses": [1, 2, 3]},
+            "T2": {"nome": "2º Trimestre", "meses": [4, 5, 6]},
+            "T3": {"nome": "3º Trimestre", "meses": [7, 8, 9]},
+            "T4": {"nome": "4º Trimestre", "meses": [10, 11, 12]},
+        }
+
+        canais = [
+            "VAREJO ESPECIALIZADO - SP", 
+            "VAREJO ESPECIALIZADO REG.", 
+            "DISTRIBUIÇÃO",
+            "COMEX", 
+            "E-COMMERCE", 
+            "E-COMMERCE - PARLUX"
+        ]
+
+        resultado = {}
+        for canal in canais:
+            display_name = "E-COMMERCE - MQ" if canal == "E-COMMERCE" else canal
+            resultado[display_name] = {}
+            for tri_key, tri_info in trimestres.items():
+                real_t = 0.0
+                meta_t = 0.0
+                for m in tri_info["meses"]:
+                    d = dados_meses[m].get(canal, {})
+                    if not d and canal == "E-COMMERCE":
+                        d = dados_meses[m].get("E-COMMERCE - MQ", {})
+                    real_t += d.get("realizado", 0.0)
+                    meta_t += d.get("meta", 0.0)
+
+                pct_t = round((real_t / meta_t * 100), 1) if meta_t > 0 else 0.0
+                diff_t = round(pct_t - 100.0, 1)
+                resultado[display_name][tri_key] = {
+                    "titulo": f"{display_name} ({tri_info['nome'].upper()})",
+                    "realizado": round(real_t, 2),
+                    "meta": round(meta_t, 2),
+                    "percent": pct_t,
+                    "diff": diff_t
+                }
+
+        # Agrupamento também por Trimestre (T1, T2, T3, T4) para compatibilidade direta com views
+        payload = {
+            "by_canal": resultado,
+            "T1": [],
+            "T2": [],
+            "T3": [],
+            "T4": []
+        }
+        for tri_key in ["T1", "T2", "T3", "T4"]:
+            for canal in canais:
+                display_name = "E-COMMERCE - MQ" if canal == "E-COMMERCE" else canal
+                info = resultado[display_name][tri_key]
+                payload[tri_key].append({
+                    "name": display_name,
+                    "realizado": info["realizado"],
+                    "meta": info["meta"],
+                    "percent": info["percent"],
+                    "diff": info["diff"],
+                    "titulo": info["titulo"]
+                })
+                # Mantém chave direta no payload
+                if display_name not in payload:
+                    payload[display_name] = resultado[display_name]
+
+        return jsonify({"success": True, "data": payload})
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
 
 @app.route('/trimestre')
 def dashboard_trimestre():
@@ -964,7 +1100,7 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
     now_ts = time.time()
     if not force_refresh and cache_key in cached_categorias_data:
         data, ts = cached_categorias_data[cache_key]
-        if now_ts - ts < CACHE_TTL:
+        if now_ts - ts < CACHE_TTL_HEAVY:
             return data
 
     now = datetime.now()
@@ -993,13 +1129,13 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
     df = None
     if not force_refresh and ano_ref in cached_cat_raw_df:
         df_cached, ts_raw = cached_cat_raw_df[ano_ref]
-        if now_ts - ts_raw < CACHE_TTL:
+        if now_ts - ts_raw < CACHE_TTL_HEAVY:
             df = df_cached.copy()
 
     disk_file = os.path.join(DISK_CACHE_DIR, f'cat_raw_{ano_ref}.pkl')
     if df is None and not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
-        if file_age < CACHE_TTL:
+        if file_age < CACHE_TTL_HEAVY:
             try:
                 df = pd.read_pickle(disk_file)
                 cached_cat_raw_df[ano_ref] = (df.copy(), now_ts)
@@ -1397,7 +1533,7 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
     now_ts = time.time()
     if not force_refresh and cache_key in cached_paises_data:
         data, ts = cached_paises_data[cache_key]
-        if now_ts - ts < CACHE_TTL:
+        if now_ts - ts < CACHE_TTL_HEAVY:
             return data
 
     now = datetime.now()
@@ -1411,13 +1547,13 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
     df = None
     if not force_refresh and ano_ref in cached_paises_raw_df:
         df_cached, ts_raw = cached_paises_raw_df[ano_ref]
-        if now_ts - ts_raw < CACHE_TTL:
+        if now_ts - ts_raw < CACHE_TTL_HEAVY:
             df = df_cached.copy()
 
     disk_file = os.path.join(DISK_CACHE_DIR, f'paises_raw_{ano_ref}.pkl')
     if df is None and not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
-        if file_age < CACHE_TTL:
+        if file_age < CACHE_TTL_HEAVY:
             try:
                 df = pd.read_pickle(disk_file)
                 cached_paises_raw_df[ano_ref] = (df.copy(), now_ts)
@@ -1441,7 +1577,7 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
         FROM (
             SELECT 
                 ITE.CODPROD,
-                (SELECT descricao FROM tsipai WHERE codpais=(SELECT codpais FROM tsiufs WHERE coduf = (SELECT uf FROM tsicid WHERE codcid=(SELECT codcid FROM tgfpar WHERE codparc=cab.codparc)))) AS NOME_PAIS,
+                PAI.DESCRICAO AS NOME_PAIS,
                 PRO.DESCRPROD,
                 PRO.MARCA,
                 CAB.DTENTSAI,
@@ -1459,6 +1595,8 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
                  TGFGRU GRU,
                  TGFPRO PRO,
                  TSICID CID,
+                 TSIUFS UFS,
+                 TSIPAI PAI,
                  VGFCAB VCA
             WHERE CAB.CODTIPOPER = TOP.CODTIPOPER
               AND CAB.DHTIPOPER = TOP.DHALTER
@@ -1468,6 +1606,8 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
               AND PRO.CODGRUPOPROD = GRU.CODGRUPOPROD
               AND PAR.CODTIPPARC = TPP.CODTIPPARC
               AND PAR.CODCID = CID.CODCID
+              AND CID.UF = UFS.CODUF
+              AND UFS.CODPAIS = PAI.CODPAIS
               AND CAB.TIPMOV IN ('V', 'D')
               AND CAB.STATUSNOTA = 'L'
               AND CAB.NUNOTA = VCA.NUNOTA
@@ -1476,6 +1616,8 @@ def obter_dados_paises(mes, ano, marca_filter=None, pais_filter=None, force_refr
               AND (TOP.ATUALFINTERC <> 'N' OR TOP.ATUALESTTERC = 'N' OR ITE.TERCEIROS <> 'S')
               AND ITE.SEQUENCIA > 0
               AND TOP.GOLDEV IN (1,-1)
+              AND PAI.CODPAIS NOT IN (0, 55)
+              AND UPPER(TRIM(PAI.DESCRICAO)) NOT IN ('BRASIL', 'NÃO INFORMADO', 'NAO INFORMADO', 'EX')
               AND CAB.DTENTSAI >= TO_DATE('01/01/{ano_ant}','DD/MM/YYYY')
               AND CAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}','DD/MM/YYYY')
         ) V
@@ -2414,16 +2556,19 @@ cached_diario_data = {}
 def carregar_dados_diarios_sankhya(mes, ano, force_refresh=False):
     cache_key = f"{ano}_{mes}"
     now_ts = time.time()
+    now = datetime.now()
+    is_fechado = (ano < now.year) or (ano == now.year and mes < now.month)
+    ttl = CACHE_TTL_HISTORIC if is_fechado else CACHE_TTL_REALTIME
     disk_file = os.path.join(DISK_CACHE_DIR, f'diario_{ano}_{mes}.pkl')
 
     if not force_refresh and cache_key in cached_diario_data:
         data, ts = cached_diario_data[cache_key]
-        if now_ts - ts < CACHE_TTL:
+        if now_ts - ts < ttl:
             return data.copy()
 
     if not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
-        if file_age < CACHE_TTL:
+        if file_age < ttl:
             try:
                 df = pd.read_pickle(disk_file)
                 cached_diario_data[cache_key] = (df.copy(), now_ts)
@@ -2894,47 +3039,68 @@ def api_refresh():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-def aquecer_cache_background():
-    try:
-        now = datetime.now()
-        ano = now.year
-        mes = now.month
-        print(f"[CACHE WARMUP] Aquecendo cache para o ano {ano}...")
-        carregar_ano_completo_no_cache(ano)
-        print(f"[CACHE WARMUP] Aquecendo marcas e categorias para {mes}/{ano}...")
+def loop_atualizacao_cache_background():
+    """Mantém todos os caches do dashboard sempre quentes em background (a cada 10 minutos).
+    
+    Dessa forma, quando a TV ou qualquer usuário alternar entre as 18 guias,
+    todos os dados são servidos instantaneamente da memória (< 50ms) sem travar o navegador.
+    """
+    time.sleep(2)  # Aguarda o Flask iniciar o servidor
+    while True:
         try:
-            obter_dados_categorias_marcas(mes, ano)
+            now = datetime.now()
+            ano = now.year
+            mes = now.month
+            print(f"[CACHE AUTO-REFRESH] Ciclo de atualização de background iniciado ({mes:02d}/{ano})...")
+            
+            # 1. Vendas do ano e painel mensal
+            carregar_ano_completo_no_cache(ano)
+            
+            # 2. Categorias e Marcas
+            try:
+                obter_dados_categorias_marcas(mes, ano)
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro categorias {mes}/{ano}: {e}")
+            
+            mes_ant = 12 if mes == 1 else mes - 1
+            ano_ant = ano - 1 if mes == 1 else ano
+            try:
+                obter_dados_categorias_marcas(mes_ant, ano_ant)
+            except Exception as e:
+                pass
+                
+            # 3. Países (COMEX)
+            try:
+                obter_dados_paises(mes, ano)
+                obter_dados_paises(mes_ant, ano)
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro paises {ano}: {e}")
+                
+            # 4. Dados Diários
+            try:
+                carregar_dados_diarios_sankhya(mes, ano)
+                carregar_dados_diarios_sankhya(mes_ant, ano_ant)
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro dados diarios: {e}")
+                
+            # 5. Estoque Previsão e Teste Estoque
+            try:
+                obter_dados_estoque_previsao()
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro estoque previsao: {e}")
+                
+            try:
+                obter_dados_teste_estoque()
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro teste estoque: {e}")
+                
+            print(f"[CACHE AUTO-REFRESH] Ciclo concluído com sucesso. Próxima checagem em 10 minutos.")
         except Exception as e:
-            print(f"[CACHE WARMUP] Erro categorias {mes}/{ano}: {e}")
-        # Também pré-aquecer mês anterior
-        mes_ant = 12 if mes == 1 else mes - 1
-        ano_ant = ano - 1 if mes == 1 else ano
-        try:
-            obter_dados_categorias_marcas(mes_ant, ano_ant)
-        except Exception as e:
-            pass
-        print(f"[CACHE WARMUP] Aquecendo paises para {ano}...")
-        try:
-            obter_dados_paises(mes, ano)
-            obter_dados_paises(mes_ant, ano)
-        except Exception as e:
-            print(f"[CACHE WARMUP] Erro paises {ano}: {e}")
-        print(f"[CACHE WARMUP] Aquecendo dados diarios {mes}/{ano}...")
-        try:
-            carregar_dados_diarios_sankhya(mes, ano)
-            carregar_dados_diarios_sankhya(mes_ant, ano_ant)
-        except Exception as e:
-            print(f"[CACHE WARMUP] Erro dados diarios: {e}")
-        print(f"[CACHE WARMUP] Aquecendo estoque previsao...")
-        try:
-            obter_dados_estoque_previsao()
-        except Exception as e:
-            print(f"[CACHE WARMUP] Erro estoque previsao: {e}")
-        print("[CACHE WARMUP] Cache inicial totalmente aquecido!")
-    except Exception as e:
-        print(f"[CACHE WARMUP] Erro geral no aquecimento: {e}")
+            print(f"[CACHE AUTO-REFRESH] Erro no ciclo de background: {e}")
+            
+        time.sleep(600)  # Checa/atualiza a cada 10 minutos
 
-threading.Thread(target=aquecer_cache_background, daemon=True).start()
+threading.Thread(target=loop_atualizacao_cache_background, daemon=True).start()
 
 if __name__ == '__main__':
     # PORT permite subir uma segunda instancia (homologacao) sem derrubar a

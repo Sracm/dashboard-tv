@@ -45,7 +45,7 @@ function getTrimestreGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#28a745' : '#FF3333';
+    const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
 
     return {
         series: [
@@ -56,51 +56,57 @@ function getTrimestreGaugeOption(percent, diff) {
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '105%',
-                center: ['50%', '68%'],
+                radius: '118%',
+                center: ['50%', '67%'],
                 axisLine: {
                     lineStyle: {
-                        width: 28,
+                        width: 22,
                         color: [
-                            [80 / 120, '#dc3545'],
-                            [100 / 120, '#ffc107'],
-                            [1, '#28a745']
+                            [80 / 120, '#ef4444'],
+                            [100 / 120, '#f59e0b'],
+                            [1, '#10b981']
                         ]
                     }
                 },
                 pointer: {
                     icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
                     length: '62%',
-                    width: 10,
-                    offsetCenter: [0, '-5%'],
-                    itemStyle: { color: '#0d6efd' }
+                    width: 8,
+                    offsetCenter: [0, '-4%'],
+                    itemStyle: { 
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0,0,0,0.6)',
+                        shadowBlur: 4
+                    }
                 },
                 axisTick: {
-                    length: 10,
-                    lineStyle: { color: 'auto', width: 1.5 }
+                    length: 6,
+                    lineStyle: { color: 'auto', width: 1.2 }
                 },
                 splitLine: {
-                    length: 18,
-                    lineStyle: { color: 'auto', width: 3 }
+                    length: 12,
+                    lineStyle: { color: 'auto', width: 2 }
                 },
                 axisLabel: {
                     show: false
                 },
                 title: {
-                    offsetCenter: [0, '20%'],
-                    fontSize: 26,
-                    color: '#0d6efd',
-                    fontWeight: 'bolder'
+                    offsetCenter: [0, '16%'],
+                    fontSize: 24,
+                    color: '#ffffff',
+                    fontWeight: '800',
+                    fontFamily: 'Montserrat'
                 },
                 detail: {
-                    fontSize: 20,
-                    offsetCenter: [0, '48%'],
+                    fontSize: 16,
+                    offsetCenter: [0, '40%'],
                     valueAnimation: true,
                     formatter: function () {
                         return diffText;
                     },
                     color: diffColor,
-                    fontWeight: 'bold'
+                    fontWeight: '700',
+                    fontFamily: 'Montserrat'
                 },
                 data: [{ value: Math.min(Math.max(percent, 0), 120), name: percent.toFixed(1) + '%' }]
             }

@@ -45,10 +45,12 @@
 .canais-main-container {
     flex: 1;
     min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 0 10px 8px;
+    padding: 0 10px 4px;
     box-sizing: border-box;
+    overflow: hidden;
 }
 
 /* Modo 3 Cards (Gigantes - igual Power BI) */
@@ -56,10 +58,11 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: 1fr;
-    gap: 16px;
+    gap: 12px;
     flex: 1;
     min-height: 0;
     height: 100%;
+    overflow: hidden;
 }
 
 /* Modo 6 Cards (2x3) - Todos os canais juntos */
@@ -67,40 +70,45 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
     flex: 1;
     min-height: 0;
     height: 100%;
+    overflow: hidden;
 }
 
 .canal-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(180deg, #131722 0%, #0d1017 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
     overflow: hidden;
     height: 100%;
+    min-height: 0;
+    position: relative;
+    transition: border-color 0.25s, box-shadow 0.25s;
 }
 
 .canal-title {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 6px 4px;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 4px 8px;
     text-align: center;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-weight: 700;
     color: var(--mq-gold);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     letter-spacing: 0.5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 0;
 }
 
 .grid-canais-6 .canal-title {
-    font-size: 0.92rem;
-    padding: 6px 4px;
+    font-size: 0.80rem;
+    padding: 3px 6px;
 }
 
 .canal-chart {
@@ -119,4 +127,96 @@
     0% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
     50% { border-color: rgba(40, 167, 69, 1); box-shadow: 0 0 40px rgba(40, 167, 69, 0.8); }
     100% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
+}
+
+/* Régua de Trimestres na base dos cards dos canais */
+.canal-tri-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 6px 4px;
+    background: rgba(0, 0, 0, 0.4);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.canal-tri-badges {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+}
+
+.tri-badge-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 4px;
+    padding: 3px 2px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    cursor: pointer;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    transition: all 0.2s ease;
+    font-family: var(--font-main);
+}
+
+.tri-badge-btn:hover {
+    border-color: var(--mq-gold);
+    background: rgba(203, 151, 39, 0.18);
+    color: #fff;
+}
+
+.tri-badge-btn.selected {
+    border-color: var(--mq-gold);
+    background: rgba(203, 151, 39, 0.3);
+    color: var(--mq-gold);
+    box-shadow: 0 0 8px rgba(203, 151, 39, 0.5);
+}
+
+.tri-badge-val {
+    font-size: 0.70rem;
+    font-weight: 800;
+}
+
+.tri-badge-val.val-success {
+    color: #00FF66;
+}
+.tri-badge-val.val-warning {
+    color: #FFC107;
+}
+.tri-badge-val.val-danger {
+    color: #FF4D4D;
+}
+.tri-badge-val.val-neutral {
+    color: #94a3b8;
+}
+
+.canal-tri-kpis {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.68rem;
+    color: #94a3b8;
+    padding: 0 4px;
+}
+
+.canal-tri-kpis strong {
+    color: #f1f5f9;
+}
+
+.tri-tag {
+    font-size: 0.72rem;
+    background: rgba(203, 151, 39, 0.2);
+    color: var(--mq-gold);
+    border: 1px solid var(--mq-gold);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 700;
 }

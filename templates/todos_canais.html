@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=6">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/canais.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/canais.css') }}?v=8">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 </head>
 <body>
@@ -72,6 +72,15 @@
             </div>
         </header>
 
+        <!-- Sub-navegação interna de Todos os Canais (Mês + Trimestres) -->
+        <div class="sub-nav-canais">
+            <button id="btn-periodo-mes" class="sub-tab-btn active" onclick="setPeriodoView('mes')">MÊS SELECIONADO</button>
+            <button id="btn-periodo-t1" class="sub-tab-btn" onclick="setPeriodoView('T1')">1º TRI (JAN-MAR)</button>
+            <button id="btn-periodo-t2" class="sub-tab-btn" onclick="setPeriodoView('T2')">2º TRI (ABR-JUN)</button>
+            <button id="btn-periodo-t3" class="sub-tab-btn" onclick="setPeriodoView('T3')">3º TRI (JUL-SET)</button>
+            <button id="btn-periodo-t4" class="sub-tab-btn" onclick="setPeriodoView('T4')">4º TRI (OUT-DEZ)</button>
+        </div>
+
         <!-- Main Container para os 6 Canais juntos na mesma tela (2x3) -->
         <main class="canais-main-container">
             <div id="canais-container" class="grid-canais-6"></div>
@@ -79,14 +88,15 @@
     </div>
 
     <!-- Áudios de Comemoração da Meta -->
-    <audio id="victory-sound" src="/static/audio/aim_drive.mp3" preload="none"></audio>
     <audio id="music-sound" src="/static/audio/van_halen_jump.mp3" preload="none"></audio>
     <audio id="audio-distribuicao" src="/static/audio/the_who_who_are_you.mp3" preload="none"></audio>
     <audio id="audio-ecommerce" src="/static/audio/deep_purple_perfect_strangers.mp3" preload="none"></audio>
     <audio id="audio-comex" src="/static/audio/led_zeppelin_whole_lotta_love.mp3" preload="none"></audio>
     <audio id="audio-varejo-sp" src="/static/audio/creedence_fortunate_son.mp3" preload="none"></audio>
     <audio id="audio-varejo-reg" src="/static/audio/zztop_lagrange.mp3" preload="none"></audio>
-    <audio id="audio-parlux" src="/static/audio/heart_barracuda.mp3" preload="none"></audio>
+    <!-- Áudios de Oscilação -->
+    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=1" preload="none"></audio>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=1" preload="none"></audio>
     <script>
         const GRUPO_ESPECIFICO = [
             "VAREJO ESPECIALIZADO - SP", 
@@ -98,7 +108,9 @@
         ];
         const IS_LARGE_VIEW = false;
     </script>
-    <script src="{{ url_for('static', filename='js/canais_view.js') }}?v=11"></script>
+    <script src="{{ url_for('static', filename='js/canais_view.js') }}?v=26"></script>
+    <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=3"></script>
 </body>
 </html>
 

@@ -27,10 +27,11 @@ function navigateTab(path) {
 window.addEventListener('beforeunload', () => pararTodosAudios());
 window.addEventListener('pagehide', () => pararTodosAudios());
 
-// Controle para tocar o áudio da meta SOMENTE UMA VEZ por período
+// Controle para tocar o áudio da meta: não repete a cada 10 min, mas permite tocar ao abrir a TV ou forçar
 function jaTocouMeta(chave, mes, ano) {
     try {
-        return localStorage.getItem(`meta_som_tocada_${chave}_${mes}_${ano}`) === 'true';
+        const hoje = new Date().toISOString().slice(0, 10);
+        return sessionStorage.getItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`) === 'true';
     } catch (e) {
         return false;
     }
@@ -38,20 +39,24 @@ function jaTocouMeta(chave, mes, ano) {
 
 function marcarMetaComoTocada(chave, mes, ano) {
     try {
-        localStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}`, 'true');
+        const hoje = new Date().toISOString().slice(0, 10);
+        sessionStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`, 'true');
     } catch (e) {}
 }
 
 function resetarMetaTocada(chave, mes, ano) {
     try {
-        localStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}`);
+        const hoje = new Date().toISOString().slice(0, 10);
+        sessionStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`);
     } catch (e) {}
 }
 
 function resetarTodasMetasTocadasDoMes(mes, ano) {
     try {
+        const hoje = new Date().toISOString().slice(0, 10);
         const chaves = ['parlux', 'empresa', 'distribuicao', 'ecommerce', 'comex', 'varejo_sp', 'varejo_reg'];
         chaves.forEach(k => {
+            sessionStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}_${hoje}`);
             localStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}`);
         });
     } catch (e) {}
@@ -71,61 +76,62 @@ function getGaugeOption(percent, name) {
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '135%',
-                center: [centerX, '65%'],
+                radius: isEmpresa ? '120%' : '135%',
+                center: [centerX, isEmpresa ? '72%' : '66%'],
                 axisLine: {
                     lineStyle: {
-                        width: 25,
+                        width: isEmpresa ? 24 : 18,
                         color: [
-                            [80 / 120, '#dc3545'],
-                            [100 / 120, '#ffc107'],
-                            [1, '#28a745']
+                            [80 / 120, '#ef4444'],
+                            [100 / 120, '#f59e0b'],
+                            [1, '#10b981']
                         ]
                     }
                 },
                 pointer: {
                     icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-                    length: '60%',
-                    width: 10,
-                    offsetCenter: [0, '-5%'],
+                    length: '62%',
+                    width: isEmpresa ? 9 : 7,
+                    offsetCenter: [0, '-4%'],
                     itemStyle: {
-                        color: '#0d6efd'
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0, 0, 0, 0.6)',
+                        shadowBlur: 4
                     }
                 },
                 axisTick: {
+                    length: 6,
+                    lineStyle: {
+                        color: 'auto',
+                        width: 1.2
+                    }
+                },
+                splitLine: {
                     length: 12,
                     lineStyle: {
                         color: 'auto',
                         width: 2
                     }
                 },
-                splitLine: {
-                    length: 18,
-                    lineStyle: {
-                        color: 'auto',
-                        width: 3
-                    }
-                },
                 axisLabel: {
                     show: false
                 },
                 title: {
-                    offsetCenter: [0, '25%'],
-                    fontSize: 20,
-                    color: '#fff'
+                    show: false
                 },
                 detail: {
-                    fontSize: 20,
-                    offsetCenter: [0, '30%'],
+                    fontSize: isEmpresa ? 24 : 19,
+                    offsetCenter: [0, '20%'],
                     valueAnimation: true,
                     formatter: function () {
                         return '{value|' + percent.toFixed(1) + '%}';
                     },
                     rich: {
                         value: {
-                            fontSize: 20,
-                            fontWeight: 'bolder',
-                            color: '#0d6efd'
+                            fontSize: isEmpresa ? 24 : 19,
+                            fontWeight: '800',
+                            color: '#ffffff',
+                            fontFamily: 'Montserrat'
                         }
                     }
                 },
@@ -246,6 +252,10 @@ function renderCharts(data, mes, ano, contexto) {
                 card.classList.add('empresa-card');
             }
             
+            const chave = obterChaveCanal(equipe.name);
+            card.dataset.canal = chave || `canal_${index}`;
+            card.id = `card-${chave || index}`;
+            
             const title = document.createElement('div');
             title.className = 'gauge-title';
             title.textContent = equipe.name;
@@ -295,7 +305,6 @@ function renderCharts(data, mes, ano, contexto) {
     equipesBatidas.forEach(equipe => {
         const chave = obterChaveCanal(equipe.name);
         if (chave && !jaTocouMeta(chave, mes, ano)) {
-            marcarMetaComoTocada(chave, mes, ano);
             enfileirarAudio(chave);
         }
     });
@@ -303,48 +312,137 @@ function renderCharts(data, mes, ano, contexto) {
 
 let estadoAnterior = {};
 
+// Processa alertas de oscilação gravados no localStorage por outras abas
+function processarAlertaPendente() {
+    let alerta = null;
+    try {
+        const raw = localStorage.getItem('tv_alerta_oscilacao_pendente');
+        if (raw) alerta = JSON.parse(raw);
+    } catch(e) {}
+
+    if (!alerta || !alerta.tipo) return;
+
+    // Se o alerta tiver mais de 2 minutos, descarta
+    if (alerta.timestamp && (Date.now() - alerta.timestamp > 120000)) {
+        localStorage.removeItem('tv_alerta_oscilacao_pendente');
+        return;
+    }
+
+    console.log('[Alerta TV] 🚨 Processando alerta de oscilação pendente:', alerta);
+
+    const canais = (alerta.canais && alerta.canais.length > 0)
+        ? alerta.canais
+        : [{ canal: 'empresa', tipo: alerta.tipo }];
+
+    canais.forEach(item => {
+        const cardEl = document.querySelector(`[data-canal="${item.canal}"]`) || 
+                       document.getElementById(`card-${item.canal}`) || 
+                       document.querySelector('.empresa-card');
+        if (cardEl) {
+            const cls = item.tipo === 'cima' ? 'oscilou-cima' : 'oscilou-baixo';
+            cardEl.classList.remove('oscilou-cima', 'oscilou-baixo');
+            cardEl.classList.add(cls);
+            setTimeout(() => cardEl.classList.remove(cls), 12000);
+        }
+    });
+
+    if (alerta.tipo === 'cima') {
+        enfileirarAudioFrente('caixa');
+    } else if (alerta.tipo === 'baixo') {
+        enfileirarAudioFrente('policia');
+    }
+
+    // Limpa o alerta pendente para não repetir
+    localStorage.removeItem('tv_alerta_oscilacao_pendente');
+}
+window.dispararAlertaOscilacaoPendente = processarAlertaPendente;
+
+// Simulador para testes rápidos da TV
+window.simularOscilacaoTV = function(tipo = 'cima', canal = 'empresa') {
+    console.log(`[TESTE] Simulando oscilação ${tipo} no canal ${canal}...`);
+    localStorage.setItem('tv_alerta_oscilacao_pendente', JSON.stringify({
+        tipo: tipo,
+        canais: [{ canal: canal, tipo: tipo, nome: canal.toUpperCase() }],
+        timestamp: Date.now()
+    }));
+    processarAlertaPendente();
+};
+
 function verificarOscilacao(data, mes, ano) {
-    if (Object.keys(estadoAnterior).length === 0) {
+    const now = new Date();
+    const mesAtual = now.getMonth() + 1;
+    const anoAtual = now.getFullYear();
+
+    // A regra da TV estipula que a monitoração de oscilação ocorre sempre no MÊS ATUAL
+    const isMesAtual = (parseInt(mes) === mesAtual && parseInt(ano) === anoAtual);
+    if (!isMesAtual) return;
+
+    let estadoSalvo = {};
+    try {
+        estadoSalvo = JSON.parse(localStorage.getItem('tv_estado_anterior_mes_atual') || '{}');
+    } catch (e) {
+        estadoSalvo = {};
+    }
+
+    if (Object.keys(estadoSalvo).length === 0) {
+        const inicial = {};
         data.forEach((equipe, index) => {
             const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
-            estadoAnterior[chave] = equipe.percent || 0;
+            inicial[chave] = {
+                percent: Number(equipe.percent) || 0,
+                realizado: Number(equipe.realizado) || 0
+            };
         });
+        localStorage.setItem('tv_estado_anterior_mes_atual', JSON.stringify(inicial));
         return;
     }
 
     let tocouSomPositivo = false;
     let tocouSomNegativo = false;
+    const novoEstado = { ...estadoSalvo };
 
     data.forEach((equipe, index) => {
         const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
-        const chartId = `gauge-${index}`;
-        const cardElement = document.getElementById(chartId)?.parentElement;
+        const cardElement = document.querySelector(`[data-canal="${chave}"]`) || 
+                            document.getElementById(`card-${chave}`) || 
+                            document.getElementById(`gauge-${index}`)?.parentElement;
         
-        if (!cardElement) return;
+        const percentAtual = Number(equipe.percent) || 0;
+        const realizadoAtual = Number(equipe.realizado) || 0;
+        const anterior = estadoSalvo[chave];
 
-        const percentAtual = equipe.percent || 0;
-        const percentAntigo = estadoAnterior[chave];
+        if (anterior !== undefined) {
+            const percentAntigo = typeof anterior === 'object' ? (Number(anterior.percent) || 0) : Number(anterior);
+            const realizadoAntigo = typeof anterior === 'object' ? (Number(anterior.realizado) || 0) : 0;
+            
+            const deltaP = percentAtual - percentAntigo;
+            const deltaR = realizadoAtual - realizadoAntigo;
 
-        if (percentAntigo !== undefined) {
-            if (percentAtual > percentAntigo + 0.05) {
-                cardElement.classList.add('oscilou-cima');
-                setTimeout(() => cardElement.classList.remove('oscilou-cima'), 6000);
+            // 1. Oscilação para CIMA -> Caixa Registradora
+            // Dispara se percentual subiu (> 0.005%) OU se realizado subiu (> R$ 1,00) caso meta seja 0
+            if (deltaP > 0.005 || (Math.abs(deltaP) < 0.005 && deltaR > 1.0)) {
+                if (cardElement) {
+                    cardElement.classList.remove('oscilou-baixo');
+                    cardElement.classList.add('oscilou-cima');
+                    setTimeout(() => cardElement.classList.remove('oscilou-cima'), 12000);
+                }
                 
-                if (!tocouSomPositivo && !tocouSomNegativo) {
+                if (!tocouSomPositivo) {
                     tocouSomPositivo = true;
+                    console.log(`[Oscilação] 💵 SUBIDA em ${equipe.name}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}% (+R$ ${deltaR.toFixed(2)}). Tocando Caixa.`);
                     enfileirarAudioFrente('caixa');
                 }
-            } else if (percentAtual < percentAntigo - 0.05) {
-                cardElement.classList.add('oscilou-baixo');
-                setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 6000);
+            // 2. Redução do percentual para BAIXO -> Sirene de Polícia / Bombeiro
+            } else if (deltaP < -0.005 || (Math.abs(deltaP) < 0.005 && deltaR < -1.0)) {
+                if (cardElement) {
+                    cardElement.classList.remove('oscilou-cima');
+                    cardElement.classList.add('oscilou-baixo');
+                    setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 12000);
+                }
                 
                 if (!tocouSomNegativo) {
-                    if (tocouSomPositivo) {
-                        const idx = audioQueue.indexOf('caixa');
-                        if (idx > -1) audioQueue.splice(idx, 1);
-                        tocouSomPositivo = false;
-                    }
                     tocouSomNegativo = true;
+                    console.log(`[Oscilação] 🚨 REDUÇÃO em ${equipe.name}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}% (-R$ ${Math.abs(deltaR).toFixed(2)}). Tocando Sirene.`);
                     enfileirarAudioFrente('policia');
                 }
                 
@@ -356,8 +454,10 @@ function verificarOscilacao(data, mes, ano) {
             }
         }
         
-        estadoAnterior[chave] = percentAtual;
+        novoEstado[chave] = { percent: percentAtual, realizado: realizadoAtual };
     });
+
+    localStorage.setItem('tv_estado_anterior_mes_atual', JSON.stringify(novoEstado));
 }
 
 let lastPeriodLoaded = '';
@@ -371,7 +471,6 @@ async function fetchData(forceRefresh = false) {
         const currentPeriod = `${month}_${year}`;
         if (lastPeriodLoaded && lastPeriodLoaded !== currentPeriod) {
             pararTodosAudios();
-            estadoAnterior = {}; // Limpar estado ao mudar de período
         }
         lastPeriodLoaded = currentPeriod;
         
@@ -386,6 +485,7 @@ async function fetchData(forceRefresh = false) {
             window.currentVendasData = json.data;
             verificarOscilacao(json.data, month, year);
             renderCharts(json.data, month, year, json.contexto);
+            processarAlertaPendente();
             
             // Atualizar data de última atualização
             const now = new Date();
@@ -406,34 +506,9 @@ async function fetchData(forceRefresh = false) {
     }
 }
 
-// Desbloquear permissão de reprodução de áudio no navegador
-function desbloquearAudiosNavegador() {
-    const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
-        'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
-    ];
-    allAudioIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            const origVol = el.volume;
-            el.volume = 0;
-            const p = el.play();
-            if (p) {
-                p.then(() => {
-                    el.pause();
-                    el.currentTime = 0;
-                    el.volume = origVol || 1.0;
-                }).catch(() => {});
-            }
-        }
-    });
-}
-document.addEventListener('click', desbloquearAudiosNavegador, { once: true });
-
 // Atualização manual pelo botão
 async function manualRefresh() {
-    desbloquearAudiosNavegador();
+    desbloquearSomTV();
     pararTodosAudios();
     const month = document.getElementById('filter-month').value;
     const year = document.getElementById('filter-year').value;
@@ -450,24 +525,36 @@ async function manualRefresh() {
     }
 }
 
-// Inicializar combos: na guia mensal, SEMPRE deixar o mês atual e ano atual
+let userExplicitlyChangedMonth = false;
+
+// Inicializar combos: A guia Mensal (%) permanece SEMPRE no mês atual por regra mandatória da TV
 function initFilters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramMes = urlParams.get('mes');
+    const paramAno = urlParams.get('ano');
+
     const now = new Date();
-    const currentMonth = now.getMonth() + 1; // Sempre o mês atual na guia mensal
-    const currentYear = now.getFullYear();   // Sempre o ano atual na guia mensal
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    
+    // Regra: Na guia Mensal (%), o padrão é SEMPRE o mês atual corrente
+    const mesInicial = (paramMes && userExplicitlyChangedMonth) ? parseInt(paramMes) : currentMonth;
+    const anoInicial = (paramAno && userExplicitlyChangedMonth) ? parseInt(paramAno) : currentYear;
     
     const monthSelect = document.getElementById('filter-month');
     const yearSelect = document.getElementById('filter-year');
     
     if (monthSelect) {
-        monthSelect.value = currentMonth;
+        monthSelect.value = mesInicial;
         monthSelect.addEventListener('change', () => {
+            userExplicitlyChangedMonth = true;
             pararTodosAudios();
         });
     }
     if (yearSelect) {
-        yearSelect.value = currentYear;
+        yearSelect.value = anoInicial;
         yearSelect.addEventListener('change', () => {
+            userExplicitlyChangedMonth = true;
             pararTodosAudios();
         });
     }
@@ -482,7 +569,6 @@ const AUDIO_CONFIG = {
     'varejo_sp':    { id: 'audio-varejo-sp',    duration: 18000, nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
     'varejo_reg':   { id: 'audio-varejo-reg',   duration: 12000, nome: 'Varejo Reg (ZZ Top - La Grange)' },
     'parlux':       { id: 'audio-parlux',       duration: 28000, nome: 'Parlux (Heart - Barracuda)' },
-    'sirene':       { id: 'victory-sound',      duration: 10000, nome: 'Sirene de Vitória' },
     'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
     'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }
 };
@@ -543,9 +629,9 @@ function pausarOuRetomarAudio() {
 
     // Caso não esteja em currentAudioElement, verifica se há algum áudio tocando no DOM
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
     let encontrado = false;
     for (const id of allAudioIds) {
@@ -605,9 +691,9 @@ function pararTodosAudios() {
     finalizarAudioCallback = null;
 
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
 
     allAudioIds.forEach(id => {
@@ -717,9 +803,9 @@ function processarFilaAudios() {
 
     // Pausa outros áudios para garantir zero sobreposição
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
-        'audio-varejo-reg', 'audio-parlux'
+        'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
     allAudioIds.forEach(id => {
         if (id !== config.id) {
@@ -809,61 +895,159 @@ function processarFilaAudios() {
 
     console.log(`[Áudio Fila] 🎵 Tocando: ${config.nome} (${config.duration / 1000}s)`);
     audioEl.play().then(() => {
+        // Marca meta tocada no storage apenas quando a música realmente começar a tocar
+        const mesAtual = document.getElementById('filter-month')?.value;
+        const anoAtual = document.getElementById('filter-year')?.value;
+        if (mesAtual && anoAtual) {
+            marcarMetaComoTocada(proximoTipo, mesAtual, anoAtual);
+        }
         currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
+        esconderOverlayDesbloqueioTV();
     }).catch(e => {
         console.warn(`Erro ao tocar áudio ${config.nome}:`, e);
-        finalizarAudio();
+        audioQueueRunning = false;
+        currentAudioElement = null;
+        if (e.name === 'NotAllowedError') {
+            // Devolve a música para o topo da fila para ser tocada assim que desbloquear
+            audioQueue.unshift(proximoTipo);
+            if (musicaAtualIndex > 0) musicaAtualIndex--;
+            mostrarOverlayDesbloqueioTV(config.nome);
+        } else {
+            finalizarAudio();
+        }
     });
 }
 
+function mostrarOverlayDesbloqueioTV(nomeMusica) {
+    const el = document.getElementById('tv-audio-unlock-overlay');
+    if (el) {
+        el.style.display = 'flex';
+        mostrarStatusAudio(`⚠️ Clique na tela ou pressione OK no controle remoto para liberar o som da TV (${nomeMusica || 'Músicas'})`, '#dc3545', 'rgba(220, 53, 69, 0.25)');
+    }
+}
+
+function esconderOverlayDesbloqueioTV() {
+    const el = document.getElementById('tv-audio-unlock-overlay');
+    if (el) {
+        el.style.display = 'none';
+    }
+}
+
+let audioDesbloqueadoPeloUsuario = false;
+
 function desbloquearAudiosNavegador() {
+    esconderOverlayDesbloqueioTV();
     const allAudioIds = [
-        'victory-sound', 'music-sound', 'audio-distribuicao',
+        'music-sound', 'audio-distribuicao',
         'audio-ecommerce', 'audio-comex', 'audio-varejo-sp',
         'audio-varejo-reg', 'audio-parlux', 'audio-caixa', 'audio-policia'
     ];
     allAudioIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-            el.play().then(() => {
-                el.pause();
-                el.currentTime = 0;
-            }).catch(() => {});
+            el.muted = true;
+            const p = el.play();
+            if (p) {
+                p.then(() => {
+                    el.pause();
+                    el.currentTime = 0;
+                    el.muted = false;
+                }).catch(() => {
+                    el.muted = false;
+                });
+            }
         }
     });
 }
 
-// Testar a sequência completa de metas atingidas
-function testarSequenciaMetas() {
+function desbloquearSomTV() {
+    audioDesbloqueadoPeloUsuario = true;
+    esconderOverlayDesbloqueioTV();
+    desbloquearAudiosNavegador();
+    
+    // Se a fila de áudios já tiver músicas pendentes, inicia imediatamente
+    if (audioQueue.length > 0) {
+        audioQueueRunning = false;
+        processarFilaAudios();
+    } else {
+        // Se a fila estava vazia, dispara a sequência das metas batidas
+        tocarSequenciaMetas(false);
+    }
+}
+
+function onInteracaoUsuarioTV() {
+    if (audioDesbloqueadoPeloUsuario) return;
+    audioDesbloqueadoPeloUsuario = true;
+    desbloquearSomTV();
+}
+
+['click', 'keydown', 'touchstart', 'pointerdown'].forEach(evt => {
+    window.addEventListener(evt, onInteracaoUsuarioTV, { once: true, passive: true });
+});
+
+function verificarPermissaoAutoplay() {
+    try {
+        const testAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+        testAudio.volume = 0;
+        const playPromise = testAudio.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                testAudio.pause();
+                audioDesbloqueadoPeloUsuario = true;
+                esconderOverlayDesbloqueioTV();
+            }).catch(err => {
+                console.log('[TV Áudio] Autoplay bloqueado pelo navegador da TV:', err.name);
+                mostrarOverlayDesbloqueioTV('Músicas de Metas');
+            });
+        }
+    } catch (e) {}
+}
+
+// Tocar a sequência completa de metas atingidas
+function tocarSequenciaMetas(forcar = false) {
     desbloquearAudiosNavegador();
     pararTodosAudios();
 
-    let canaisParaTestar = [];
+    const data = window.currentVendasData || [];
+    const mes = document.getElementById('filter-month')?.value;
+    const ano = document.getElementById('filter-year')?.value;
 
-    if (window.currentVendasData && Array.isArray(window.currentVendasData)) {
-        // Ordena por percentual decrescente (classificação de quem bateu meta)
-        const metasBatidas = window.currentVendasData
-            .filter(eq => eq.percent >= 100)
-            .sort((a, b) => b.percent - a.percent);
+    const equipesBatidas = data
+        .filter(eq => (Number(eq.percent) || 0) >= 100)
+        .sort((a, b) => (Number(b.percent) || 0) - (Number(a.percent) || 0));
 
-        canaisParaTestar = metasBatidas
-            .map(eq => obterChaveCanal(eq.name))
-            .filter(chave => chave && AUDIO_CONFIG[chave]);
+    if (equipesBatidas.length === 0) {
+        mostrarStatusAudio('ℹ️ Nenhum canal atingiu 100% de meta no período exibido.', '#ffc107', 'rgba(255, 193, 7, 0.25)');
+        setTimeout(esconderStatusAudio, 5000);
+        return;
     }
 
-    // Se nenhum canal tiver batido a meta no mês filtrado, usa o exemplo de Agosto
-    if (canaisParaTestar.length === 0) {
-        console.log('[Teste] Usando sequência padrão das metas de Agosto: Distribuição, Varejo SP, E-commerce, Empresa.');
-        canaisParaTestar = ['distribuicao', 'varejo_sp', 'ecommerce', 'empresa'];
+    if (forcar) {
+        resetarTodasMetasTocadasDoMes(mes, ano);
     }
 
-    console.log('[Teste Sequência Metas] Ordem de reprodução (Classificação):', canaisParaTestar);
+    equipesBatidas.forEach(equipe => {
+        const chave = obterChaveCanal(equipe.name);
+        if (chave) {
+            if (forcar || !jaTocouMeta(chave, mes, ano)) {
+                audioQueue.push(chave);
+            }
+        }
+    });
 
-    audioQueue = [...canaisParaTestar];
-    totalMusicasNaFila = audioQueue.length;
-    musicaAtualIndex = 0;
+    if (audioQueue.length > 0) {
+        totalMusicasNaFila = audioQueue.length;
+        musicaAtualIndex = 0;
+        processarFilaAudios();
+    } else {
+        mostrarStatusAudio('ℹ️ Músicas das metas batidas já foram tocadas hoje.', '#ffc107', 'rgba(255, 193, 7, 0.25)');
+        setTimeout(esconderStatusAudio, 5000);
+    }
+}
 
-    processarFilaAudios();
+// Testar a sequência completa de metas atingidas
+function testarSequenciaMetas() {
+    tocarSequenciaMetas(true);
 }
 
 // Testar individualmente uma música
@@ -872,12 +1056,26 @@ function testarAudioIndividual(tipo) {
     fecharAudioDropdown();
 
     if (tipo && AUDIO_CONFIG[tipo]) {
+        if (tipo === 'policia') {
+            const cards = document.querySelectorAll('.gauge-card');
+            if (cards && cards.length > 0) {
+                cards[0].classList.remove('oscilou-cima');
+                cards[0].classList.add('oscilou-baixo');
+                setTimeout(() => cards[0].classList.remove('oscilou-baixo'), 7500);
+            }
+        } else if (tipo === 'caixa') {
+            const cards = document.querySelectorAll('.gauge-card');
+            if (cards && cards.length > 0) {
+                cards[0].classList.remove('oscilou-baixo');
+                cards[0].classList.add('oscilou-cima');
+                setTimeout(() => cards[0].classList.remove('oscilou-cima'), 5000);
+            }
+        }
+
         audioQueue = [tipo];
         totalMusicasNaFila = 1;
         musicaAtualIndex = 0;
         processarFilaAudios();
-    } else {
-        enfileirarAudio('sirene');
     }
 }
 
@@ -931,6 +1129,7 @@ function updateCountdownDisplay() {
 document.addEventListener("DOMContentLoaded", () => {
     initFilters();
     fetchData();
+    verificarPermissaoAutoplay();
     
     // Timer para atualização periódica
     setInterval(() => {

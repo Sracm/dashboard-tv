@@ -78,7 +78,7 @@ function getEmpresaGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#28a745' : '#FF3333';
+    const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
 
     return {
         series: [
@@ -89,51 +89,57 @@ function getEmpresaGaugeOption(percent, diff) {
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '100%',
-                center: ['50%', '76%'],
+                radius: '115%',
+                center: ['50%', '70%'],
                 axisLine: {
                     lineStyle: {
-                        width: 52,
+                        width: 30,
                         color: [
-                            [80 / 120, '#dc3545'],
-                            [100 / 120, '#ffc107'],
-                            [1, '#28a745']
+                            [80 / 120, '#ef4444'],
+                            [100 / 120, '#f59e0b'],
+                            [1, '#10b981']
                         ]
                     }
                 },
                 pointer: {
                     icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
                     length: '65%',
-                    width: 16,
+                    width: 10,
                     offsetCenter: [0, '-4%'],
-                    itemStyle: { color: '#0d6efd' }
+                    itemStyle: { 
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0,0,0,0.6)',
+                        shadowBlur: 5
+                    }
                 },
                 axisTick: {
-                    length: 14,
-                    lineStyle: { color: 'auto', width: 2.5 }
+                    length: 8,
+                    lineStyle: { color: 'auto', width: 1.5 }
                 },
                 splitLine: {
-                    length: 26,
-                    lineStyle: { color: 'auto', width: 4 }
+                    length: 15,
+                    lineStyle: { color: 'auto', width: 2.5 }
                 },
                 axisLabel: {
                     show: false
                 },
                 title: {
-                    offsetCenter: [0, '15%'],
-                    fontSize: 36,
+                    offsetCenter: [0, '18%'],
+                    fontSize: 32,
                     color: '#ffffff',
-                    fontWeight: 'bolder'
+                    fontWeight: '800',
+                    fontFamily: 'Montserrat'
                 },
                 detail: {
-                    fontSize: 22,
+                    fontSize: 18,
                     offsetCenter: [0, '42%'],
                     valueAnimation: true,
                     formatter: function () {
                         return diffText;
                     },
                     color: diffColor,
-                    fontWeight: 'bold'
+                    fontWeight: '700',
+                    fontFamily: 'Montserrat'
                 },
                 data: [{ value: Math.min(Math.max(percent, 0), 120), name: percent.toFixed(1) + '%' }]
             }
@@ -418,8 +424,15 @@ function renderEmpresa() {
     const ytdYoyCard = document.getElementById('ytd-yoy-card-el');
     
     if (currentView === 'acumulado') {
-        if (mainContainer) mainContainer.style.maxWidth = '650px';
-        if (ytdYoyContainer) ytdYoyContainer.style.display = 'flex';
+        if (mainContainer) {
+            mainContainer.style.maxWidth = 'none';
+            mainContainer.style.flex = '1';
+        }
+        if (ytdYoyContainer) {
+            ytdYoyContainer.style.display = 'flex';
+            ytdYoyContainer.style.maxWidth = 'none';
+            ytdYoyContainer.style.flex = '1';
+        }
         
         // Exibir banner de "SUPEROU ANO ANTERIOR" se YTD YoY > 0
         if (ytdYoyBanner) {
@@ -438,7 +451,10 @@ function renderEmpresa() {
             }
         }
     } else {
-        if (mainContainer) mainContainer.style.maxWidth = '1000px';
+        if (mainContainer) {
+            mainContainer.style.maxWidth = '920px';
+            mainContainer.style.flex = '1';
+        }
         if (ytdYoyContainer) ytdYoyContainer.style.display = 'none';
     }
 
@@ -465,23 +481,23 @@ function renderEmpresa() {
         }
     }
 
-    // Renderizar Comparativos abaixo do velocímetro
+    // Renderizar Comparativos abaixo do velocímetro (apenas percentuais, sem valores em R$)
     const compContainer = document.getElementById('empresa-comparisons');
     if (compContainer) {
         let badgesHtml = '';
-        if (item.realizado !== undefined) {
-            badgesHtml += renderAmountBadge('Realizado', item.realizado);
-        }
-        if (item.meta !== undefined && item.meta > 0) {
-            badgesHtml += renderAmountBadge('Meta', item.meta);
-        }
         if (currentView === 'mes') {
             const mom = item.mom || 0;
             const prevMonth = item.prev_month_percent !== undefined ? item.prev_month_percent : 0;
             if (prevMonth > 0) badgesHtml += renderValueBadge('Mês Ant', prevMonth);
             if (mom !== 0) badgesHtml += renderTrendBadge('MoM', mom);
         }
-        compContainer.innerHTML = badgesHtml;
+        if (badgesHtml) {
+            compContainer.innerHTML = badgesHtml;
+            compContainer.style.display = 'flex';
+        } else {
+            compContainer.innerHTML = '';
+            compContainer.style.display = 'none';
+        }
     }
 
     const ytdCompContainer = document.getElementById('ytd-comparisons');
@@ -520,6 +536,8 @@ async function fetchData(forceRefresh = false) {
         
         if (json.success && json.data) {
             empresaData = json.data;
+            const currentItem = currentView === 'acumulado' ? empresaData.acumulado : empresaData.mes;
+            verificarOscilacaoEmpresa(currentItem);
             renderEmpresa();
 
             const lastUpdateEl = document.getElementById('last-update');
@@ -532,48 +550,71 @@ async function fetchData(forceRefresh = false) {
     }
 }
 
+let anteriorEmpresaPercent = null;
+
+function verificarOscilacaoEmpresa(item) {
+    if (!item) return;
+    const atual = Number(item.percent) || 0;
+    if (anteriorEmpresaPercent !== null && !isNaN(anteriorEmpresaPercent)) {
+        const delta = atual - anteriorEmpresaPercent;
+        const cardEl = document.getElementById('empresa-card-el');
+        if (delta < -0.005) {
+            if (cardEl) {
+                cardEl.classList.remove('oscilou-cima');
+                cardEl.classList.add('oscilou-baixo');
+                setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 8000);
+            }
+            const audioPol = document.getElementById('audio-policia');
+            if (audioPol) {
+                audioPol.currentTime = 0;
+                audioPol.volume = 1.0;
+                audioPol.play().catch(() => {});
+                setTimeout(() => { try { audioPol.pause(); audioPol.currentTime = 0; } catch(e){} }, 7000);
+            }
+        } else if (delta > 0.005) {
+            if (cardEl) {
+                cardEl.classList.remove('oscilou-baixo');
+                cardEl.classList.add('oscilou-cima');
+                setTimeout(() => cardEl.classList.remove('oscilou-cima'), 5000);
+            }
+            const audioCx = document.getElementById('audio-caixa');
+            if (audioCx) {
+                audioCx.currentTime = 0;
+                audioCx.volume = 1.0;
+                audioCx.play().catch(() => {});
+                setTimeout(() => { try { audioCx.pause(); audioCx.currentTime = 0; } catch(e){} }, 4000);
+            }
+        }
+    }
+    anteriorEmpresaPercent = atual;
+}
+
 function manualRefresh() {
     pararTodosAudios();
     nextUpdateSeconds = 600;
     fetchData(true);
 }
 
-let sireneTimeout = null;
 let musicaTimeout = null;
 
 function pararTodosAudios() {
-    if (sireneTimeout) {
-        clearTimeout(sireneTimeout);
-        sireneTimeout = null;
-    }
     if (musicaTimeout) {
         clearTimeout(musicaTimeout);
         musicaTimeout = null;
     }
-    const audioSirene = document.getElementById('victory-sound');
-    const audioMusica = document.getElementById('music-sound');
-    if (audioSirene) {
-        audioSirene.pause();
-        audioSirene.currentTime = 0;
-        audioSirene.onended = null;
-    }
-    if (audioMusica) {
-        audioMusica.pause();
-        audioMusica.currentTime = 0;
-    }
+    ['music-sound', 'audio-policia', 'audio-caixa'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            try {
+                el.pause();
+                el.currentTime = 0;
+            } catch (e) {}
+        }
+    });
 }
 
 function testarAudio(tipo) {
-    if (tipo === 'sirene') {
-        pararTodosAudios();
-        const audioSirene = document.getElementById('victory-sound');
-        if (audioSirene) {
-            audioSirene.currentTime = 0;
-            audioSirene.play().catch(e => console.warn("Erro ao tocar sirene:", e));
-        }
-    } else {
-        tocarAudioMetaEmpresa();
-    }
+    tocarAudioMetaEmpresa();
 }
 
 function tocarAudioMetaEmpresa() {

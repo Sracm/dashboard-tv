@@ -11,8 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=7">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20260925_172800">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=14">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categorias.css') }}?v=20261002_102000">
 </head>
 <body>
     <div class="dashboard-container">
@@ -158,5 +158,7 @@
     <audio id="music-sound" src="/static/audio/audio-musica.mp3" preload="none"></audio>
 
     <script src="{{ url_for('static', filename='js/marcas.js') }}?v=20260925_214200"></script>
+    <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=2"></script>
 </body>
 </html>
