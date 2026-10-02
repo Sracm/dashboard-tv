@@ -499,6 +499,8 @@ function switchDisplayMode(mode) {
 
     if (mode === 'table') {
         renderTable();
+    } else {
+        setTimeout(initTableAutoScroll, 150);
     }
 }
 window.switchViewMode = switchDisplayMode;
@@ -592,7 +594,7 @@ function renderCategoryCard(cat, rankNum) {
 
     // Filtrar produtos relevantes que NÃO sejam zerados (share ant, share atual e evolução p.p zerados)
     const prods = (cat.produtos || []).filter(p => !isItemZerado(p));
-    const topProds = prods.slice(0, 10);
+    const topProds = prods;
 
     const rankClass = rankNum === 1 ? 'rank-1-card' : '';
     const rankBadge = renderRankBadge(rankNum);
@@ -651,8 +653,7 @@ function renderCategoryCard(cat, rankNum) {
         `;
     }).join('') : `<div style="text-align:center; padding:12px 4px; color:#64748b; font-size:0.62rem;">Nenhum produto com evolução no período</div>`;
 
-    const remainingProds = prods.length - topProds.length;
-    const footerText = remainingProds > 0 ? `+ ${remainingProds} outros produtos` : `${prods.length} ${prods.length === 1 ? 'produto com evolução' : 'produtos com evolução'}`;
+    const footerText = `${prods.length} ${prods.length === 1 ? 'produto com evolução' : 'produtos com evolução'}`;
 
     return `
         <div class="cat-column-card ${rankClass}">
@@ -924,6 +925,8 @@ function renderTable() {
 
     const totalItensEl = document.getElementById('total-itens');
     if (totalItensEl) totalItensEl.innerText = filtered.length;
+
+    setTimeout(initTableAutoScroll, 150);
 }
 
 function switchView(view) {
@@ -1010,9 +1013,52 @@ function testarAudio() {
     }
 }
 
+// ── Auto-Scroll Contínuo nas Tabelas e Cards (Modo TV) ───────────────────
+const activeScrollIntervals = [];
+
+function initTableAutoScroll() {
+    activeScrollIntervals.forEach(timer => clearInterval(timer));
+    activeScrollIntervals.length = 0;
+
+    const scrollEls = document.querySelectorAll('.table-responsive-wrapper, .cat-col-body, .columns-grid-container, .tv-table-scroll');
+    scrollEls.forEach(container => {
+        let isPaused = false;
+        let resumeTimeout = null;
+
+        container.addEventListener('mouseenter', () => { isPaused = true; });
+        container.addEventListener('mouseleave', () => { isPaused = false; });
+        container.addEventListener('touchstart', () => { isPaused = true; }, { passive: true });
+        container.addEventListener('touchend',   () => { isPaused = false; }, { passive: true });
+        container.addEventListener('wheel', () => {
+            isPaused = true;
+            clearTimeout(resumeTimeout);
+            resumeTimeout = setTimeout(() => { isPaused = false; }, 3000);
+        }, { passive: true });
+
+        const interval = setInterval(() => {
+            if (isPaused) return;
+
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            if (maxScroll <= 5) return;
+
+            container.scrollTop += 0.8;
+            if (container.scrollTop >= maxScroll - 2) {
+                isPaused = true;
+                setTimeout(() => {
+                    container.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(() => { isPaused = false; }, 1200);
+                }, 2500);
+            }
+        }, 35);
+
+        activeScrollIntervals.push(interval);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initFilters();
     updateClock();
     setInterval(updateClock, 1000);
     fetchData();
+    setTimeout(initTableAutoScroll, 300);
 });
