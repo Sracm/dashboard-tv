@@ -45,7 +45,7 @@ function getTrimestreGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
+    const diffColor = diff >= 0 ? '#00d26a' : '#ff2424';
 
     return {
         series: [
@@ -62,9 +62,9 @@ function getTrimestreGaugeOption(percent, diff) {
                     lineStyle: {
                         width: 22,
                         color: [
-                            [80 / 120, '#ef4444'],
-                            [100 / 120, '#f59e0b'],
-                            [1, '#10b981']
+                            [80 / 120, '#ff2424'],
+                            [100 / 120, '#ffd600'],
+                            [1, '#00d26a']
                         ]
                     }
                 },

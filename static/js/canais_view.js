@@ -107,7 +107,7 @@ function getCanalGaugeOption(percent, isLarge) {
     const diff = percent - 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#10b981' : '#ef4444';
+    const diffColor = diff >= 0 ? '#00d26a' : '#ff2424';
 
     const radius = isLarge ? '115%' : '125%';
     const center = isLarge ? ['50%', '70%'] : ['50%', '65%'];
@@ -131,9 +131,9 @@ function getCanalGaugeOption(percent, isLarge) {
                     lineStyle: {
                         width: lineWidth,
                         color: [
-                            [80 / 120, '#ef4444'],
-                            [100 / 120, '#f59e0b'],
-                            [1, '#10b981']
+                            [80 / 120, '#ff2424'],
+                            [100 / 120, '#ffd600'],
+                            [1, '#00d26a']
                         ]
                     }
                 },

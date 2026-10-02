@@ -71,7 +71,7 @@ function getGaugeOption(percent) {
     const diff = percent - 100;
     const sign = diff >= 0 ? '+' : '';
     const diffStr = sign + diff.toFixed(1) + '%';
-    const diffColor = isSuccess ? '#28a745' : '#FF3333';
+    const diffColor = isSuccess ? '#00d26a' : '#ff2424';
 
     return {
         series: [
@@ -88,9 +88,9 @@ function getGaugeOption(percent) {
                     lineStyle: {
                         width: 12,
                         color: [
-                            [80 / 120, '#dc3545'],
-                            [100 / 120, '#ffc107'],
-                            [1, '#28a745']
+                            [80 / 120, '#ff2424'],
+                            [100 / 120, '#ffd600'],
+                            [1, '#00d26a']
                         ]
                     }
                 },
@@ -99,7 +99,11 @@ function getGaugeOption(percent) {
                     length: '58%',
                     width: 5,
                     offsetCenter: [0, '-4%'],
-                    itemStyle: { color: '#0d6efd' }
+                    itemStyle: { 
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0,0,0,0.6)',
+                        shadowBlur: 3
+                    }
                 },
                 axisTick: {
                     length: 5,

@@ -82,9 +82,9 @@ function getGaugeOption(percent, name) {
                     lineStyle: {
                         width: isEmpresa ? 24 : 18,
                         color: [
-                            [80 / 120, '#ef4444'],
-                            [100 / 120, '#f59e0b'],
-                            [1, '#10b981']
+                            [80 / 120, '#ff2424'],
+                            [100 / 120, '#ffd600'],
+                            [1, '#00d26a']
                         ]
                     }
                 },
