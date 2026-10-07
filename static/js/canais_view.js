@@ -8,8 +8,18 @@ function navigateTab(path) {
         window.location.href = '/tv';
         return;
     }
-    const mes = document.getElementById('filter-month') ? document.getElementById('filter-month').value : '';
-    const ano = document.getElementById('filter-year') ? document.getElementById('filter-year').value : '';
+    const now = new Date();
+    const realM = now.getMonth() + 1;
+    const realY = now.getFullYear();
+
+    let mes = document.getElementById('filter-month') ? parseInt(document.getElementById('filter-month').value, 10) : realM;
+    let ano = document.getElementById('filter-year') ? parseInt(document.getElementById('filter-year').value, 10) : realY;
+
+    if (isNaN(mes) || (ano >= realY && mes > realM)) {
+        mes = realM;
+    }
+    if (isNaN(ano)) ano = realY;
+
     window.location.href = `${path}?mes=${mes}&ano=${ano}`;
 }
 
@@ -590,31 +600,35 @@ function verificarOscilacaoCanais(dadosEquipes) {
         const cardEl = document.getElementById(`card-canal-${idx}`);
 
         if (percentAntigo !== undefined && !Number.isNaN(percentAntigo)) {
-            const delta = percentAtual - percentAntigo;
+            const pAtualFmt = Number(percentAtual.toFixed(1));
+            const pAntFmt = Number(percentAntigo.toFixed(1));
+            const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
 
-            // 1. Oscilação para CIMA -> Caixa Registradora
-            if (delta > 0.005) {
+            // 1. Oscilação para CIMA -> Caixa Registradora (exige subida visível >= 0.1%)
+            if (deltaVisivel >= 0.1) {
                 if (cardEl) {
                     cardEl.classList.remove('oscilou-baixo');
                     cardEl.classList.add('oscilou-cima');
-                    setTimeout(() => cardEl.classList.remove('oscilou-cima'), 20000);
                 }
                 if (!tocouPositivo) {
                     tocouPositivo = true;
-                    console.log(`[Todos Canais] 💵 SUBIDA em ${nome}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}%. Caixa Registradora.`);
+                    console.log(`[Todos Canais] 💵 SUBIDA REAL em ${nome}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%). Caixa Registradora.`);
                     enfileirarAudioFrente('caixa');
                 }
-            // 2. Redução para BAIXO -> Sirene de Polícia
-            } else if (delta < -0.005) {
+            // 2. Redução para BAIXO -> Sirene de Polícia (exige queda visível <= -0.1%)
+            } else if (deltaVisivel <= -0.1) {
                 if (cardEl) {
                     cardEl.classList.remove('oscilou-cima');
                     cardEl.classList.add('oscilou-baixo');
-                    setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 20000);
                 }
                 if (!tocouNegativo) {
                     tocouNegativo = true;
-                    console.log(`[Todos Canais] 🚨 REDUÇÃO em ${nome}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}%. Sirene Polícia.`);
+                    console.log(`[Todos Canais] 🚨 QUEDA REAL em ${nome}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ ${deltaVisivel.toFixed(1)}%). Sirene Polícia.`);
                     enfileirarAudioFrente('policia');
+                }
+            } else {
+                if (cardEl) {
+                    cardEl.classList.remove('oscilou-cima', 'oscilou-baixo');
                 }
             }
         }
@@ -752,13 +766,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const paramMes = urlParams.get('mes');
     const paramAno = urlParams.get('ano');
 
-    if (paramMes) {
-        userExplicitlyChangedMonth = true;
+    const now = new Date();
+    const realMonth = now.getMonth() + 1;
+    const realYear = now.getFullYear();
+
+    let currentMonth = paramMes ? parseInt(paramMes) : realMonth;
+    let currentYear = paramAno ? parseInt(paramAno) : realYear;
+
+    if (isNaN(currentMonth) || currentMonth < 1 || currentMonth > 12) currentMonth = realMonth;
+    if (isNaN(currentYear) || currentYear < 2020) currentYear = realYear;
+
+    // SOLUÇÃO DEFINITIVA ANTI-MÊS FUTURO / ANTI-DEZEMBRO:
+    // Se a URL ou rotação veio com mês > realMonth no ano corrente (ex: Dezembro em Outubro):
+    // Corrige IMEDIATAMENTE para o mês corrente real e reescreve a URL no navegador.
+    if (currentYear >= realYear && currentMonth > realMonth) {
+        console.warn(`[CANAIS VIEW] Mês futuro ${currentMonth}/${currentYear} corrigido para mês real ${realMonth}/${realYear}`);
+        currentMonth = realMonth;
+        currentYear = realYear;
+        if (window.history && window.history.replaceState) {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.set('mes', currentMonth);
+            cleanUrl.searchParams.set('ano', currentYear);
+            window.history.replaceState({}, '', cleanUrl.toString());
+        }
     }
 
-    const now = new Date();
-    const currentMonth = paramMes ? parseInt(paramMes) : (now.getMonth() + 1);
-    const currentYear = paramAno ? parseInt(paramAno) : now.getFullYear();
+    if (paramMes && parseInt(paramMes) === currentMonth) {
+        userExplicitlyChangedMonth = true;
+    }
 
     const monthSelect = document.getElementById('filter-month');
     const yearSelect = document.getElementById('filter-year');

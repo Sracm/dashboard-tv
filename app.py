@@ -1,3 +1,4 @@
+import urllib.parse
 import calendar
 import time
 import oracledb
@@ -24,12 +25,30 @@ def add_header(response):
     response.headers['Expires'] = '0'
     return response
 
+@app.before_request
+def sanitize_future_months():
+    # REGRA DEFINITIVA: Bloqueia páginas HTML que venham com mês no futuro no ano corrente
+    if request.method == 'GET' and not request.path.startswith('/static') and not request.path.startswith('/api'):
+        mes_req = request.args.get('mes')
+        ano_req = request.args.get('ano')
+        now = datetime.now()
+        if ano_req and str(ano_req).isdigit() and int(ano_req) >= now.year:
+            if mes_req and str(mes_req).isdigit() and int(mes_req) > now.month:
+                args = request.args.to_dict()
+                args['mes'] = str(now.month)
+                args['ano'] = str(now.year)
+                query = urllib.parse.urlencode(args)
+                return redirect(f"{request.path}?{query}")
+
 # Configurações do Banco Oracle
 DB_USER = os.getenv("ORACLE_USER", "")
 DB_PASS = os.getenv("ORACLE_PASSWORD", "")
 DB_DSN = os.getenv("ORACLE_DSN", "")
 
-EXCEL_METAS_PATH = os.path.join(os.path.dirname(__file__), 'data', 'meta.xlsx')
+EXCEL_METAS_PATH = os.path.join(
+    os.path.expanduser('~'),
+    'OneDrive - MQHAIR', 'T.I', 'PROJETOS BI', 'METAS MQ BASE', 'METAS MQ BASE.xlsx'
+)
 SQL_PATH = os.path.join(os.path.dirname(__file__), 'query', 'vendas_vendedor_gerente.sql')
 DISK_CACHE_DIR = os.path.join(os.path.dirname(__file__), 'data', 'cache')
 os.makedirs(DISK_CACHE_DIR, exist_ok=True)
@@ -136,17 +155,41 @@ def carregar_metas_e_setores(mes, ano, force_refresh=False):
         last_excel_mtime = 0
         
     excel_mtime = os.path.getmtime(EXCEL_METAS_PATH) if os.path.exists(EXCEL_METAS_PATH) else 0
-    if cached_df_metas is None or excel_mtime != last_excel_mtime or (time.time() - last_excel_read > CACHE_TTL_REALTIME):
+    precisa_recarregar = (
+        cached_df_metas is None or 
+        cached_df_setores is None or 
+        excel_mtime != last_excel_mtime or 
+        (time.time() - last_excel_read > CACHE_TTL_REALTIME)
+    )
+    
+    if precisa_recarregar:
         print("[CACHE] Recarregando metas e base_setores do Excel...")
-        cached_df_metas = pd.read_excel(EXCEL_METAS_PATH, sheet_name='metas')
-        cached_df_metas.columns = cached_df_metas.columns.str.strip().str.upper()
-        
-        cached_df_setores = pd.read_excel(EXCEL_METAS_PATH, sheet_name='base_setores')
-        cached_df_setores.columns = cached_df_setores.columns.str.strip().str.upper()
+        try:
+            df_m = pd.read_excel(EXCEL_METAS_PATH, sheet_name='TABELA METAS MQ GERAL')
+            df_m.columns = df_m.columns.str.strip().str.upper()
+            cached_df_metas = df_m
+        except Exception as e:
+            print(f"[ERRO METAS EXCEL] {e}")
+            if cached_df_metas is None:
+                cached_df_metas = pd.DataFrame(columns=['DATA', 'MES', 'MÊS', 'ANO', 'META', 'CANAL'])
+
+        try:
+            df_s = pd.read_excel(EXCEL_METAS_PATH, sheet_name='BASE SETORES')
+            df_s.columns = df_s.columns.str.strip().str.upper()
+            cached_df_setores = df_s
+        except Exception as e:
+            print(f"[ERRO SETORES EXCEL] {e}")
+            if cached_df_setores is None:
+                cached_df_setores = pd.DataFrame(columns=['CODVEND', 'SETOR', 'VENDEDOR'])
         
         last_excel_mtime = excel_mtime
         last_excel_read = time.time()
         
+    if cached_df_metas is None:
+        cached_df_metas = pd.DataFrame(columns=['DATA', 'MES', 'MÊS', 'ANO', 'META', 'CANAL'])
+    if cached_df_setores is None:
+        cached_df_setores = pd.DataFrame(columns=['CODVEND', 'SETOR', 'VENDEDOR'])
+
     df_metas = cached_df_metas.copy()
     
     # O Power BI faz o relacionamento entre TABELA METAS MQ GERAL e CALENDARIO pela coluna DATA!
@@ -521,12 +564,15 @@ def api_vendas_tv():
     try:
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         ano_req = request.args.get('ano')
-        ano = int(ano_req) if ano_req else datetime.now().year
+        now_dt = datetime.now()
+        ano = int(ano_req) if ano_req else now_dt.year
         mes_req = request.args.get('mes')
-        if mes_req:
+        if mes_req and str(mes_req).isdigit():
             mes = int(mes_req)
+            if ano >= now_dt.year and mes > now_dt.month:
+                mes = now_dt.month
         else:
-            mes = datetime.now().month
+            mes = now_dt.month
 
         if force:
             invalidar_todos_os_caches(ano)
@@ -586,8 +632,11 @@ def api_auditoria_medidas():
     Permite conferir na tela, canal a canal, de onde saiu cada percentual.
     """
     try:
-        mes = int(request.args.get('mes', datetime.now().month))
-        ano = int(request.args.get('ano', datetime.now().year))
+        now_dt = datetime.now()
+        mes = int(request.args.get('mes', now_dt.month))
+        ano = int(request.args.get('ano', now_dt.year))
+        if ano >= now_dt.year and mes > now_dt.month:
+            mes = now_dt.month
         medidas, contexto = calcular_medidas_tempo_canais(mes, ano)
         return jsonify({"success": True, "contexto": contexto, "medidas": medidas})
     except Exception as e:
@@ -608,8 +657,11 @@ def dashboard_canais():
 def api_acumulado_tv():
     try:
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
-        mes = int(request.args.get('mes', datetime.now().month))
-        ano = int(request.args.get('ano', datetime.now().year))
+        now_dt = datetime.now()
+        mes = int(request.args.get('mes', now_dt.month))
+        ano = int(request.args.get('ano', now_dt.year))
+        if ano >= now_dt.year and mes > now_dt.month:
+            mes = now_dt.month
         
         if force:
             invalidar_todos_os_caches(ano)
@@ -761,8 +813,11 @@ def dashboard_trimestre():
 def api_trimestre_tv():
     try:
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
-        mes = int(request.args.get('mes', datetime.now().month))
-        ano = int(request.args.get('ano', datetime.now().year))
+        now_dt = datetime.now()
+        mes = int(request.args.get('mes', now_dt.month))
+        ano = int(request.args.get('ano', now_dt.year))
+        if ano >= now_dt.year and mes > now_dt.month:
+            mes = now_dt.month
         
         if force:
             invalidar_todos_os_caches(ano)
@@ -881,12 +936,22 @@ def api_empresa_tv():
                 meses_list = [int(m.strip()) for m in str(meses_param).split(',') if m.strip().isdigit() and 1 <= int(m.strip()) <= 12]
             else:
                 m_single = int(meses_param)
-                meses_list = [m_single]
+                # Se for um único mês (ex: mes=12), no contexto corporativo representa o acumulado de 1 até aquele mês
+                meses_list = list(range(1, m_single + 1))
         else:
-            meses_list = [datetime.now().month]
+            meses_list = list(range(1, datetime.now().month + 1))
 
         if not meses_list:
-            meses_list = [datetime.now().month]
+            meses_list = list(range(1, datetime.now().month + 1))
+
+        now = datetime.now()
+        # Se for o ano corrente, não acumular meses estritamente futuros que ainda não possuem faturamento
+        if ano == now.year:
+            meses_validos = [m for m in meses_list if m <= now.month]
+            if meses_validos:
+                meses_list = meses_validos
+            else:
+                meses_list = list(range(1, now.month + 1))
             
         meses_list.sort()
 
@@ -918,14 +983,21 @@ def api_empresa_tv():
         pct_sel_ant = round((real_sel_ant / meta_sel_ant * 100), 1) if meta_sel_ant > 0 else 0.0
         yoy_acum = mt.arredondar(mt.divide_seguro(real_sel, real_sel_ant), 1)
 
-        # 2. MÊS ATUAL: Sempre o mês atual do calendário real (não responsivo ao filtro de meses)
-        now = datetime.now()
-        mes_atual = now.month
-        d_mes_atual = obter_dados_painel(mes_atual, ano, force_refresh=force).get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+        # 2. MÊS ATUAL:
+        # Se for o ano corrente (2026), o mês atual é SEMPRE o mês de hoje (Outubro / 10), com dados reais!
+        if ano == now.year:
+            mes_atual = now.month
+        else:
+            mes_atual = ref_mes if ref_mes else 12
+
+        d_mes_atual_all = obter_dados_painel(mes_atual, ano, force_refresh=force)
+        d_mes_atual = d_mes_atual_all.get("EMPRESA", {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
         pct_mes = round(d_mes_atual.get("percentual", 0.0), 1)
         diff_mes = round(pct_mes - 100.0, 1)
         real_mes = d_mes_atual.get("realizado", 0.0)
         meta_mes = d_mes_atual.get("meta", 0.0)
+        gap_mes = max(0.0, meta_mes - real_mes)
+        gap_pct_mes = max(0.0, 100.0 - pct_mes)
 
         mes_ant_m = 12 if mes_atual == 1 else mes_atual - 1
         ano_ant_m = ano - 1 if mes_atual == 1 else ano
@@ -937,6 +1009,82 @@ def api_empresa_tv():
         mom_mes = mt.arredondar(mt.divide_seguro(real_mes, real_ant_m), 1)
         yoy_mes = mt.arredondar(mt.divide_seguro(real_mes, real_ant_y), 1)
 
+        # Cálculo de dias úteis e ritmo diário (% e R$)
+        _, total_dias_mes = calendar.monthrange(ano, mes_atual)
+        if ano == now.year and mes_atual == now.month:
+            hoje_dia = min(now.day, total_dias_mes)
+            dias_uteis_restantes = sum(1 for d in range(hoje_dia, total_dias_mes + 1) if date(ano, mes_atual, d).weekday() < 5)
+        elif (ano < now.year) or (ano == now.year and mes_atual < now.month):
+            dias_uteis_restantes = 0
+        else:
+            dias_uteis_restantes = sum(1 for d in range(1, total_dias_mes + 1) if date(ano, mes_atual, d).weekday() < 5)
+
+        dias_uteis_calc = max(1, dias_uteis_restantes)
+        ritmo_diario_mes = round(gap_mes / dias_uteis_calc, 2) if (gap_mes > 0 and dias_uteis_restantes > 0) else 0.0
+        ritmo_diario_pct = round(gap_pct_mes / dias_uteis_calc, 2) if (gap_pct_mes > 0 and dias_uteis_restantes > 0) else 0.0
+
+        # Contribuição dos canais (Mês Atual)
+        canais_nomes_curtos = {
+            "E-COMMERCE": "E-commerce MQ",
+            "DISTRIBUIÇÃO": "Distribuição",
+            "COMEX": "Comex",
+            "VAREJO ESPECIALIZADO - SP": "Varejo SP",
+            "VAREJO ESPECIALIZADO REG.": "Varejo Reg",
+            "E-COMMERCE - PARLUX": "Parlux"
+        }
+        canais_cores = {
+            "E-COMMERCE": "#0d6efd",
+            "DISTRIBUIÇÃO": "#198754",
+            "COMEX": "#ffc107",
+            "VAREJO ESPECIALIZADO - SP": "#20c997",
+            "VAREJO ESPECIALIZADO REG.": "#d63384",
+            "E-COMMERCE - PARLUX": "#6f42c1"
+        }
+
+        canais_contribuicao_mes = []
+        for canal in CANAIS_PAINEL:
+            if canal == "EMPRESA" or canal == "E-COMMERCE - MQ":
+                continue
+            dc = d_mes_atual_all.get(canal, {"realizado": 0.0, "meta": 0.0, "percentual": 0.0})
+            r_c = dc.get("realizado", 0.0)
+            p_c = dc.get("percentual", 0.0)
+            share_c = round((r_c / real_mes * 100), 1) if real_mes > 0 else 0.0
+            canais_contribuicao_mes.append({
+                "canal": canal,
+                "nome": canais_nomes_curtos.get(canal, canal),
+                "cor": canais_cores.get(canal, "#888888"),
+                "realizado": r_c,
+                "percentual": p_c,
+                "meta": dc.get("meta", 0.0),
+                "share": share_c
+            })
+        canais_contribuicao_mes.sort(key=lambda x: x["realizado"], reverse=True)
+
+        # Contribuição dos canais (Acumulado)
+        gap_acum = max(0.0, meta_acum - real_acum)
+        canais_contribuicao_acum = []
+        for canal in CANAIS_PAINEL:
+            if canal == "EMPRESA" or canal == "E-COMMERCE - MQ":
+                continue
+            r_tot = 0.0
+            m_tot = 0.0
+            for m in meses_list:
+                dc = obter_dados_painel(m, ano, force_refresh=force).get(canal, {"realizado": 0.0, "meta": 0.0})
+                r_tot += dc.get("realizado", 0.0)
+                m_tot += dc.get("meta", 0.0)
+            pct_tot = round((r_tot / m_tot * 100), 1) if m_tot > 0 else 0.0
+            share_tot = round((r_tot / real_acum * 100), 1) if real_acum > 0 else 0.0
+            canais_contribuicao_acum.append({
+                "canal": canal,
+                "nome": canais_nomes_curtos.get(canal, canal),
+                "cor": canais_cores.get(canal, "#888888"),
+                "realizado": r_tot,
+                "percentual": pct_tot,
+                "meta": m_tot,
+                "share": share_tot
+            })
+        canais_contribuicao_acum.sort(key=lambda x: x["realizado"], reverse=True)
+
         return jsonify({
             "success": True,
             "data": {
@@ -945,20 +1093,29 @@ def api_empresa_tv():
                     "diff": diff_mes,
                     "realizado": real_mes,
                     "meta": meta_mes,
+                    "gap": gap_mes,
+                    "gap_pct": gap_pct_mes,
+                    "dias_uteis_restantes": dias_uteis_restantes,
+                    "ritmo_diario": ritmo_diario_mes,
+                    "ritmo_diario_pct": ritmo_diario_pct,
                     "prev_month_percent": d_mes_ant.get("percentual", 0.0),
                     "prev_year_percent": d_ano_ant.get("percentual", 0.0),
                     "mom": mom_mes,
                     "yoy": yoy_mes,
-                    "atingiu_meta": pct_mes >= 100.0
+                    "atingiu_meta": pct_mes >= 100.0,
+                    "canais": canais_contribuicao_mes
                 },
                 "acumulado": {
                     "percent": pct_acum,
                     "diff": diff_acum,
                     "realizado": real_acum,
                     "meta": meta_acum,
+                    "gap": gap_acum,
+                    "gap_pct": max(0.0, 100.0 - pct_acum),
                     "prev_year_percent": pct_sel_ant,
                     "yoy": yoy_acum,
-                    "atingiu_meta": pct_acum >= 100.0
+                    "atingiu_meta": pct_acum >= 100.0,
+                    "canais": canais_contribuicao_acum
                 }
             }
         })
@@ -1396,6 +1553,9 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
                     "faturamento": f_ytd,
                     "faturamento_ant": f_ytd_ant,
                     "faturamento_mtd": f_mtd,
+                    "mtd": f_mtd,
+                    "mes_anterior": f_mom,
+                    "mes_ano_anterior": f_yoy,
                     "rank": f_r,
                     "rank_ant": f_r_ant,
                     "share": f_share,
@@ -1413,6 +1573,9 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
                 "faturamento": v_ytd,
                 "faturamento_ant": v_ytd_ant,
                 "faturamento_mtd": v_mtd,
+                "mtd": v_mtd,
+                "mes_anterior": v_mom,
+                "mes_ano_anterior": v_yoy,
                 "rank": rank,
                 "rank_ant": r_ant,
                 "share": share,
@@ -1455,6 +1618,13 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
 
     meses_colunas = [{"num": m, "label": nomes_meses_br[m]} for m in range(1, 13)]
 
+    contexto_pg = {
+        "corte": corte_pg.isoformat(),
+        "parcial": parcial_pg,
+        "dias": corte_pg.day,
+        "periodos": {k: [v[0].isoformat(), v[1].isoformat()] for k, v in periodos_pg.items()},
+    }
+
     resultado = {
         "mes": mes_ref,
         "ano": ano_ref,
@@ -1468,6 +1638,7 @@ def obter_dados_categorias_marcas(mes, ano, canal_filter=None, marca_filter=None
         "marcas": marca_linhas,
         "canais": canal_linhas_ordenado,
         "canal": canal_filter,
+        "contexto": contexto_pg,
         "summary_categoria": cat_summary,
         "summary_marca": marca_summary,
         "summary_canal": canal_summary

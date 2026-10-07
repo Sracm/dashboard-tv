@@ -12,7 +12,7 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=14">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/empresa.css') }}?v=10">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/empresa.css') }}?v=20">
     
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -69,7 +69,7 @@
                                 <!-- Checkboxes gerados dinamicamente -->
                             </div>
                         </div>
-                        <input type="hidden" id="filter-month" value="8">
+                        <input type="hidden" id="filter-month" value="">
                     </div>
                     <select id="filter-year" onchange="fetchData()">
                         <option value="2024">2024</option>
@@ -95,25 +95,132 @@
             <button id="btn-view-acumulado" class="tab-btn" style="padding: 5px 18px;" onclick="setEmpresaView('acumulado')">ACUMULADO (PERÍODO)</button>
         </div>
 
-        <!-- Main Container para o Velocímetro Gigante -->
+        <!-- Main Container para o Cockpit Executivo da Empresa -->
         <main class="empresa-main-container">
-            <div class="empresa-card-wrapper">
-                <!-- Velocímetro Principal (Meta) -->
-                <div id="main-gauge-container">
-                    <div id="meta-banner-el" class="meta-banner">🎉 META ATINGIDA 🎉</div>
-                    <div class="empresa-card" id="empresa-card-el">
-                        <div class="empresa-title" id="empresa-card-title">EMPRESA (MÊS ATUAL)</div>
-                        <div class="empresa-chart" id="empresa-gauge"></div>
-                        <div class="empresa-comparisons" id="empresa-comparisons"></div>
+            <div class="cockpit-grid">
+                
+                <!-- Coluna Esquerda: 2 Cards de KPIs Operacionais (100% em %) -->
+                <div class="cockpit-col left-col">
+                    <!-- Card 1: Atingimento da Meta (%) -->
+                    <div class="kpi-glass-card" id="kpi-realizado-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-realizado-title">ATINGIMENTO (% META)</span>
+                            <span class="kpi-icon">📊</span>
+                        </div>
+                        <div class="kpi-value" id="kpi-realizado-val">0.0%</div>
+                        <div class="kpi-sub">
+                            <span id="kpi-mom-badge" class="trend-neutral">— vs Mês Ant.</span>
+                        </div>
+                        <div class="kpi-progress-bar">
+                            <div class="kpi-progress-fill" id="kpi-realizado-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: GAP (% Restante para a Meta) -->
+                    <div class="kpi-glass-card" id="kpi-gap-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-gap-title">GAP PARA A META</span>
+                            <span class="kpi-icon">🎯</span>
+                        </div>
+                        <div class="kpi-value kpi-gap-val" id="kpi-gap-val">100.0%</div>
+                        <div class="kpi-sub" id="kpi-gap-sub">
+                            <span id="kpi-diff-pct" class="trend-down">-100.0% restante</span>
+                        </div>
+                        <div class="kpi-info-line" id="kpi-dias-info">
+                            ⏳ <strong id="kpi-dias-count">20</strong> dias úteis restantes
+                        </div>
                     </div>
                 </div>
-                <!-- Velocímetro YTD vs Ano Anterior (Exibido apenas no Acumulado) -->
-                <div id="ytd-yoy-container">
-                    <div class="meta-banner" id="ytd-yoy-banner-el">🎉 SUPEROU ANO ANTERIOR 🎉</div>
-                    <div class="empresa-card" id="ytd-yoy-card-el">
-                        <div class="empresa-title" title="YTD (Year-to-Date): acumulado do início do ano até a data atual.">YTD (Year-to-Date)</div>
-                        <div class="empresa-chart" id="ytd-yoy-gauge"></div>
-                        <div class="empresa-comparisons" id="ytd-comparisons"></div>
+
+                <!-- Coluna Central: Velocímetro Cockpit Principal -->
+                <div class="cockpit-col center-col">
+                    <div id="meta-banner-el" class="meta-banner">🎉 META DA EMPRESA ATINGIDA 🎉</div>
+                    
+                    <div class="gauge-cockpit-card" id="empresa-card-el">
+                        <div class="cockpit-header">
+                            <div class="cockpit-badge" id="cockpit-status-badge">DESEMPENHO ATUAL</div>
+                            <div class="cockpit-title" id="empresa-card-title">EMPRESA (MÊS ATUAL)</div>
+                        </div>
+                        
+                        <div class="cockpit-chart-wrap">
+                            <div class="empresa-chart" id="empresa-gauge"></div>
+                            <!-- Marcador 100% Meta -->
+                            <div class="gauge-target-flag" title="Alvo 100% da Meta">
+                                <span class="flag-dot"></span>
+                                <span class="flag-text">100% META</span>
+                            </div>
+                        </div>
+
+                        <div class="cockpit-footer-metrics" id="empresa-comparisons">
+                            <!-- Badges comparativos MoM/YoY gerados dinamicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Velocímetro YTD vs Ano Anterior (Exibido no modo Acumulado) -->
+                    <div id="ytd-yoy-container" style="display: none; flex-direction: column; width: 100%; height: 100%;">
+                        <div class="meta-banner" id="ytd-yoy-banner-el">🎉 SUPEROU ANO ANTERIOR 🎉</div>
+                        <div class="gauge-cockpit-card" id="ytd-yoy-card-el">
+                            <div class="cockpit-header">
+                                <div class="cockpit-badge">COMPARATIVO ANUAL</div>
+                                <div class="cockpit-title">YTD vs ANO ANTERIOR</div>
+                            </div>
+                            <div class="cockpit-chart-wrap">
+                                <div class="empresa-chart" id="ytd-yoy-gauge"></div>
+                            </div>
+                            <div class="cockpit-footer-metrics" id="ytd-comparisons"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Coluna Direita: 2 Cards de KPIs Operacionais (100% em %) -->
+                <div class="cockpit-col right-col">
+                    <!-- Card 3: Objetivo Corporativo (100%) -->
+                    <div class="kpi-glass-card" id="kpi-meta-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-meta-title">OBJETIVO CORPORATIVO</span>
+                            <span class="kpi-icon">🏆</span>
+                        </div>
+                        <div class="kpi-value" id="kpi-meta-val">100.0%</div>
+                        <div class="kpi-sub">
+                            <span class="badge-neutral" id="kpi-meta-label">Meta MQ</span>
+                        </div>
+                        <div class="kpi-progress-bar">
+                            <div class="kpi-progress-fill target-fill" style="width: 100%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Ritmo Diário Necessário (%/dia) -->
+                    <div class="kpi-glass-card" id="kpi-ritmo-card">
+                        <div class="kpi-header">
+                            <span class="kpi-title" id="kpi-ritmo-title">RITMO DIÁRIO NECESSÁRIO</span>
+                            <span class="kpi-icon">⚡</span>
+                        </div>
+                        <div class="kpi-value kpi-ritmo-val" id="kpi-ritmo-val">0.00%/dia</div>
+                        <div class="kpi-sub" id="kpi-ritmo-sub">
+                            <span>% da meta por dia útil restante</span>
+                        </div>
+                        <div class="kpi-progress-bar">
+                            <div class="kpi-progress-fill ritmo-fill" style="width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Painel Inferior: Participação por Canal (Share %) -->
+            <div class="channels-contribution-panel" id="channels-panel">
+                <div class="contrib-header">
+                    <div class="contrib-title">
+                        <span class="contrib-dot"></span>
+                        <span>PARTICIPAÇÃO DOS CANAIS (SHARE %)</span>
+                    </div>
+                    <div class="contrib-legend" id="contrib-legend">
+                        <!-- Badges com nome e % de cada canal -->
+                    </div>
+                </div>
+                <div class="contrib-bar-wrapper">
+                    <div class="contrib-segmented-bar" id="contrib-bar">
+                        <!-- Segmentos coloridos proporcionais -->
                     </div>
                 </div>
             </div>
@@ -126,9 +233,9 @@
     <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=1" preload="none"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/empresa.js') }}?v=33"></script>
+    <script src="{{ url_for('static', filename='js/empresa.js') }}?v=43"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
-    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=5"></script>
 </body>
 </html>
 

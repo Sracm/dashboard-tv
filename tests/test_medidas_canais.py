@@ -59,7 +59,7 @@ BASES = {2024: base_diaria(2024), 2025: base_diaria(2025)}
 app.obter_vendas_diarias = lambda ano, force_refresh=False: BASES.get(
     ano, pd.DataFrame(columns=["DATA", "MES", "CODVEND", "MARCA", "TOTAL_PREV"])
 )
-app.carregar_metas_e_setores = lambda mes, ano: (pd.DataFrame(columns=["SETOR", "VENDEDOR", "META"]), SETORES)
+app.carregar_metas_e_setores = lambda mes, ano, *args, **kwargs: (pd.DataFrame(columns=["SETOR", "VENDEDOR", "META"]), SETORES)
 
 falhas = []
 

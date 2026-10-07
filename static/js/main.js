@@ -1,3 +1,13 @@
+// Purga estado antigo contaminado onde Varejo Reg sobrescrevia Varejo SP
+const TV_STORAGE_SCHEMA_VERSION = 'v2_varejo_split';
+try {
+    if (localStorage.getItem('tv_storage_version') !== TV_STORAGE_SCHEMA_VERSION) {
+        localStorage.removeItem('tv_estado_anterior_mes_atual');
+        localStorage.removeItem('tv_alerta_oscilacao_pendente');
+        localStorage.setItem('tv_storage_version', TV_STORAGE_SCHEMA_VERSION);
+    }
+} catch (e) {}
+
 let charts = {};
 let countdownSeconds = 600;
 
@@ -154,8 +164,11 @@ function obterChaveCanal(nome) {
     if (eqName.includes('DISTRIBUI') || eqName === 'DISTRIBUIÇÃO' || eqName === 'DISTRIBUICAO') return 'distribuicao';
     if (eqName.includes('E-COMMERCE') || eqName.includes('ECOMMERCE')) return 'ecommerce';
     if (eqName.includes('COMEX')) return 'comex';
-    if (eqName.includes('VAREJO') && eqName.includes('SP')) return 'varejo_sp';
-    if (eqName.includes('VAREJO') && eqName.includes('REG')) return 'varejo_reg';
+    if (eqName.includes('VAREJO')) {
+        if (eqName.includes('REG')) return 'varejo_reg';
+        if (/\bSP\b/.test(eqName) || eqName.includes('- SP') || eqName.endsWith(' SP')) return 'varejo_sp';
+        return 'varejo_sp';
+    }
     return null;
 }
 
@@ -202,10 +215,13 @@ function formatarDataCurta(iso) {
 }
 
 function renderTabelaIndicadores(equipe, contexto) {
-    const linha = (rotulo, conteudo, titulo) => `
+    const linha = (rotulo, conteudo, subvalor, titulo) => `
         <tr title="${titulo || ''}">
             <th class="kpi-rotulo">${rotulo}</th>
-            <td class="kpi-valor">${conteudo}</td>
+            <td class="kpi-valor">
+                <span class="kpi-pct-box">${conteudo}</span>
+                ${subvalor ? `<span class="kpi-subvalor">${subvalor}</span>` : ''}
+            </td>
         </tr>`;
 
     const variacao = (valor) => {
@@ -224,14 +240,16 @@ function renderTabelaIndicadores(equipe, contexto) {
           `${contexto.parcial ? ` · ${contexto.dias} dias` : ' · mês fechado'}</caption>`
         : '';
 
+    const momSub = `${formatarMoedaCompacta(equipe.mtd)} vs ${formatarMoedaCompacta(equipe.mes_anterior)}`;
+    const yoySub = `${formatarMoedaCompacta(equipe.mtd)} vs ${formatarMoedaCompacta(equipe.mes_ano_anterior)}`;
+    const ytdSub = `${formatarMoedaCompacta(equipe.ytd)} vs ${formatarMoedaCompacta(equipe.ytd_anterior)}`;
+
     return `<table class="kpi-table">
         ${cabecalho}
         <tbody>
-            ${linha('MoM', variacao(equipe.mom), `${intervalo('mtd')} vs ${intervalo('mes_anterior')}`)}
-            ${linha('YoY', variacao(equipe.yoy), `${intervalo('mtd')} vs ${intervalo('mes_ano_anterior')}`)}
-            ${linha('YTD', variacao(equipe.ytd_yoy),
-                `Receita projetada acumulada: ${intervalo('ytd')} = ${formatarMoedaCompacta(equipe.ytd)}` +
-                ` · ${intervalo('ytd_anterior')} = ${formatarMoedaCompacta(equipe.ytd_anterior)}`)}
+            ${linha('MoM', variacao(equipe.mom), null, `${intervalo('mtd')} (${formatarMoedaCompacta(equipe.mtd)}) vs ${intervalo('mes_anterior')} (${formatarMoedaCompacta(equipe.mes_anterior)})`)}
+            ${linha('YoY', variacao(equipe.yoy), null, `${intervalo('mtd')} (${formatarMoedaCompacta(equipe.mtd)}) vs ${intervalo('mes_ano_anterior')} (${formatarMoedaCompacta(equipe.mes_ano_anterior)})`)}
+            ${linha('YTD', variacao(equipe.ytd_yoy), null, `Receita acumulada: ${intervalo('ytd')} (${formatarMoedaCompacta(equipe.ytd)}) vs ${intervalo('ytd_anterior')} (${formatarMoedaCompacta(equipe.ytd_anterior)})`)}
         </tbody>
     </table>`;
 }
@@ -332,17 +350,16 @@ function processarAlertaPendente() {
 
     const canais = (alerta.canais && alerta.canais.length > 0)
         ? alerta.canais
-        : [{ canal: 'empresa', tipo: alerta.tipo }];
+        : [];
 
     canais.forEach(item => {
         const cardEl = document.querySelector(`[data-canal="${item.canal}"]`) || 
-                       document.getElementById(`card-${item.canal}`) || 
-                       document.querySelector('.empresa-card');
+                       document.getElementById(`card-${item.canal}`);
         if (cardEl) {
             const cls = item.tipo === 'cima' ? 'oscilou-cima' : 'oscilou-baixo';
             cardEl.classList.remove('oscilou-cima', 'oscilou-baixo');
             cardEl.classList.add(cls);
-            setTimeout(() => cardEl.classList.remove(cls), 20000);
+            // Permanece piscando continuamente até a próxima atualização
         }
     });
 
@@ -377,7 +394,12 @@ function verificarOscilacao(data, mes, ano) {
 
     // A regra da TV estipula que a monitoração de oscilação ocorre sempre no MÊS ATUAL
     const isMesAtual = (parseInt(mes) === mesAtual && parseInt(ano) === anoAtual);
-    if (!isMesAtual) return;
+    if (!isMesAtual) {
+        document.querySelectorAll('.gauge-card, .empresa-card').forEach(el => {
+            el.classList.remove('oscilou-cima', 'oscilou-baixo');
+        });
+        return;
+    }
 
     let estadoSalvo = {};
     try {
@@ -392,7 +414,8 @@ function verificarOscilacao(data, mes, ano) {
             const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
             inicial[chave] = {
                 percent: Number(equipe.percent) || 0,
-                realizado: Number(equipe.realizado) || 0
+                realizado: Number(equipe.realizado) || 0,
+                meta: Number(equipe.meta) || 0
             };
         });
         localStorage.setItem('tv_estado_anterior_mes_atual', JSON.stringify(inicial));
@@ -411,40 +434,49 @@ function verificarOscilacao(data, mes, ano) {
         
         const percentAtual = Number(equipe.percent) || 0;
         const realizadoAtual = Number(equipe.realizado) || 0;
+        const metaAtual = Number(equipe.meta) || 0;
         const anterior = estadoSalvo[chave];
 
         if (anterior !== undefined) {
             const percentAntigo = typeof anterior === 'object' ? (Number(anterior.percent) || 0) : Number(anterior);
             const realizadoAntigo = typeof anterior === 'object' ? (Number(anterior.realizado) || 0) : 0;
             
-            const deltaP = percentAtual - percentAntigo;
+            // Compara os percentuais visíveis no velocímetro (1 casa decimal)
+            const pAtualFmt = Number(percentAtual.toFixed(1));
+            const pAntFmt = Number(percentAntigo.toFixed(1));
+            const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
             const deltaR = realizadoAtual - realizadoAntigo;
 
-            // 1. Oscilação para CIMA -> Caixa Registradora
-            // Dispara se percentual subiu (> 0.005%) OU se realizado subiu (> R$ 1,00) caso meta seja 0
-            if (deltaP > 0.005 || (Math.abs(deltaP) < 0.005 && deltaR > 1.0)) {
+            // Oscilação REAL: exige mudança visível (>= 0.1% ou <= -0.1%) para canais com meta
+            // Para canais sem meta (meta <= 0), exige variação financeira expressiva (>= R$ 1.000)
+            const oscilouSubida = (metaAtual > 0 && deltaVisivel >= 0.1) || 
+                                  (metaAtual <= 0 && deltaR >= 1000.0);
+
+            const oscilouQueda = (metaAtual > 0 && deltaVisivel <= -0.1) || 
+                                 (metaAtual <= 0 && deltaR <= -1000.0);
+
+            if (oscilouSubida) {
                 if (cardElement) {
                     cardElement.classList.remove('oscilou-baixo');
                     cardElement.classList.add('oscilou-cima');
-                    setTimeout(() => cardElement.classList.remove('oscilou-cima'), 20000);
+                    // Pisca verde continuamente até a próxima atualização
                 }
                 
                 if (!tocouSomPositivo) {
                     tocouSomPositivo = true;
-                    console.log(`[Oscilação] 💵 SUBIDA em ${equipe.name}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}% (+R$ ${deltaR.toFixed(2)}). Tocando Caixa.`);
+                    console.log(`[Oscilação] 💵 SUBIDA REAL em ${equipe.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%). Tocando Caixa.`);
                     enfileirarAudioFrente('caixa');
                 }
-            // 2. Redução do percentual para BAIXO -> Sirene de Polícia / Bombeiro
-            } else if (deltaP < -0.005 || (Math.abs(deltaP) < 0.005 && deltaR < -1.0)) {
+            } else if (oscilouQueda) {
                 if (cardElement) {
                     cardElement.classList.remove('oscilou-cima');
                     cardElement.classList.add('oscilou-baixo');
-                    setTimeout(() => cardElement.classList.remove('oscilou-baixo'), 20000);
+                    // Pisca vermelho continuamente até a próxima atualização
                 }
                 
                 if (!tocouSomNegativo) {
                     tocouSomNegativo = true;
-                    console.log(`[Oscilação] 🚨 REDUÇÃO em ${equipe.name}: ${percentAntigo.toFixed(1)}% -> ${percentAtual.toFixed(1)}% (-R$ ${Math.abs(deltaR).toFixed(2)}). Tocando Sirene.`);
+                    console.log(`[Oscilação] 🚨 QUEDA REAL em ${equipe.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ ${deltaVisivel.toFixed(1)}%). Tocando Sirene.`);
                     enfileirarAudioFrente('policia');
                 }
                 
@@ -453,10 +485,15 @@ function verificarOscilacao(data, mes, ano) {
                     resetarMetaTocada(chave, mes, ano);
                     console.log(`[Meta] Canal ${chave} rebaixado para menos de 100%. Meta desmarcada.`);
                 }
+            } else {
+                // Se esse card não oscilou nesta rodada, remove animação antiga
+                if (cardElement) {
+                    cardElement.classList.remove('oscilou-cima', 'oscilou-baixo');
+                }
             }
         }
         
-        novoEstado[chave] = { percent: percentAtual, realizado: realizadoAtual };
+        novoEstado[chave] = { percent: percentAtual, realizado: realizadoAtual, meta: metaAtual };
     });
 
     localStorage.setItem('tv_estado_anterior_mes_atual', JSON.stringify(novoEstado));
@@ -1063,14 +1100,12 @@ function testarAudioIndividual(tipo) {
             if (cards && cards.length > 0) {
                 cards[0].classList.remove('oscilou-cima');
                 cards[0].classList.add('oscilou-baixo');
-                setTimeout(() => cards[0].classList.remove('oscilou-baixo'), 20000);
             }
         } else if (tipo === 'caixa') {
             const cards = document.querySelectorAll('.gauge-card');
             if (cards && cards.length > 0) {
                 cards[0].classList.remove('oscilou-baixo');
                 cards[0].classList.add('oscilou-cima');
-                setTimeout(() => cards[0].classList.remove('oscilou-cima'), 20000);
             }
         }
 

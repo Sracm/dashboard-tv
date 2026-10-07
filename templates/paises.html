@@ -68,7 +68,7 @@
         /* ========================================================= */
         .exec-kpi-strip {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             padding: 6px 20px 8px 20px;
             background: transparent;
@@ -719,28 +719,6 @@
                 </div>
             </div>
 
-            <div class="kpi-mini-card kpi-card-positive">
-                <div class="kpi-mini-icon">🚀</div>
-                <div class="kpi-mini-info">
-                    <span class="kpi-mini-label">Em Evolução (Ganhando Share)</span>
-                    <div class="kpi-mini-val-row">
-                        <span class="kpi-mini-val val-glow-green" id="kpi-paises-pos">--</span>
-                        <span class="kpi-mini-tag tag-green">▲ ALTA</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="kpi-mini-card kpi-card-negative">
-                <div class="kpi-mini-icon">⚠️</div>
-                <div class="kpi-mini-info">
-                    <span class="kpi-mini-label">Em Atenção (Perdendo Share)</span>
-                    <div class="kpi-mini-val-row">
-                        <span class="kpi-mini-val val-glow-red" id="kpi-paises-neg">--</span>
-                        <span class="kpi-mini-tag tag-red">▼ QUEDA</span>
-                    </div>
-                </div>
-            </div>
-
             <div class="kpi-mini-card kpi-card-keyprod">
                 <div class="kpi-mini-icon">🥇</div>
                 <div class="kpi-mini-info">
@@ -823,7 +801,7 @@
     <!-- ECharts e GeoJSON -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 
-    <script src="{{ url_for('static', filename='js/paises.js') }}?v=20261001_REAL_FLAGS"></script>
+    <script src="{{ url_for('static', filename='js/paises.js') }}?v=20261005_NO_SHARE_KPIS"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
     <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=2"></script>
 </body>

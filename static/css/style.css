@@ -947,6 +947,20 @@ body {
     white-space: nowrap;
 }
 
+.kpi-table .kpi-pct-box {
+    display: inline-block;
+}
+
+.kpi-table .kpi-subvalor {
+    display: block;
+    font-size: 0.60rem;
+    font-weight: 500;
+    color: #9e9e9e;
+    line-height: 1.1;
+    margin-top: 1px;
+    letter-spacing: 0.1px;
+}
+
 .kpi-table .kpi-moeda {
     color: #E8E8E8;
 }

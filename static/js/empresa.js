@@ -77,71 +77,96 @@ function updateClock() {
 function getEmpresaGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
     const sign = diff >= 0 ? '+' : '';
-    const diffText = sign + diff.toFixed(1) + '%';
-    const diffColor = diff >= 0 ? '#00d26a' : '#ff2424';
+    const diffText = sign + diff.toFixed(1) + '% vs META';
 
     return {
         series: [
             {
                 type: 'gauge',
-                startAngle: 180,
-                endAngle: 0,
+                startAngle: 215,
+                endAngle: -35,
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '115%',
-                center: ['50%', '70%'],
+                radius: '98%',
+                center: ['50%', '50%'],
                 axisLine: {
+                    roundCap: true,
                     lineStyle: {
-                        width: 30,
+                        width: 22,
                         color: [
-                            [80 / 120, '#ff2424'],
-                            [100 / 120, '#ffd600'],
-                            [1, '#00d26a']
+                            [70 / 120, '#ff3b30'],
+                            [90 / 120, '#ff9500'],
+                            [100 / 120, '#cb9727'],
+                            [1, '#00e676']
                         ]
                     }
                 },
                 pointer: {
-                    icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
-                    length: '65%',
-                    width: 10,
-                    offsetCenter: [0, '-4%'],
-                    itemStyle: { 
+                    icon: 'path://M2.9,0.7L2.9,0.7c1.4,0,2.6,1.2,2.6,2.6v115c0,1.4-1.2,2.6-2.6,2.6l0,0c-1.4,0-2.6-1.2-2.6-2.6V3.3C0.3,1.9,1.4,0.7,2.9,0.7z',
+                    width: 7,
+                    length: '62%',
+                    offsetCenter: [0, '0%'],
+                    itemStyle: {
                         color: '#f5c518',
-                        shadowColor: 'rgba(0,0,0,0.6)',
-                        shadowBlur: 5
+                        shadowColor: 'rgba(245, 197, 24, 0.8)',
+                        shadowBlur: 10
+                    }
+                },
+                anchor: {
+                    show: true,
+                    showAbove: true,
+                    size: 24,
+                    itemStyle: {
+                        borderWidth: 4,
+                        borderColor: '#cb9727',
+                        color: '#121622',
+                        shadowColor: 'rgba(0, 0, 0, 0.8)',
+                        shadowBlur: 10
                     }
                 },
                 axisTick: {
+                    distance: -28,
                     length: 8,
-                    lineStyle: { color: 'auto', width: 1.5 }
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.3)', width: 1.5 }
                 },
                 splitLine: {
-                    length: 15,
-                    lineStyle: { color: 'auto', width: 2.5 }
+                    distance: -32,
+                    length: 12,
+                    lineStyle: { color: 'rgba(255, 255, 255, 0.5)', width: 2 }
                 },
                 axisLabel: {
-                    show: false
+                    distance: -18,
+                    color: '#94a3b8',
+                    fontSize: 11,
+                    fontWeight: '600',
+                    fontFamily: 'Montserrat',
+                    formatter: function (value) {
+                        if (value === 0 || value === 50 || value === 100 || value === 120) return value + '%';
+                        return '';
+                    }
                 },
                 title: {
-                    offsetCenter: [0, '18%'],
-                    fontSize: 32,
-                    color: '#ffffff',
-                    fontWeight: '800',
-                    fontFamily: 'Montserrat'
-                },
-                detail: {
-                    fontSize: 18,
-                    offsetCenter: [0, '42%'],
-                    valueAnimation: true,
-                    formatter: function () {
-                        return diffText;
-                    },
-                    color: diffColor,
+                    offsetCenter: [0, '58%'],
+                    fontSize: 13,
+                    color: '#94a3b8',
                     fontWeight: '700',
                     fontFamily: 'Montserrat'
                 },
-                data: [{ value: Math.min(Math.max(percent, 0), 120), name: percent.toFixed(1) + '%' }]
+                detail: {
+                    valueAnimation: true,
+                    offsetCenter: [0, '36%'],
+                    fontSize: 48,
+                    fontWeight: '800',
+                    fontFamily: 'Montserrat',
+                    formatter: function () {
+                        return percent.toFixed(1) + '%';
+                    },
+                    color: isSuccess ? '#00e676' : '#ffffff',
+                    textShadowColor: isSuccess ? 'rgba(0, 230, 118, 0.6)' : 'rgba(0, 0, 0, 0.8)',
+                    textShadowBlur: 15
+                },
+                data: [{ value: Math.min(Math.max(percent, 0), 120), name: diffText }]
             }
         ]
     };
@@ -155,29 +180,44 @@ function initFilters() {
     const yearEl = document.getElementById('filter-year');
     if (yearEl) yearEl.value = defaultAno;
 
-    // Na Guia Empresa, vamos deixar setado de Janeiro até o Mês Atual por padrão (YTD)
-    selectedMonths = [];
-    for (let m = 1; m <= currentM; m++) {
-        selectedMonths.push(m);
-    }
-
     const urlParams = new URLSearchParams(window.location.search);
     const anoParam = urlParams.get('ano');
-    if (anoParam && yearEl) yearEl.value = anoParam;
+    const selectedAno = (anoParam && !isNaN(Number(anoParam))) ? parseInt(anoParam, 10) : defaultAno;
+    if (yearEl) yearEl.value = selectedAno;
 
+    // Determinar quais meses selecionar no filtro multiselect
     const mesParam = urlParams.get('mes');
-    if (mesParam) {
+    selectedMonths = [];
+
+    if (mesParam && mesParam.includes(',')) {
+        // Seleção múltipla explícita: ?mes=1,2,3
         const parsed = mesParam.split(',').map(Number).filter(n => !isNaN(n) && n >= 1 && n <= 12);
-        if (parsed.length > 0) {
-            selectedMonths = parsed;
+        if (parsed.length > 0) selectedMonths = parsed;
+    } else if (mesParam && !isNaN(Number(mesParam))) {
+        // Único mês vindo da navegação (ex: ?mes=12 vindo de outra aba com "Acumulado até Dezembro")
+        const singleM = parseInt(mesParam, 10);
+        const limitM = (selectedAno === defaultAno) ? Math.min(singleM, currentM) : singleM;
+        for (let m = 1; m <= limitM; m++) {
+            selectedMonths.push(m);
+        }
+    } else {
+        // Padrão: de Janeiro até o Mês Atual
+        const limitM = (selectedAno === defaultAno) ? currentM : 12;
+        for (let m = 1; m <= limitM; m++) {
+            selectedMonths.push(m);
         }
     }
 
+    if (selectedMonths.length === 0) {
+        for (let m = 1; m <= currentM; m++) selectedMonths.push(m);
+    }
+    selectedMonths.sort((a, b) => a - b);
+
     const viewParam = urlParams.get('view');
-    if (viewParam === 'mes' || viewParam === 'acumulado') {
+    if (viewParam === 'acumulado' || viewParam === 'mes') {
         currentView = viewParam;
-    } else if (selectedMonths.length > 1) {
-        currentView = 'acumulado';
+    } else {
+        currentView = 'mes'; // Por padrão, abre em MÊS ATUAL
     }
 
     document.querySelectorAll('.sub-nav-empresa .tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -318,9 +358,16 @@ function setEmpresaView(view) {
     renderEmpresa();
 }
 
-function formatMoeda(val) {
-    if (val === null || val === undefined || isNaN(val)) return 'R$ 0,00';
-    return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function formatMoedaCompleta(val) {
+    if (val === null || val === undefined || isNaN(val)) return 'R$ 0';
+    return Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+}
+
+function formatMoedaCompacta(val) {
+    const v = Number(val) || 0;
+    if (v >= 1e6) return 'R$ ' + (v / 1e6).toFixed(2).replace('.', ',') + ' mi';
+    if (v >= 1e3) return 'R$ ' + (v / 1e3).toFixed(0).replace('.', ',') + ' mil';
+    return 'R$ ' + v.toFixed(0);
 }
 
 function renderTrendBadge(label, diff) {
@@ -365,11 +412,43 @@ function renderValueBadge(label, val) {
             </div>`;
 }
 
-function renderAmountBadge(label, val) {
-    return `<div class="comparison-badge">
-                <span class="badge-label">${label}:</span>
-                <span class="badge-value val-neutral" style="color: #fff; font-weight:700;">${formatMoeda(val)}</span>
-            </div>`;
+function renderCanaisContribuicao(canais, realizadoTotal) {
+    const legendEl = document.getElementById('contrib-legend');
+    const barEl = document.getElementById('contrib-bar');
+    if (!legendEl || !barEl) return;
+
+    if (!canais || canais.length === 0) {
+        legendEl.innerHTML = '';
+        barEl.innerHTML = '<div style="color:#64748b; font-size:0.75rem; text-align:center; width:100%;">Sem dados de canais no período</div>';
+        return;
+    }
+
+    let legendHtml = '';
+    let barHtml = '';
+
+    canais.forEach(c => {
+        const share = c.share || (realizadoTotal > 0 ? (c.realizado / realizadoTotal * 100) : 0);
+        const cor = c.cor || '#0d6efd';
+
+        legendHtml += `
+            <div class="legend-item" title="${c.nome}: ${share.toFixed(1)}% de participação">
+                <span class="legend-color" style="background: ${cor};"></span>
+                <span class="legend-name">${c.nome}:</span>
+                <span class="legend-share">${share.toFixed(1)}%</span>
+            </div>
+        `;
+
+        if (share > 0) {
+            barHtml += `
+                <div class="contrib-segment" style="width: ${share.toFixed(2)}%; background: ${cor};" title="${c.nome}: ${share.toFixed(1)}% de participação">
+                    ${share >= 8 ? `<span class="segment-label">${c.nome} ${share.toFixed(0)}%</span>` : ''}
+                </div>
+            `;
+        }
+    });
+
+    legendEl.innerHTML = legendHtml;
+    barEl.innerHTML = barHtml || '<div style="color:#64748b; font-size:0.75rem; text-align:center; width:100%;">Aguardando vendas no período</div>';
 }
 
 function renderEmpresa() {
@@ -396,6 +475,11 @@ function renderEmpresa() {
     const titleEl = document.getElementById('empresa-card-title');
     if (titleEl) titleEl.innerText = titleText;
 
+    const statusBadgeEl = document.getElementById('cockpit-status-badge');
+    if (statusBadgeEl) {
+        statusBadgeEl.innerText = currentView === 'acumulado' ? 'ACUMULADO' : 'MÊS ATUAL';
+    }
+
     const cardEl = document.getElementById('empresa-card-el');
     const bannerEl = document.getElementById('meta-banner-el');
 
@@ -408,7 +492,7 @@ function renderEmpresa() {
         }
         if (bannerEl) {
             bannerEl.classList.add('show');
-            bannerEl.innerText = `🎉 META ATINGIDA: ${item.percent.toFixed(1)}% (${item.diff >= 0 ? '+' : ''}${item.diff.toFixed(1)}%) 🎉`;
+            bannerEl.innerText = `🎉 META DA EMPRESA ATINGIDA: ${item.percent.toFixed(1)}% (${item.diff >= 0 ? '+' : ''}${item.diff.toFixed(1)}%) 🎉`;
         }
     } else {
         if (cardEl) {
@@ -418,47 +502,124 @@ function renderEmpresa() {
         if (bannerEl) bannerEl.classList.remove('show');
     }
 
-    const ytdYoyContainer = document.getElementById('ytd-yoy-container');
-    const ytdYoyBanner = document.getElementById('ytd-yoy-banner-el');
-    const mainContainer = document.getElementById('main-gauge-container');
-    const ytdYoyCard = document.getElementById('ytd-yoy-card-el');
+    // ── Cartões de KPIs Operacionais (100% Percentual — Sem R$) ───
+    const realValEl = document.getElementById('kpi-realizado-val');
+    const realFillEl = document.getElementById('kpi-realizado-fill');
+    const momBadgeEl = document.getElementById('kpi-mom-badge');
     
-    if (currentView === 'acumulado') {
-        if (mainContainer) {
-            mainContainer.style.maxWidth = 'none';
-            mainContainer.style.flex = '1';
+    // Card 1: Atingimento %
+    if (realValEl) {
+        realValEl.innerText = (item.percent || 0).toFixed(1) + '%';
+        if (item.percent >= 100) {
+            realValEl.style.color = '#00e676';
+        } else if (item.percent >= 80) {
+            realValEl.style.color = '#ffc107';
+        } else {
+            realValEl.style.color = '#ffffff';
         }
-        if (ytdYoyContainer) {
-            ytdYoyContainer.style.display = 'flex';
-            ytdYoyContainer.style.maxWidth = 'none';
-            ytdYoyContainer.style.flex = '1';
-        }
-        
-        // Exibir banner de "SUPEROU ANO ANTERIOR" se YTD YoY > 0
-        if (ytdYoyBanner) {
-            if ((item.yoy || 0) > 0) {
-                ytdYoyBanner.classList.add('show');
-                if (ytdYoyCard) {
-                    ytdYoyCard.classList.add('atingiu-meta');
-                    ytdYoyCard.classList.add('meta-batida');
-                }
+    }
+    if (realFillEl) {
+        const pctFill = Math.min(100, Math.max(0, item.percent || 0));
+        realFillEl.style.width = pctFill.toFixed(1) + '%';
+    }
+    if (momBadgeEl) {
+        if (currentView === 'mes') {
+            const mom = item.mom;
+            if (mom === null || mom === undefined) {
+                momBadgeEl.className = 'trend-neutral';
+                momBadgeEl.innerHTML = `— vs Mês Ant.`;
             } else {
-                ytdYoyBanner.classList.remove('show');
-                if (ytdYoyCard) {
-                    ytdYoyCard.classList.remove('atingiu-meta');
-                    ytdYoyCard.classList.remove('meta-batida');
-                }
+                const sign = mom >= 0 ? '+' : '';
+                const cls = mom > 0 ? 'trend-up' : (mom < 0 ? 'trend-down' : 'trend-neutral');
+                const icon = mom > 0 ? '▲' : (mom < 0 ? '▼' : '➖');
+                momBadgeEl.className = cls;
+                momBadgeEl.innerHTML = `${icon} ${sign}${mom.toFixed(1)}% vs Mês Ant.`;
+            }
+        } else {
+            const yoy = item.yoy;
+            if (yoy === null || yoy === undefined) {
+                momBadgeEl.className = 'trend-neutral';
+                momBadgeEl.innerHTML = `— vs Ano Ant.`;
+            } else {
+                const sign = yoy >= 0 ? '+' : '';
+                const cls = yoy > 0 ? 'trend-up' : (yoy < 0 ? 'trend-down' : 'trend-neutral');
+                const icon = yoy > 0 ? '▲' : (yoy < 0 ? '▼' : '➖');
+                momBadgeEl.className = cls;
+                momBadgeEl.innerHTML = `${icon} ${sign}${yoy.toFixed(1)}% vs Ano Ant.`;
+            }
+        }
+    }
+
+    // Card 2: GAP % Restante
+    const gapValEl = document.getElementById('kpi-gap-val');
+    const diffPctEl = document.getElementById('kpi-diff-pct');
+    const diasCountEl = document.getElementById('kpi-dias-count');
+    const diasInfoEl = document.getElementById('kpi-dias-info');
+    const gapPct = Math.max(0, 100 - (item.percent || 0));
+    
+    if (gapValEl) {
+        if (item.percent >= 100) {
+            gapValEl.innerText = '0.0%';
+            gapValEl.style.color = '#00e676';
+        } else {
+            gapValEl.innerText = gapPct.toFixed(1) + '%';
+            gapValEl.style.color = '#ff4d4d';
+        }
+    }
+    if (diffPctEl) {
+        const diff = item.diff !== undefined ? item.diff : ((item.percent || 0) - 100);
+        diffPctEl.className = diff >= 0 ? 'trend-up' : 'trend-down';
+        diffPctEl.innerText = (diff >= 0 ? `+${diff.toFixed(1)}% superada` : `${diff.toFixed(1)}% restante`);
+    }
+    if (diasCountEl) diasCountEl.innerText = item.dias_uteis_restantes !== undefined ? item.dias_uteis_restantes : 20;
+    if (diasInfoEl) {
+        diasInfoEl.style.display = currentView === 'mes' ? 'inline-flex' : 'none';
+    }
+
+    // Card 3: Objetivo Corporativo (100.0%)
+    const metaValEl = document.getElementById('kpi-meta-val');
+    const metaLabelEl = document.getElementById('kpi-meta-label');
+    if (metaValEl) metaValEl.innerText = '100.0%';
+    if (metaLabelEl) {
+        metaLabelEl.innerText = currentView === 'acumulado' ? 'Objetivo Acumulado' : 'Meta Mensal MQ';
+    }
+
+    // Card 4: Ritmo Diário (%/dia) ou YoY no Acumulado
+    const ritmoValEl = document.getElementById('kpi-ritmo-val');
+    const ritmoTitleEl = document.getElementById('kpi-ritmo-title');
+    const ritmoSubEl = document.getElementById('kpi-ritmo-sub');
+    
+    if (currentView === 'mes') {
+        if (ritmoTitleEl) ritmoTitleEl.innerText = 'RITMO DIÁRIO NECESSÁRIO';
+        if (ritmoSubEl) ritmoSubEl.innerHTML = '<span>% da meta por dia útil restante</span>';
+        if (ritmoValEl) {
+            if (item.percent >= 100) {
+                ritmoValEl.innerText = '0.00%/dia';
+                ritmoValEl.style.color = '#00e676';
+            } else {
+                const dias = (item.dias_uteis_restantes !== undefined) ? item.dias_uteis_restantes : 20;
+                const rPct = (dias > 0 && gapPct > 0) ? (gapPct / dias) : 0;
+                ritmoValEl.innerText = rPct.toFixed(2) + '%/dia';
+                ritmoValEl.style.color = '#ffc107';
             }
         }
     } else {
-        if (mainContainer) {
-            mainContainer.style.maxWidth = '920px';
-            mainContainer.style.flex = '1';
+        if (ritmoTitleEl) ritmoTitleEl.innerText = 'CRESCIMENTO ANUAL (YoY)';
+        if (ritmoSubEl) ritmoSubEl.innerHTML = '<span>vs mesmo período ano anterior</span>';
+        if (ritmoValEl) {
+            const yoy = item.yoy;
+            if (yoy === null || yoy === undefined) {
+                ritmoValEl.innerText = '—';
+                ritmoValEl.style.color = '#94a3b8';
+            } else {
+                const sign = yoy >= 0 ? '+' : '';
+                ritmoValEl.innerText = `${sign}${yoy.toFixed(1)}%`;
+                ritmoValEl.style.color = yoy >= 0 ? '#00e676' : '#ff4d4d';
+            }
         }
-        if (ytdYoyContainer) ytdYoyContainer.style.display = 'none';
     }
 
-    // Inicializar e configurar gráficos com os containers já com display correto
+    // ── Velocímetro Central ────────────────────────────────────
     if (!empresaChart) {
         const chartEl = document.getElementById('empresa-gauge');
         if (chartEl) empresaChart = echarts.init(chartEl);
@@ -468,20 +629,7 @@ function renderEmpresa() {
         empresaChart.resize();
     }
 
-    if (currentView === 'acumulado') {
-        if (!ytdYoyChart) {
-            const ytdYoyEl = document.getElementById('ytd-yoy-gauge');
-            if (ytdYoyEl) ytdYoyChart = echarts.init(ytdYoyEl);
-        }
-        if (ytdYoyChart) {
-            const ytdYoyPercent = (item.yoy || 0) + 100;
-            const ytdYoyDiff = (item.yoy || 0);
-            ytdYoyChart.setOption(getEmpresaGaugeOption(ytdYoyPercent, ytdYoyDiff));
-            ytdYoyChart.resize();
-        }
-    }
-
-    // Renderizar Comparativos abaixo do velocímetro (apenas percentuais, sem valores em R$)
+    // ── Comparativos do Rodapé do Cockpit ──────────────────────
     const compContainer = document.getElementById('empresa-comparisons');
     if (compContainer) {
         let badgesHtml = '';
@@ -490,6 +638,13 @@ function renderEmpresa() {
             const prevMonth = item.prev_month_percent !== undefined ? item.prev_month_percent : 0;
             if (prevMonth > 0) badgesHtml += renderValueBadge('Mês Ant', prevMonth);
             if (mom !== 0) badgesHtml += renderTrendBadge('MoM', mom);
+            const yoy = item.yoy || 0;
+            if (yoy !== 0) badgesHtml += renderTrendBadge('YoY', yoy);
+        } else {
+            const prevYear = item.prev_year_percent !== undefined ? item.prev_year_percent : 0;
+            const yoy = item.yoy || 0;
+            if (prevYear > 0) badgesHtml += renderValueBadge('Ano Anterior', prevYear);
+            if (yoy !== 0) badgesHtml += renderTrendBadge('YoY (Crescimento)', yoy);
         }
         if (badgesHtml) {
             compContainer.innerHTML = badgesHtml;
@@ -500,20 +655,8 @@ function renderEmpresa() {
         }
     }
 
-    const ytdCompContainer = document.getElementById('ytd-comparisons');
-    if (ytdCompContainer) {
-        if (currentView === 'acumulado') {
-            let badgesHtml = '';
-            const prevYear = item.prev_year_percent !== undefined ? item.prev_year_percent : 0;
-            const yoy = item.yoy || 0;
-            if (prevYear > 0) badgesHtml += renderValueBadge('Ano Anterior', prevYear);
-            badgesHtml += renderTrendBadge('YoY (Crescimento)', yoy);
-            ytdCompContainer.innerHTML = badgesHtml;
-            ytdCompContainer.style.display = 'flex';
-        } else {
-            ytdCompContainer.style.display = 'none';
-        }
-    }
+    // ── Barra de Contribuição por Canal ────────────────────────
+    renderCanaisContribuicao(item.canais, item.realizado);
     
     // Ensure charts resize accurately after layout recalculations
     setTimeout(() => {
@@ -554,15 +697,18 @@ let anteriorEmpresaPercent = null;
 
 function verificarOscilacaoEmpresa(item) {
     if (!item) return;
+    const cardEl = document.getElementById('empresa-card-el');
     const atual = Number(item.percent) || 0;
+    
     if (anteriorEmpresaPercent !== null && !isNaN(anteriorEmpresaPercent)) {
-        const delta = atual - anteriorEmpresaPercent;
-        const cardEl = document.getElementById('empresa-card-el');
-        if (delta < -0.005) {
+        const pAtualFmt = Number(atual.toFixed(1));
+        const pAntFmt = Number(anteriorEmpresaPercent.toFixed(1));
+        const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
+        
+        if (deltaVisivel <= -0.1) {
             if (cardEl) {
                 cardEl.classList.remove('oscilou-cima');
                 cardEl.classList.add('oscilou-baixo');
-                setTimeout(() => cardEl.classList.remove('oscilou-baixo'), 20000);
             }
             const audioPol = document.getElementById('audio-policia');
             if (audioPol) {
@@ -571,11 +717,10 @@ function verificarOscilacaoEmpresa(item) {
                 audioPol.play().catch(() => {});
                 setTimeout(() => { try { audioPol.pause(); audioPol.currentTime = 0; } catch(e){} }, 7000);
             }
-        } else if (delta > 0.005) {
+        } else if (deltaVisivel >= 0.1) {
             if (cardEl) {
                 cardEl.classList.remove('oscilou-baixo');
                 cardEl.classList.add('oscilou-cima');
-                setTimeout(() => cardEl.classList.remove('oscilou-cima'), 20000);
             }
             const audioCx = document.getElementById('audio-caixa');
             if (audioCx) {
@@ -583,6 +728,10 @@ function verificarOscilacaoEmpresa(item) {
                 audioCx.volume = 1.0;
                 audioCx.play().catch(() => {});
                 setTimeout(() => { try { audioCx.pause(); audioCx.currentTime = 0; } catch(e){} }, 4000);
+            }
+        } else {
+            if (cardEl) {
+                cardEl.classList.remove('oscilou-cima', 'oscilou-baixo');
             }
         }
     }

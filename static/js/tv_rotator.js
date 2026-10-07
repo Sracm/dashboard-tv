@@ -51,6 +51,16 @@
     let isPaused = (localStorage.getItem('tv_rotator_paused') === 'true') || (urlParams.get('norotate') === '1');
     let timerInterval = null;
 
+    // Purga estado antigo contaminado onde Varejo Reg sobrescrevia Varejo SP
+    const TV_STORAGE_SCHEMA_VERSION = 'v2_varejo_split';
+    try {
+        if (localStorage.getItem('tv_storage_version') !== TV_STORAGE_SCHEMA_VERSION) {
+            localStorage.removeItem('tv_estado_anterior_mes_atual');
+            localStorage.removeItem('tv_alerta_oscilacao_pendente');
+            localStorage.setItem('tv_storage_version', TV_STORAGE_SCHEMA_VERSION);
+        }
+    } catch (e) {}
+
     // Mapeamento canônico dos canais para detecção de oscilação
     function obterChaveCanalGlobal(nome) {
         const eqName = (nome || '').toUpperCase().trim();
@@ -59,8 +69,11 @@
         if (eqName.includes('DISTRIBUI') || eqName === 'DISTRIBUIÇÃO' || eqName === 'DISTRIBUICAO') return 'distribuicao';
         if (eqName.includes('E-COMMERCE') || eqName.includes('ECOMMERCE')) return 'ecommerce';
         if (eqName.includes('COMEX')) return 'comex';
-        if (eqName.includes('VAREJO') && eqName.includes('SP')) return 'varejo_sp';
-        if (eqName.includes('VAREJO') && eqName.includes('REG')) return 'varejo_reg';
+        if (eqName.includes('VAREJO')) {
+            if (eqName.includes('REG')) return 'varejo_reg';
+            if (/\bSP\b/.test(eqName) || eqName.includes('- SP') || eqName.endsWith(' SP')) return 'varejo_sp';
+            return 'varejo_sp';
+        }
         return null;
     }
 
@@ -106,16 +119,37 @@
     }
 
     // Coleta mês e ano atuais para preservar filtros na rotação
+    // Coleta mês e ano atuais para preservar filtros na rotação (blindado contra inputs estáticos e meses futuros)
     function getFilterParams() {
         const params = new URLSearchParams(window.location.search);
         const monthSelect = document.getElementById('filter-month');
         const yearSelect = document.getElementById('filter-year');
 
-        let mes = monthSelect ? monthSelect.value : params.get('mes');
-        let ano = yearSelect ? yearSelect.value : params.get('ano');
+        const now = new Date();
+        const mesReal = now.getMonth() + 1;
+        const anoReal = now.getFullYear();
 
-        if (!mes) mes = new Date().getMonth() + 1;
-        if (!ano) ano = new Date().getFullYear();
+        // Se filter-month for um input hidden (estático), ignoramos para não puxar lixo antigo
+        let rawMes = null;
+        if (monthSelect && monthSelect.tagName === 'SELECT') {
+            rawMes = monthSelect.value;
+        } else if (params.get('mes')) {
+            rawMes = params.get('mes');
+        }
+
+        let rawAno = (yearSelect && yearSelect.value) ? yearSelect.value : params.get('ano');
+
+        let mes = parseInt(rawMes, 10);
+        let ano = parseInt(rawAno, 10);
+
+        if (isNaN(mes) || mes < 1 || mes > 12) mes = mesReal;
+        if (isNaN(ano) || ano < 2020) ano = anoReal;
+
+        // REGRA CRÍTICA DEFINITIVA: No ano corrente, NUNCA permitir mês futuro (ex: mês 12 em outubro = vendas 0%)
+        if (ano >= anoReal && mes > mesReal) {
+            mes = mesReal;
+            ano = anoReal;
+        }
 
         return { mes, ano };
     }
@@ -131,17 +165,28 @@
         const mesAtual = now.getMonth() + 1;
         const anoAtual = now.getFullYear();
 
-        // REGRA MANDATÓRIA: A guia Mensal (%) deve abrir SEMPRE no mês atual
-        const isNextTabTV = (nextTab.url === '/tv' || nextTab.url === '/');
-        const targetMes = isNextTabTV ? mesAtual : mes;
-        const targetAno = isNextTabTV ? anoAtual : ano;
+        // REGRA MANDATÓRIA DEFINITIVA:
+        // No carrossel contínuo da TV, qualquer tela em ano corrente deve abrir SEMPRE no mês atual real
+        // e JAMAIS em meses futuros (Dezembro/12 em Outubro/10)!
+        let targetMes = mes;
+        let targetAno = ano;
+
+        if (targetAno >= anoAtual && targetMes > mesAtual) {
+            targetMes = mesAtual;
+            targetAno = anoAtual;
+        }
+
+        // Guia Mensal (/tv) é sempre estritamente o mês atual
+        if (nextTab.url === '/tv' || nextTab.url === '/') {
+            targetMes = mesAtual;
+            targetAno = anoAtual;
+        }
 
         const sep = nextTab.url.includes('?') ? '&' : '?';
         console.log(`[TV ROTATOR] Alternando para [${nextTab.name}] (${nextTab.url}?mes=${targetMes}&ano=${targetAno})...`);
         window.location.href = `${nextTab.url}${sep}mes=${targetMes}&ano=${targetAno}`;
     }
 
-    // Atualiza o display visual do rotator na barra de ferramentas
     function updateCountdownUI() {
         const timeEl = document.getElementById('tv-rotator-time');
         const dataTimeEl = document.getElementById('tv-data-refresh-time');
@@ -212,7 +257,8 @@
                     const k = obterChaveCanalGlobal(eq.name) || `canal_${idx}`;
                     novoEstado[k] = {
                         percent: Number(eq.percent) || 0,
-                        realizado: Number(eq.realizado) || 0
+                        realizado: Number(eq.realizado) || 0,
+                        meta: Number(eq.meta) || 0
                     };
                 });
                 localStorage.setItem('tv_estado_anterior_mes_atual', JSON.stringify(novoEstado));
@@ -230,28 +276,35 @@
                 const k = obterChaveCanalGlobal(eq.name) || `canal_${idx}`;
                 const pAtual = Number(eq.percent) || 0;
                 const rAtual = Number(eq.realizado) || 0;
+                const meta = Number(eq.meta) || 0;
                 const ant = estadoSalvo[k];
 
                 if (ant !== undefined) {
                     const pAnt = typeof ant === 'object' ? (Number(ant.percent) || 0) : Number(ant);
                     const rAnt = typeof ant === 'object' ? (Number(ant.realizado) || 0) : 0;
-                    const deltaP = pAtual - pAnt;
+                    
+                    const pAtualFmt = Number(pAtual.toFixed(1));
+                    const pAntFmt = Number(pAnt.toFixed(1));
+                    const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
                     const deltaR = rAtual - rAnt;
 
-                    // 1. Oscilação para CIMA: percentual subiu OU vendas em R$ subiram (se meta for 0)
-                    if (deltaP > 0.005 || (Math.abs(deltaP) < 0.005 && deltaR > 1.0)) {
+                    const subida = (meta > 0 && deltaVisivel >= 0.1) || (meta <= 0 && deltaR >= 1000.0);
+                    const queda = (meta > 0 && deltaVisivel <= -0.1) || (meta <= 0 && deltaR <= -1000.0);
+
+                    // 1. Oscilação para CIMA: percentual visível subiu (>= 0.1%)
+                    if (subida) {
                         oscilouCima = true;
-                        canaisAfetados.push({ canal: k, tipo: 'cima', nome: eq.name, deltaP, deltaR });
-                        console.log(`[TV OSCILAÇÃO DETECTADA] 💵 SUBIDA em ${eq.name}: ${pAnt.toFixed(1)}% -> ${pAtual.toFixed(1)}% (+R$ ${deltaR.toFixed(2)})`);
-                    // 2. Oscilação para BAIXO: percentual caiu OU vendas em R$ caíram
-                    } else if (deltaP < -0.005 || (Math.abs(deltaP) < 0.005 && deltaR < -1.0)) {
+                        canaisAfetados.push({ canal: k, tipo: 'cima', nome: eq.name, deltaVisivel, deltaR });
+                        console.log(`[TV OSCILAÇÃO DETECTADA] 💵 SUBIDA REAL em ${eq.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%)`);
+                    // 2. Oscilação para BAIXO: percentual visível caiu (<= -0.1%)
+                    } else if (queda) {
                         oscilouBaixo = true;
-                        canaisAfetados.push({ canal: k, tipo: 'baixo', nome: eq.name, deltaP, deltaR });
-                        console.log(`[TV OSCILAÇÃO DETECTADA] 🚨 QUEDA em ${eq.name}: ${pAnt.toFixed(1)}% -> ${pAtual.toFixed(1)}% (-R$ ${Math.abs(deltaR).toFixed(2)})`);
+                        canaisAfetados.push({ canal: k, tipo: 'baixo', nome: eq.name, deltaVisivel, deltaR });
+                        console.log(`[TV OSCILAÇÃO DETECTADA] 🚨 QUEDA REAL em ${eq.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ ${deltaVisivel.toFixed(1)}%)`);
                     }
                 }
 
-                novoEstado[k] = { percent: pAtual, realizado: rAtual };
+                novoEstado[k] = { percent: pAtual, realizado: rAtual, meta: meta };
             });
 
             // Atualiza estado anterior salvo para próximas verificações

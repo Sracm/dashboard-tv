@@ -124,7 +124,7 @@ function initCharts() {
 }
 
 async function fetchData(forceRefresh = false) {
-    const mes = document.getElementById('filter-month').value;
+    const mes = document.getElementById('filter-month')?.value || (new Date().getMonth() + 1);
     const ano = document.getElementById('filter-year').value;
     
     try {
