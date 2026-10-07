@@ -193,45 +193,14 @@ function testarAudio() {
 function tocarAudioMetaEmpresa() {
     pararTodosAudios();
 
-    const audioSirene = document.getElementById('victory-sound');
     const audioMusica = document.getElementById('music-sound');
-
-    const tocarMusica = () => {
-        if (audioSirene) {
-            audioSirene.pause();
-            audioSirene.currentTime = 0;
-            audioSirene.onended = null;
-        }
-        if (audioMusica) {
+    if (audioMusica) {
+        audioMusica.currentTime = 0;
+        audioMusica.play().catch(e => console.warn("Erro ao tocar música:", e));
+        musicaTimeout = setTimeout(() => {
+            audioMusica.pause();
             audioMusica.currentTime = 0;
-            audioMusica.play().catch(e => console.warn("Erro ao tocar música:", e));
-            musicaTimeout = setTimeout(() => {
-                audioMusica.pause();
-                audioMusica.currentTime = 0;
-            }, 10000);
-        }
-    };
-
-    if (audioSirene) {
-        audioSirene.currentTime = 0;
-        audioSirene.play().then(() => {
-            sireneTimeout = setTimeout(() => {
-                tocarMusica();
-            }, 10000);
-
-            audioSirene.onended = () => {
-                if (sireneTimeout) {
-                    clearTimeout(sireneTimeout);
-                    sireneTimeout = null;
-                }
-                tocarMusica();
-            };
-        }).catch(e => {
-            console.warn("Erro ao tocar sirene:", e);
-            tocarMusica();
-        });
-    } else {
-        tocarMusica();
+        }, 28000); // 28s Van Halen - Jump
     }
 }
 

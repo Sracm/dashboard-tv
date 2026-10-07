@@ -606,7 +606,7 @@ const AUDIO_CONFIG = {
     'ecommerce':    { id: 'audio-ecommerce',    duration: 30000, nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
     'comex':        { id: 'audio-comex',        duration: 30000, nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
     'varejo_sp':    { id: 'audio-varejo-sp',    duration: 18000, nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
-    'varejo_reg':   { id: 'audio-varejo-reg',   duration: 12000, nome: 'Varejo Reg (ZZ Top - La Grange)' },
+    'varejo_reg':   { id: 'audio-varejo-reg',   duration: 31000, nome: 'Varejo Reg (David Guetta, Hypaton & Europe)' },
     'parlux':       { id: 'audio-parlux',       duration: 28000, nome: 'Parlux (Heart - Barracuda)' },
     'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
     'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }

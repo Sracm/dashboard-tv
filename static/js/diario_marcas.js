@@ -9,7 +9,7 @@ let carouselInterval = null;
 const CAROUSEL_DURATION_MS = 10000; // 10 segundos por página
 
 function pararTodosAudios() {
-    const audio = document.getElementById('victory-sound');
+    const audio = document.getElementById('music-sound') || document.getElementById('victory-sound');
     if (audio) {
         audio.pause();
         audio.currentTime = 0;
@@ -265,7 +265,7 @@ function manualRefresh() {
 }
 
 function testarAudio() {
-    const audio = document.getElementById('victory-sound');
+    const audio = document.getElementById('music-sound') || document.getElementById('victory-sound');
     if (audio) {
         audio.currentTime = 0;
         audio.play().catch(e => console.warn("Erro ao tocar áudio:", e));

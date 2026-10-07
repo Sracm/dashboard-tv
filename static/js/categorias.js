@@ -993,23 +993,14 @@ function manualRefresh() {
 }
 
 function testarAudio() {
-    const audioSiren = document.getElementById('victory-sound');
     const audioMusic = document.getElementById('music-sound');
-    if (audioSiren) {
-        audioSiren.currentTime = 0;
-        audioSiren.play().catch(e => console.log('Audio playback prevented:', e));
+    if (audioMusic) {
+        audioMusic.currentTime = 0;
+        audioMusic.play().catch(e => console.log('Audio playback prevented:', e));
         setTimeout(() => {
-            audioSiren.pause();
-            audioSiren.currentTime = 0;
-            if (audioMusic) {
-                audioMusic.currentTime = 0;
-                audioMusic.play().catch(e => console.log('Audio playback prevented:', e));
-                setTimeout(() => {
-                    audioMusic.pause();
-                    audioMusic.currentTime = 0;
-                }, 10000);
-            }
-        }, 10000);
+            audioMusic.pause();
+            audioMusic.currentTime = 0;
+        }, 28000); // 28s Van Halen - Jump
     }
 }
 

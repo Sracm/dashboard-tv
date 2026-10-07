@@ -15,10 +15,40 @@
     <p>Se não tocar aqui, o arquivo mp3 pode estar corrompido.</p>
     
     <button class="btn-green" onclick="document.getElementById('audio-caixa').play()">💵 Testar Caixa Registradora</button>
-    <button class="btn-red" onclick="document.getElementById('audio-policia').play()">🚨 Testar Sirene</button>
+    <button class="btn-red" onclick="document.getElementById('audio-policia').play()">🚨 Testar Sirene de Polícia</button>
+    <button style="background: #e65100;" onclick="testarVarejoReg()">🎧 Testar Varejo Reg (David Guetta - 31s)</button>
+    <button style="background: #6a1b9a;" onclick="testarEmpresa()">🎸 Testar Empresa (Van Halen - Jump)</button>
 
-    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3" controls style="display:block; margin: 20px auto;"></audio>
-    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3" controls style="display:block; margin: 20px auto;"></audio>
+    <h3>Controles Diretos</h3>
+    <p>Sirene de Polícia:</p>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=3" controls style="display:block; margin: 10px auto;"></audio>
+    <p>Varejo Reg (David Guetta, Hypaton & Europe):</p>
+    <audio id="audio-varejo-reg" src="/static/audio/david_guetta_europe.mp3?v=1" controls style="display:block; margin: 10px auto;"></audio>
+    <p>Empresa (Van Halen - Jump):</p>
+    <audio id="audio-empresa" src="/static/audio/van_halen_jump.mp3" controls style="display:block; margin: 10px auto;"></audio>
+    <p>Caixa Registradora:</p>
+    <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3" controls style="display:block; margin: 10px auto;"></audio>
+
+    <script>
+        function testarVarejoReg() {
+            const a = document.getElementById('audio-varejo-reg');
+            a.currentTime = 0;
+            a.play();
+            setTimeout(() => {
+                a.pause();
+                a.currentTime = 0;
+            }, 31000); // 31 segundos
+        }
+        function testarEmpresa() {
+            const a = document.getElementById('audio-empresa');
+            a.currentTime = 0;
+            a.play();
+            setTimeout(() => {
+                a.pause();
+                a.currentTime = 0;
+            }, 28000);
+        }
+    </script>
 
 </body>
 </html>
