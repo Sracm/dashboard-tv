@@ -447,9 +447,13 @@ function verificarOscilacao(data, mes, ano) {
             const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
             const deltaR = realizadoAtual - realizadoAntigo;
 
-            // Oscilação REAL: exige mudança visível (>= 0.1% ou <= -0.1%) para canais com meta
-            // Para canais sem meta (meta <= 0), exige variação financeira expressiva (>= R$ 1.000)
-            const oscilouSubida = (metaAtual > 0 && deltaVisivel >= 0.1) || 
+            // Sensibilidade diferenciada:
+            // Canais que já ultrapassaram a meta (>= 100%): exige variação maior (>= 0.5%) para evitar disparos frequentes
+            // Canais em busca da meta (< 100%): exige variação padrão (>= 0.1%)
+            // Canais sem meta (meta <= 0): exige variação financeira expressiva (>= R$ 1.000)
+            const deltaMinimoSubida = (pAntFmt >= 100) ? 0.5 : 0.1;
+
+            const oscilouSubida = (metaAtual > 0 && deltaVisivel >= deltaMinimoSubida) || 
                                   (metaAtual <= 0 && deltaR >= 1000.0);
 
             const oscilouQueda = (metaAtual > 0 && deltaVisivel <= -0.1) || 
@@ -464,7 +468,7 @@ function verificarOscilacao(data, mes, ano) {
                 
                 if (!tocouSomPositivo) {
                     tocouSomPositivo = true;
-                    console.log(`[Oscilação] 💵 SUBIDA REAL em ${equipe.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%). Tocando Caixa.`);
+                    console.log(`[Oscilação] 💵 SUBIDA REAL em ${equipe.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}% >= +${deltaMinimoSubida}%). Tocando Caixa.`);
                     enfileirarAudioFrente('caixa');
                 }
             } else if (oscilouQueda) {

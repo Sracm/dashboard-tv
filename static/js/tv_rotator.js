@@ -288,14 +288,19 @@
                     const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
                     const deltaR = rAtual - rAnt;
 
-                    const subida = (meta > 0 && deltaVisivel >= 0.1) || (meta <= 0 && deltaR >= 1000.0);
+                    // Sensibilidade diferenciada:
+                    // Canais com meta já superada (>= 100%): exige variação maior (>= 0.5%) para evitar repetições
+                    // Canais em andamento (< 100%): exige variação padrão (>= 0.1%)
+                    const deltaMinimoSubida = (pAntFmt >= 100) ? 0.5 : 0.1;
+
+                    const subida = (meta > 0 && deltaVisivel >= deltaMinimoSubida) || (meta <= 0 && deltaR >= 1000.0);
                     const queda = (meta > 0 && deltaVisivel <= -0.1) || (meta <= 0 && deltaR <= -1000.0);
 
-                    // 1. Oscilação para CIMA: percentual visível subiu (>= 0.1%)
+                    // 1. Oscilação para CIMA: percentual visível subiu
                     if (subida) {
                         oscilouCima = true;
                         canaisAfetados.push({ canal: k, tipo: 'cima', nome: eq.name, deltaVisivel, deltaR });
-                        console.log(`[TV OSCILAÇÃO DETECTADA] 💵 SUBIDA REAL em ${eq.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%)`);
+                        console.log(`[TV OSCILAÇÃO DETECTADA] 💵 SUBIDA REAL em ${eq.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}% >= +${deltaMinimoSubida}%)`);
                     // 2. Oscilação para BAIXO: percentual visível caiu (<= -0.1%)
                     } else if (queda) {
                         oscilouBaixo = true;

@@ -608,15 +608,18 @@ function verificarOscilacaoCanais(dadosEquipes) {
             const pAntFmt = Number(percentAntigo.toFixed(1));
             const deltaVisivel = Number((pAtualFmt - pAntFmt).toFixed(1));
 
-            // 1. Oscilação para CIMA -> Caixa Registradora (exige subida visível >= 0.1%)
-            if (deltaVisivel >= 0.1) {
+            // Sensibilidade diferenciada: >= 0.5% para canais já acima da meta (>= 100%), >= 0.1% para os demais
+            const deltaMinimoSubida = (pAntFmt >= 100) ? 0.5 : 0.1;
+
+            // 1. Oscilação para CIMA -> Caixa Registradora
+            if (deltaVisivel >= deltaMinimoSubida) {
                 if (cardEl) {
                     cardEl.classList.remove('oscilou-baixo');
                     cardEl.classList.add('oscilou-cima');
                 }
                 if (!tocouPositivo) {
                     tocouPositivo = true;
-                    console.log(`[Todos Canais] 💵 SUBIDA REAL em ${nome}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}%). Caixa Registradora.`);
+                    console.log(`[Todos Canais] 💵 SUBIDA REAL em ${nome}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ +${deltaVisivel.toFixed(1)}% >= +${deltaMinimoSubida}%). Caixa Registradora.`);
                     enfileirarAudioFrente('caixa');
                 }
             // 2. Redução para BAIXO -> Sirene de Polícia (exige queda visível <= -0.1%)

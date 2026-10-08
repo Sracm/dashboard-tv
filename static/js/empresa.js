@@ -717,17 +717,19 @@ function verificarOscilacaoEmpresa(item) {
                 audioPol.play().catch(() => {});
                 setTimeout(() => { try { audioPol.pause(); audioPol.currentTime = 0; } catch(e){} }, 7000);
             }
-        } else if (deltaVisivel >= 0.1) {
-            if (cardEl) {
-                cardEl.classList.remove('oscilou-baixo');
-                cardEl.classList.add('oscilou-cima');
-            }
-            const audioCx = document.getElementById('audio-caixa');
-            if (audioCx) {
-                audioCx.currentTime = 0;
-                audioCx.volume = 1.0;
-                audioCx.play().catch(() => {});
-                setTimeout(() => { try { audioCx.pause(); audioCx.currentTime = 0; } catch(e){} }, 4000);
+            const deltaMinimoSubida = (pAntFmt >= 100) ? 0.5 : 0.1;
+            if (deltaVisivel >= deltaMinimoSubida) {
+                if (cardEl) {
+                    cardEl.classList.remove('oscilou-baixo');
+                    cardEl.classList.add('oscilou-cima');
+                }
+                const audioCx = document.getElementById('audio-caixa');
+                if (audioCx) {
+                    audioCx.currentTime = 0;
+                    audioCx.volume = 1.0;
+                    audioCx.play().catch(() => {});
+                    setTimeout(() => { try { audioCx.pause(); audioCx.currentTime = 0; } catch(e){} }, 4000);
+                }
             }
         } else {
             if (cardEl) {
