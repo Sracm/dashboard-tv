@@ -1,35 +1,47 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Acessa o diretório do script (útil se for chamado de outro lugar)
-cd "$(dirname "$0")"
+# Sempre roda a partir da pasta do projeto
+cd "$(dirname "$(readlink -f "$0")")"
 
 echo "==================================================="
 echo "INICIANDO SERVIDOR DASHBOARD TV (PORTA 5050)..."
 echo "==================================================="
 
-# Inicia o app em background
-python3 app.py &
-APP_PID=$!
+VENV_DIR="venv"
+[ -d ".venv" ] && [ ! -d "venv" ] && VENV_DIR=".venv"
 
-sleep 3
+# Cria o ambiente virtual se ainda não existir
+if [ ! -x "$VENV_DIR/bin/python" ]; then
+    echo "Ambiente virtual não encontrado. Criando em $VENV_DIR..."
+    python3 -m venv "$VENV_DIR" || {
+        echo "Erro ao criar o venv. Instale com: sudo apt install -y python3-venv python3-pip" >&2
+        exit 1
+    }
+fi
 
-echo "==================================================="
-echo "INICIANDO TUNEL EXTERNO (NGROK)..."
-echo "==================================================="
-# Inicia o ngrok em background
-ngrok http 5050 &
-NGROK_PID=$!
+source "$VENV_DIR/bin/activate"
+
+# Instala/atualiza dependencias se o stamp nao existir ou requirements.txt mudar
+STAMP="$VENV_DIR/.requirements.stamp"
+if [ -f requirements.txt ] && { [ ! -f "$STAMP" ] || [ requirements.txt -nt "$STAMP" ]; }; then
+    echo "Instalando/atualizando dependencias do requirements.txt..."
+    python -m pip install --upgrade pip
+    python -m pip install -r requirements.txt
+    touch "$STAMP"
+fi
 
 echo ""
-echo "Tudo iniciado!"
-echo "Acesso Local: http://localhost:5050/tv"
-echo "Acesso Rede:  http://10.11.1.162:5050/tv"
-echo "Acesso Paises: http://10.11.1.162:5050/paises?mes=8&ano=2026"
+echo "Servidor Dashboard TV ativo:"
+echo "  Local:   http://localhost:5050/tv"
+echo "  Rede:    http://0.0.0.0:5050/tv"
+echo "Pressione Ctrl+C para encerrar."
 echo ""
-echo "Pressione Ctrl+C para encerrar o servidor e o ngrok."
 
-# Trata o Ctrl+C para fechar os processos filhos
-trap "kill $APP_PID $NGROK_PID; exit" INT TERM
-
-# Aguarda os processos para o script não fechar sozinho
-wait
+if command -v gunicorn &> /dev/null; then
+    echo "Executando em produção via Gunicorn (Porta 5050)..."
+    exec gunicorn --workers 4 --threads 4 --bind 0.0.0.0:5050 app:app
+else
+    echo "Executando via Python Flask..."
+    exec python app.py "$@"
+fi
