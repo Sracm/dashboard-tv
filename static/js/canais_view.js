@@ -508,7 +508,7 @@ function manualRefresh() {
 
 // ─── SISTEMA DE FILA SEQUENCIAL DE ÁUDIOS DE META ───────────
 const AUDIO_CONFIG = {
-    'empresa':      { id: 'music-sound',        duration: 28000, nome: 'Empresa (Van Halen - Jump)' },
+    'empresa':      { id: 'music-sound',        duration: null,  nome: 'Empresa (Van Halen - Jump)' }, // duration: null = música completa
     'distribuicao': { id: 'audio-distribuicao', duration: 30000, nome: 'Distribuição (The Who - Who Are You)' },
     'ecommerce':    { id: 'audio-ecommerce',    duration: 30000, nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
     'comex':        { id: 'audio-comex',        duration: 30000, nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
@@ -554,6 +554,10 @@ function pararTodosAudios() {
             } catch (e) {}
         }
     });
+
+    if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+        window.tvRotator.retomarAposAudio();
+    }
 }
 
 function enfileirarAudio(tipo) {
@@ -700,6 +704,10 @@ function processarFilaAudios() {
 
         audioQueueRunning = false;
         currentAudioElement = null;
+
+        if (config.id === 'music-sound' && window.tvRotator && window.tvRotator.retomarAposAudio) {
+            window.tvRotator.retomarAposAudio();
+        }
         if (audioQueue.length > 0) {
             console.log(`[Áudio Fila] Finalizado: ${config.nome}. Aguardando 20 segundos de intervalo antes da próxima música. Restantes na fila: ${audioQueue.length}`);
             currentAudioTimeout = setTimeout(() => {
@@ -715,7 +723,15 @@ function processarFilaAudios() {
 
     console.log(`[Áudio Fila] 🎵 Tocando: ${config.nome} (${config.duration / 1000}s)`);
     audioEl.play().then(() => {
-        currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
+        if (config.duration && config.duration > 0) {
+            currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
+        } else {
+            console.log(`[Áudio Fila] 🎵 ${config.nome}: Configurado para tocar a MÚSICA COMPLETA até o final.`);
+        }
+
+        if (proximoTipo === 'empresa' && window.tvRotator && window.tvRotator.pausarParaAudio) {
+            window.tvRotator.pausarParaAudio(config.nome);
+        }
     }).catch(e => {
         console.warn(`Erro ao tocar áudio ${config.nome}:`, e);
         audioQueueRunning = false;

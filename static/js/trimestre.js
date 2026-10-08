@@ -196,11 +196,26 @@ function tocarAudioMetaEmpresa() {
     const audioMusica = document.getElementById('music-sound');
     if (audioMusica) {
         audioMusica.currentTime = 0;
-        audioMusica.play().catch(e => console.warn("Erro ao tocar música:", e));
-        musicaTimeout = setTimeout(() => {
-            audioMusica.pause();
-            audioMusica.currentTime = 0;
-        }, 28000); // 28s Van Halen - Jump
+
+        if (window.tvRotator && window.tvRotator.pausarParaAudio) {
+            window.tvRotator.pausarParaAudio('Meta Empresa (Van Halen - Jump)');
+        }
+
+        audioMusica.onended = function () {
+            console.log("[Trimestre] 🎵 Música completa finalizada.");
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
+        };
+
+        audioMusica.play().then(() => {
+            console.log("[Trimestre] 🎵 Tocando Van Halen - Jump na íntegra!");
+        }).catch(e => {
+            console.warn("Erro ao tocar música Trimestre:", e);
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
+        });
     }
 }
 

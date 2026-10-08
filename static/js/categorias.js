@@ -996,11 +996,15 @@ function testarAudio() {
     const audioMusic = document.getElementById('music-sound');
     if (audioMusic) {
         audioMusic.currentTime = 0;
+        if (window.tvRotator && window.tvRotator.pausarParaAudio) {
+            window.tvRotator.pausarParaAudio('Van Halen - Jump');
+        }
+        audioMusic.onended = function () {
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
+        };
         audioMusic.play().catch(e => console.log('Audio playback prevented:', e));
-        setTimeout(() => {
-            audioMusic.pause();
-            audioMusic.currentTime = 0;
-        }, 28000); // 28s Van Halen - Jump
     }
 }
 

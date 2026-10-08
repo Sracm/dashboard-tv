@@ -751,7 +751,13 @@ function pararTodosAudios() {
         clearTimeout(musicaTimeout);
         musicaTimeout = null;
     }
-    ['music-sound', 'audio-policia', 'audio-caixa'].forEach(id => {
+    const audioMusica = document.getElementById('music-sound');
+    if (audioMusica) {
+        audioMusica.onended = null;
+        audioMusica.pause();
+        audioMusica.currentTime = 0;
+    }
+    ['audio-policia', 'audio-caixa'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             try {
@@ -760,6 +766,9 @@ function pararTodosAudios() {
             } catch (e) {}
         }
     });
+    if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+        window.tvRotator.retomarAposAudio();
+    }
 }
 
 function testarAudio(tipo) {
@@ -773,11 +782,28 @@ function tocarAudioMetaEmpresa() {
     if (audioMusica) {
         audioMusica.currentTime = 0;
         audioMusica.volume = 1.0;
-        audioMusica.play().catch(e => console.warn("Erro ao tocar música Empresa:", e));
-        musicaTimeout = setTimeout(() => {
-            audioMusica.pause();
-            audioMusica.currentTime = 0;
-        }, 28000); // 28 segundos (Van Halen - Jump)
+
+        // Opção A: Pausar o rotacionador da TV enquanto toca a música da Empresa
+        if (window.tvRotator && window.tvRotator.pausarParaAudio) {
+            window.tvRotator.pausarParaAudio('Meta Empresa (Van Halen - Jump)');
+        }
+
+        // Tocar a MÚSICA TODA: aguarda término natural da faixa
+        audioMusica.onended = function () {
+            console.log("[Empresa] 🎵 Música completa finalizada com sucesso.");
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
+        };
+
+        audioMusica.play().then(() => {
+            console.log("[Empresa] 🎵 Tocando Van Halen - Jump na íntegra (música completa)!");
+        }).catch(e => {
+            console.warn("Erro ao tocar música Empresa:", e);
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
+        });
     }
 }
 

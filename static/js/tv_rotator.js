@@ -587,6 +587,23 @@
         });
     }
 
+    // Controle global de pausa para áudio/música de meta
+    window.tvRotator = {
+        pausarParaAudio: function (motivo = 'Música de Meta') {
+            console.log(`[TV ROTATOR] ⏸️ Rotação pausada temporariamente para: ${motivo}`);
+            isPaused = true;
+            updateCountdownUI();
+        },
+        retomarAposAudio: function () {
+            if (localStorage.getItem('tv_rotator_paused') !== 'true' && urlParams.get('norotate') !== '1') {
+                console.log(`[TV ROTATOR] ▶️ Retomando rotação automática após término da música.`);
+                isPaused = false;
+                timeLeft = DEFAULT_ROTATION_SECONDS;
+                updateCountdownUI();
+            }
+        }
+    };
+
     // Simulador global para testes rápidos no console ou botões
     window.simularOscilacaoGlobal = function (tipo = 'cima', canal = 'distribuicao') {
         const now = new Date();

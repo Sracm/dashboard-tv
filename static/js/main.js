@@ -601,7 +601,7 @@ function initFilters() {
 
 // ─── SISTEMA DE FILA SEQUENCIAL DE ÁUDIOS DE META ───────────
 const AUDIO_CONFIG = {
-    'empresa':      { id: 'music-sound',        duration: 28000, nome: 'Empresa (Van Halen - Jump)' },
+    'empresa':      { id: 'music-sound',        duration: null,  nome: 'Empresa (Van Halen - Jump)' }, // duration: null = música completa
     'distribuicao': { id: 'audio-distribuicao', duration: 30000, nome: 'Distribuição (The Who - Who Are You)' },
     'ecommerce':    { id: 'audio-ecommerce',    duration: 30000, nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
     'comex':        { id: 'audio-comex',        duration: 30000, nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
@@ -747,6 +747,9 @@ function pararTodosAudios() {
     });
 
     esconderStatusAudio();
+    if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+        window.tvRotator.retomarAposAudio();
+    }
 }
 
 function pularParaProximoAudio() {
@@ -885,6 +888,11 @@ function processarFilaAudios() {
         audioQueueRunning = false;
         currentAudioElement = null;
 
+        // Retoma o rotacionador da TV caso tenha sido pausado para a Empresa
+        if (config.id === 'music-sound' && window.tvRotator && window.tvRotator.retomarAposAudio) {
+            window.tvRotator.retomarAposAudio();
+        }
+
         if (audioQueue.length > 0) {
             const proximoCanal = audioQueue[0];
             const proxConfig = AUDIO_CONFIG[proximoCanal];
@@ -940,7 +948,19 @@ function processarFilaAudios() {
         if (mesAtual && anoAtual) {
             marcarMetaComoTocada(proximoTipo, mesAtual, anoAtual);
         }
-        currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
+        // Se tiver duração definida (canais individuais), encerra no timeout.
+        // Se for Empresa (duration == null), toca a música completa até o evento onended!
+        if (config.duration && config.duration > 0) {
+            currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
+        } else {
+            console.log(`[Áudio Fila] 🎵 ${config.nome}: Configurado para tocar a MÚSICA COMPLETA até o final.`);
+        }
+
+        // Opção A: Pausar o rotacionador da TV enquanto toca a música da Empresa
+        if (proximoTipo === 'empresa' && window.tvRotator && window.tvRotator.pausarParaAudio) {
+            window.tvRotator.pausarParaAudio(config.nome);
+        }
+
         esconderOverlayDesbloqueioTV();
     }).catch(e => {
         console.warn(`Erro ao tocar áudio ${config.nome}:`, e);
