@@ -1235,3 +1235,25 @@ body {
 }
 
 
+
+
+/* Correção Tabela TV - Fit Width & Evolução Visible */
+.table-responsive-wrapper {
+    overflow-x: hidden !important;
+}
+table.exec-table {
+    width: 100% !important;
+    table-layout: auto !important;
+}
+table.exec-table thead th {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    min-width: 0 !important;
+    padding: 8px 6px !important;
+    font-size: 0.65rem !important;
+}
+table.exec-table tbody td {
+    padding: 8px 6px !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+}
