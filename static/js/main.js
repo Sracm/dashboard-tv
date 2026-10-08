@@ -601,13 +601,13 @@ function initFilters() {
 
 // ─── SISTEMA DE FILA SEQUENCIAL DE ÁUDIOS DE META ───────────
 const AUDIO_CONFIG = {
-    'empresa':      { id: 'music-sound',        duration: null,  nome: 'Empresa (Van Halen - Jump)' }, // duration: null = música completa
-    'distribuicao': { id: 'audio-distribuicao', duration: 30000, nome: 'Distribuição (The Who - Who Are You)' },
-    'ecommerce':    { id: 'audio-ecommerce',    duration: 30000, nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
-    'comex':        { id: 'audio-comex',        duration: 30000, nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
-    'varejo_sp':    { id: 'audio-varejo-sp',    duration: 18000, nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
-    'varejo_reg':   { id: 'audio-varejo-reg',   duration: 31000, nome: 'Varejo Reg (David Guetta, Hypaton & Europe)' },
-    'parlux':       { id: 'audio-parlux',       duration: 28000, nome: 'Parlux (Heart - Barracuda)' },
+    'empresa':      { id: 'music-sound',        duration: null,  nome: 'Empresa (Van Halen - Jump)' },
+    'distribuicao': { id: 'audio-distribuicao', duration: null,  nome: 'Distribuição (The Who - Who Are You)' },
+    'ecommerce':    { id: 'audio-ecommerce',    duration: null,  nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
+    'comex':        { id: 'audio-comex',        duration: null,  nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
+    'varejo_sp':    { id: 'audio-varejo-sp',    duration: null,  nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },
+    'varejo_reg':   { id: 'audio-varejo-reg',   duration: null,  nome: 'Varejo Reg (David Guetta, Hypaton & Europe)' },
+    'parlux':       { id: 'audio-parlux',       duration: null,  nome: 'Parlux (Heart - Barracuda)' },
     'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
     'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }
 };
@@ -888,8 +888,8 @@ function processarFilaAudios() {
         audioQueueRunning = false;
         currentAudioElement = null;
 
-        // Retoma o rotacionador da TV caso tenha sido pausado para a Empresa
-        if (config.id === 'music-sound' && window.tvRotator && window.tvRotator.retomarAposAudio) {
+        // Retoma o rotacionador da TV se não há mais músicas na fila
+        if (audioQueue.length === 0 && window.tvRotator && window.tvRotator.retomarAposAudio) {
             window.tvRotator.retomarAposAudio();
         }
 
@@ -929,6 +929,9 @@ function processarFilaAudios() {
         } else {
             console.log(`[Áudio Fila] Finalizado: ${config.nome}. Todas as músicas da fila foram concluídas.`);
             mostrarStatusAudio('✅ Sequência de Metas Concluída com Sucesso!', '#28a745', 'rgba(40, 167, 69, 0.2)');
+            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
+                window.tvRotator.retomarAposAudio();
+            }
             setTimeout(() => {
                 if (!audioQueueRunning && audioQueue.length === 0) {
                     esconderStatusAudio();
@@ -940,7 +943,8 @@ function processarFilaAudios() {
     finalizarAudioCallback = finalizarAudio;
     audioEl.onended = finalizarAudio;
 
-    console.log(`[Áudio Fila] 🎵 Tocando: ${config.nome} (${config.duration / 1000}s)`);
+    const durDesc = config.duration ? `${config.duration / 1000}s` : 'música completa';
+    console.log(`[Áudio Fila] 🎵 Tocando: ${config.nome} (${durDesc})`);
     audioEl.play().then(() => {
         // Marca meta tocada no storage apenas quando a música realmente começar a tocar
         const mesAtual = document.getElementById('filter-month')?.value;
@@ -948,16 +952,16 @@ function processarFilaAudios() {
         if (mesAtual && anoAtual) {
             marcarMetaComoTocada(proximoTipo, mesAtual, anoAtual);
         }
-        // Se tiver duração definida (canais individuais), encerra no timeout.
-        // Se for Empresa (duration == null), toca a música completa até o evento onended!
+        // Se tiver duração definida, encerra no timeout.
+        // Se for meta de canal ou empresa (duration == null), toca a música completa até o final!
         if (config.duration && config.duration > 0) {
             currentAudioTimeout = setTimeout(finalizarAudio, config.duration);
         } else {
             console.log(`[Áudio Fila] 🎵 ${config.nome}: Configurado para tocar a MÚSICA COMPLETA até o final.`);
         }
 
-        // Opção A: Pausar o rotacionador da TV enquanto toca a música da Empresa
-        if (proximoTipo === 'empresa' && window.tvRotator && window.tvRotator.pausarParaAudio) {
+        // Opção A: Pausar o rotacionador da TV enquanto toca a música da Meta (Empresa ou Canal)
+        if (config.duration === null && window.tvRotator && window.tvRotator.pausarParaAudio) {
             window.tvRotator.pausarParaAudio(config.nome);
         }
 
