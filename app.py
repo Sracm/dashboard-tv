@@ -2875,39 +2875,66 @@ def api_diario_canal():
             'EMPRESA'
         ]
 
-        dia_atual = datetime.now().day
+        now = datetime.now()
+        _, num_dias_mes = calendar.monthrange(ano, mes)
+        if ano < now.year or (ano == now.year and mes < now.month):
+            dia_atual = num_dias_mes
+        else:
+            dia_atual = min(now.day, num_dias_mes)
 
         resultado = []
         for canal in canais_lista:
-            # Gerar curva diária acumulada de 1 a dia_atual
-            def gerar_acumulado(df_source, is_empresa):
-                if is_empresa:
+            is_emp = (canal == 'EMPRESA')
+            
+            def processar_serie(df_source):
+                if is_emp:
                     df_c = df_source
                 else:
                     df_c = df_source[df_source['CANAL'] == canal]
                 
                 vendas_por_dia = df_c.groupby('DIA')['VALORVENDA'].sum().to_dict()
                 acum = 0.0
-                serie = []
+                serie_acum = []
+                serie_diario = []
                 for dia in range(1, dia_atual + 1):
-                    if dia in vendas_por_dia:
-                        acum += vendas_por_dia[dia]
-                        serie.append(round(acum, 2))
-                    else:
-                        serie.append(round(acum, 2) if acum > 0 else 0.0)
-                return serie
+                    val_dia = float(vendas_por_dia.get(dia, 0.0))
+                    acum += val_dia
+                    serie_diario.append(round(val_dia, 2))
+                    serie_acum.append(round(acum, 2))
+                return serie_acum, serie_diario
 
-            is_emp = (canal == 'EMPRESA')
-            s_atual = gerar_acumulado(df_atual, is_emp)
-            s_ant = gerar_acumulado(df_ant, is_emp)
-            s_yoy = gerar_acumulado(df_yoy, is_emp)
+            s_atual_acum, s_atual_dia = processar_serie(df_atual)
+            s_ant_acum, s_ant_dia = processar_serie(df_ant)
+            s_yoy_acum, s_yoy_dia = processar_serie(df_yoy)
+
+            tot_atual = s_atual_acum[-1] if s_atual_acum else 0.0
+            tot_ant = s_ant_acum[-1] if s_ant_acum else 0.0
+            tot_yoy = s_yoy_acum[-1] if s_yoy_acum else 0.0
+            venda_ult_dia = s_atual_dia[-1] if s_atual_dia else 0.0
+
+            mom_pct = round(((tot_atual / tot_ant) - 1) * 100, 1) if tot_ant > 0 else 0.0
+            yoy_pct = round(((tot_atual / tot_yoy) - 1) * 100, 1) if tot_yoy > 0 else 0.0
+            media_dia = round(tot_atual / dia_atual, 2) if dia_atual > 0 else 0.0
 
             resultado.append({
                 "canal": canal,
                 "dias": list(range(1, dia_atual + 1)),
-                "mes_atual": s_atual,
-                "mes_anterior": s_ant,
-                "ano_anterior": s_yoy
+                "mes_atual": s_atual_acum,
+                "mes_anterior": s_ant_acum,
+                "ano_anterior": s_yoy_acum,
+                "diario_atual": s_atual_dia,
+                "diario_anterior": s_ant_dia,
+                "diario_ano_anterior": s_yoy_dia,
+                "kpis": {
+                    "total_atual": tot_atual,
+                    "total_anterior": tot_ant,
+                    "total_yoy": tot_yoy,
+                    "venda_ultimo_dia": venda_ult_dia,
+                    "dia_ultimo": dia_atual,
+                    "var_mom_pct": mom_pct,
+                    "var_yoy_pct": yoy_pct,
+                    "media_diaria": media_dia
+                }
             })
 
         return jsonify({"success": True, "data": resultado})
@@ -2952,33 +2979,60 @@ def api_diario_marcas():
             'PARLUX'
         ]
 
-        dia_atual = datetime.now().day
+        now = datetime.now()
+        _, num_dias_mes = calendar.monthrange(ano, mes)
+        if ano < now.year or (ano == now.year and mes < now.month):
+            dia_atual = num_dias_mes
+        else:
+            dia_atual = min(now.day, num_dias_mes)
 
         resultado = []
         for marca in marcas_lista:
-            def gerar_acumulado_marca(df_source):
+            def processar_serie_marca(df_source):
                 df_m = df_source[df_source['MARCA_MAP'] == marca]
                 vendas_por_dia = df_m.groupby('DIA')['VALORVENDA'].sum().to_dict()
                 acum = 0.0
-                serie = []
+                serie_acum = []
+                serie_diario = []
                 for dia in range(1, dia_atual + 1):
-                    if dia in vendas_por_dia:
-                        acum += vendas_por_dia[dia]
-                        serie.append(round(acum, 2))
-                    else:
-                        serie.append(round(acum, 2) if acum > 0 else 0.0)
-                return serie
+                    val_dia = float(vendas_por_dia.get(dia, 0.0))
+                    acum += val_dia
+                    serie_diario.append(round(val_dia, 2))
+                    serie_acum.append(round(acum, 2))
+                return serie_acum, serie_diario
 
-            s_atual = gerar_acumulado_marca(df_atual)
-            s_ant = gerar_acumulado_marca(df_ant)
-            s_yoy = gerar_acumulado_marca(df_yoy)
+            s_atual_acum, s_atual_dia = processar_serie_marca(df_atual)
+            s_ant_acum, s_ant_dia = processar_serie_marca(df_ant)
+            s_yoy_acum, s_yoy_dia = processar_serie_marca(df_yoy)
+
+            tot_atual = s_atual_acum[-1] if s_atual_acum else 0.0
+            tot_ant = s_ant_acum[-1] if s_ant_acum else 0.0
+            tot_yoy = s_yoy_acum[-1] if s_yoy_acum else 0.0
+            venda_ult_dia = s_atual_dia[-1] if s_atual_dia else 0.0
+
+            mom_pct = round(((tot_atual / tot_ant) - 1) * 100, 1) if tot_ant > 0 else 0.0
+            yoy_pct = round(((tot_atual / tot_yoy) - 1) * 100, 1) if tot_yoy > 0 else 0.0
+            media_dia = round(tot_atual / dia_atual, 2) if dia_atual > 0 else 0.0
 
             resultado.append({
                 "marca": marca,
                 "dias": list(range(1, dia_atual + 1)),
-                "mes_atual": s_atual,
-                "mes_anterior": s_ant,
-                "ano_anterior": s_yoy
+                "mes_atual": s_atual_acum,
+                "mes_anterior": s_ant_acum,
+                "ano_anterior": s_yoy_acum,
+                "diario_atual": s_atual_dia,
+                "diario_anterior": s_ant_dia,
+                "diario_ano_anterior": s_yoy_dia,
+                "kpis": {
+                    "total_atual": tot_atual,
+                    "total_anterior": tot_ant,
+                    "total_yoy": tot_yoy,
+                    "venda_ultimo_dia": venda_ult_dia,
+                    "dia_ultimo": dia_atual,
+                    "var_mom_pct": mom_pct,
+                    "var_yoy_pct": yoy_pct,
+                    "media_diaria": media_dia
+                }
             })
 
         return jsonify({"success": True, "data": resultado})

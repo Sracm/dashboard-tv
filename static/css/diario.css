@@ -1,38 +1,215 @@
-/* diario.css - Estilos para Diário Canal e Diário Marcas */
+/* ==========================================================================
+   DIARIO.CSS - MQ PROFESSIONAL (Painel Diário TV & Telão)
+   Suporte a Modo TV (2 por tela), Modo Grade (Todos) e Foco Individual
+   ========================================================================== */
+
+/* Sub-Header Executivo */
 .diario-sub-header {
     display: flex;
-    justify-content: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
-    gap: 20px;
-    padding: 3px 16px;
-    margin-bottom: 4px;
+    gap: 12px;
+    padding: 6px 16px;
+    background: rgba(18, 18, 22, 0.85);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(203, 151, 39, 0.25);
+    margin-bottom: 6px;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.diario-title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .diario-sub-title {
-    color: var(--mq-gold);
-    font-size: 1.05rem;
-    font-weight: 700;
+    color: var(--mq-gold, #CB9727);
+    font-size: 1.1rem;
+    font-weight: 800;
     letter-spacing: 0.8px;
-    font-style: italic;
+    text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(203, 151, 39, 0.3);
 }
 
+.diario-badge-live {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+    border: 1px solid rgba(0, 230, 118, 0.4);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.diario-badge-live::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00E676;
+    box-shadow: 0 0 8px #00E676;
+    animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+    0% { transform: scale(0.9); opacity: 0.8; }
+    50% { transform: scale(1.3); opacity: 1; }
+    100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+/* Grupo de Controles Centrais (Modos & Métricas) */
+.diario-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.diario-btn-group {
+    display: inline-flex;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.diario-toggle-btn {
+    background: transparent;
+    border: none;
+    color: #bbb;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: var(--font-main, 'Montserrat', sans-serif);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.diario-toggle-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.diario-toggle-btn.active {
+    background: linear-gradient(135deg, rgba(203, 151, 39, 0.9), rgba(160, 115, 20, 0.95));
+    color: #000;
+    font-weight: 800;
+    box-shadow: 0 2px 8px rgba(203, 151, 39, 0.4);
+}
+
+/* Controles de Paginação do Carrossel */
+.carousel-nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(203, 151, 39, 0.2);
+}
+
+.carousel-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #eee;
+    width: 26px;
+    height: 24px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.carousel-btn:hover {
+    background: var(--mq-gold, #CB9727);
+    color: #000;
+    border-color: var(--mq-gold, #CB9727);
+}
+
+.carousel-page-indicator {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--mq-gold, #CB9727);
+    padding: 0 4px;
+    white-space: nowrap;
+}
+
+/* Pílulas de Seleção Rápida de Canais/Marcas */
+.diario-channel-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    max-width: 100%;
+    padding: 2px 0;
+    scrollbar-width: none;
+}
+
+.diario-channel-pills::-webkit-scrollbar {
+    display: none;
+}
+
+.channel-pill-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #aaa;
+    padding: 3px 10px;
+    border-radius: 14px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: var(--font-main, 'Montserrat', sans-serif);
+}
+
+.channel-pill-btn:hover {
+    color: #fff;
+    border-color: rgba(203, 151, 39, 0.4);
+    background: rgba(203, 151, 39, 0.1);
+}
+
+.channel-pill-btn.active {
+    background: var(--mq-gold, #CB9727);
+    color: #000;
+    font-weight: 800;
+    border-color: var(--mq-gold, #CB9727);
+    box-shadow: 0 0 10px rgba(203, 151, 39, 0.4);
+}
+
+/* Legenda dos Gráficos */
 .diario-legend-container {
     display: flex;
     align-items: center;
-    gap: 15px;
-    background: rgba(0, 0, 0, 0.4);
-    padding: 4px 14px;
+    gap: 12px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 4px 12px;
     border-radius: 6px;
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .legend-item {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
+    color: #ccc;
+    white-space: nowrap;
 }
 
 .legend-color-box {
@@ -41,68 +218,318 @@
     border-radius: 2px;
 }
 
-.leg-mes-atual { background-color: #FF3333; }
-.leg-mes-ant { background-color: #FFC107; }
-.leg-ano-ant { background-color: #00A3FF; }
-
-/* Grid de 6 Gráficos Diários (2 linhas x 3 colunas) */
-.grid-container-diario {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: 1fr 1fr;
-    gap: 6px;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-    padding: 2px 10px 4px;
-    box-sizing: border-box;
-    overflow: hidden;
+.leg-mes-atual { 
+    background-color: #FF2A2A; 
+    box-shadow: 0 0 6px rgba(255, 42, 42, 0.8);
+}
+.leg-mes-ant { 
+    background-color: #FFC107; 
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.5);
+}
+.leg-ano-ant { 
+    background-color: #00B0FF; 
+    box-shadow: 0 0 6px rgba(0, 176, 255, 0.5);
 }
 
-/* Grid de Carrossel para a TV (1 coluna x 2 linhas) */
+/* ==========================================================================
+   LAYOUTS DO CONTAINER PRINCIPAL
+   ========================================================================== */
+
+/* 1. MODO CARROSSEL TV: 1 coluna x 2 linhas (2 canais gigantes por tela) */
 .grid-carousel-diario {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: 1fr 1fr;
-    gap: 8px;
+    gap: 10px;
     flex: 1;
     min-height: 0;
     height: 100%;
-    padding: 4px 10px 6px;
+    padding: 0 10px 6px;
     box-sizing: border-box;
     overflow: hidden;
 }
 
+/* 2. MODO GRADE COMPLETA (Guia Único): 3 colunas x 2 linhas */
+.grid-all-diario {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    padding: 0 10px 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+@media screen and (max-width: 1300px) {
+    .grid-all-diario {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+    }
+}
+
+/* 3. MODO FOCO INDIVIDUAL: 1 Canal em Tela Cheia com Gráfico Amplo + Tabela */
+.grid-focus-diario {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    padding: 0 10px 6px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+@media screen and (max-width: 1100px) {
+    .grid-focus-diario {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1.8fr 1fr;
+    }
+}
+
+/* ==========================================================================
+   CARDS EXECUTIVOS
+   ========================================================================== */
 .diario-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(22, 22, 28, 0.95), rgba(15, 15, 20, 0.98));
+    border: 1px solid rgba(203, 151, 39, 0.28);
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     overflow: hidden;
     height: 100%;
     min-height: 0;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.diario-card-title {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 3px 6px;
-    text-align: center;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--mq-gold);
-    border-bottom: 1px solid var(--border-color);
-    letter-spacing: 0.5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.diario-card:hover {
+    border-color: rgba(203, 151, 39, 0.55);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(203, 151, 39, 0.15);
+}
+
+/* Header do Card */
+.diario-card-header {
+    background: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid rgba(203, 151, 39, 0.2);
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
     flex-shrink: 0;
 }
 
-.diario-card-chart {
+.card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-channel-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.card-channel-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.card-channel-name {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--mq-gold, #CB9727);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.card-channel-sub {
+    font-size: 0.68rem;
+    color: #888;
+    font-weight: 500;
+}
+
+/* Ribbon de KPIs no Topo do Card */
+.card-kpis-ribbon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.kpi-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 3px 10px;
+    border-radius: 6px;
+    line-height: 1.15;
+}
+
+.kpi-pill-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.kpi-pill-value {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #fff;
+    font-family: var(--font-main, 'Montserrat', sans-serif);
+}
+
+.kpi-pill-main {
+    background: rgba(203, 151, 39, 0.12);
+    border-color: rgba(203, 151, 39, 0.35);
+}
+
+.kpi-pill-main .kpi-pill-value {
+    color: #FFD54F;
+    text-shadow: 0 0 10px rgba(255, 213, 79, 0.3);
+}
+
+.kpi-pill-dia {
+    background: rgba(0, 230, 118, 0.08);
+    border-color: rgba(0, 230, 118, 0.25);
+}
+
+.kpi-pill-dia .kpi-pill-value {
+    color: #00E676;
+}
+
+.kpi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    margin-top: 1px;
+}
+
+.badge-pos {
+    background: rgba(0, 230, 118, 0.15);
+    color: #00E676;
+    border: 1px solid rgba(0, 230, 118, 0.35);
+}
+
+.badge-neg {
+    background: rgba(255, 51, 51, 0.15);
+    color: #FF5252;
+    border: 1px solid rgba(255, 51, 51, 0.35);
+}
+
+.badge-neutral {
+    background: rgba(255, 255, 255, 0.08);
+    color: #aaa;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Área do Gráfico */
+.diario-card-chart-wrapper {
     flex: 1;
     width: 100%;
     height: 100%;
     min-height: 0;
+    position: relative;
+    padding: 4px 6px;
+    box-sizing: border-box;
+}
+
+.diario-card-chart {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+
+/* Painel de Tabela Analítica (No Modo Foco Individual) */
+.diario-focus-table-container {
+    background: rgba(15, 15, 20, 0.95);
+    border: 1px solid rgba(203, 151, 39, 0.25);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+}
+
+.diario-focus-table-header {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(203, 151, 39, 0.2);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--mq-gold, #CB9727);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.diario-focus-table-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px;
+}
+
+.diario-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.diario-table th {
+    background: rgba(0, 0, 0, 0.6);
+    color: #aaa;
+    font-weight: 700;
+    padding: 6px 8px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    position: sticky;
+    top: 0;
+}
+
+.diario-table th:first-child {
+    text-align: center;
+}
+
+.diario-table td {
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    text-align: right;
+    color: #eee;
+}
+
+.diario-table td:first-child {
+    text-align: center;
+    font-weight: 700;
+    color: var(--mq-gold, #CB9727);
+}
+
+.diario-table tr:hover {
+    background: rgba(203, 151, 39, 0.08);
+}
+
+.diario-table tr.row-hoje {
+    background: rgba(255, 42, 42, 0.12);
+    font-weight: 700;
+}
+
+.diario-table tr.row-hoje td {
+    color: #fff;
 }
