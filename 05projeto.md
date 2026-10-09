@@ -69,7 +69,7 @@
 ### 6. Sistema de Áudios de Metas
 - Músicas de celebração sequenciais por canal:
   - **Empresa:** Van Halen - *Jump* (28s)
-  - **Distribuição:** The Who - *Who Are You* (30s)
+  - **Distribuição:** Black Sabbath (30s)
   - **E-commerce MQ:** Deep Purple - *Perfect Strangers* (30s)
   - **Comex:** Led Zeppelin - *Whole Lotta Love* (30s)
   - **Varejo SP:** Creedence - *Fortunate Son* (18s)

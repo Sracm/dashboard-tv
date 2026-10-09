@@ -509,7 +509,7 @@ function manualRefresh() {
 // ─── SISTEMA DE FILA SEQUENCIAL DE ÁUDIOS DE META ───────────
 const AUDIO_CONFIG = {
     'empresa':      { id: 'music-sound',        duration: null,  nome: 'Empresa (Van Halen - Jump)' },
-    'distribuicao': { id: 'audio-distribuicao', duration: null,  nome: 'Distribuição (The Who - Who Are You)' },
+    'distribuicao': { id: 'audio-distribuicao', duration: null,  nome: 'Distribuição (Black Sabbath)' },
     'ecommerce':    { id: 'audio-ecommerce',    duration: null,  nome: 'E-commerce (Deep Purple - Perfect Strangers)' },
     'comex':        { id: 'audio-comex',        duration: null,  nome: 'Comex (Led Zeppelin - Whole Lotta Love)' },
     'varejo_sp':    { id: 'audio-varejo-sp',    duration: null,  nome: 'Varejo SP (Creedence Clearwater Revival - Fortunate Son)' },

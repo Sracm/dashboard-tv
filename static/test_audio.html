@@ -16,10 +16,13 @@
     
     <button class="btn-green" onclick="document.getElementById('audio-caixa').play()">💵 Testar Caixa Registradora</button>
     <button class="btn-red" onclick="document.getElementById('audio-policia').play()">🚨 Testar Sirene de Polícia</button>
+    <button style="background: #37474f;" onclick="testarDistribuicao()">⚡ Testar Distribuição (Black Sabbath)</button>
     <button style="background: #e65100;" onclick="testarVarejoReg()">🎧 Testar Varejo Reg (David Guetta - 31s)</button>
     <button style="background: #6a1b9a;" onclick="testarEmpresa()">🎸 Testar Empresa (Van Halen - Jump)</button>
 
     <h3>Controles Diretos</h3>
+    <p>Distribuição (Black Sabbath):</p>
+    <audio id="audio-distribuicao" src="/static/audio/black_sabbath.mp3?v=1" controls style="display:block; margin: 10px auto;"></audio>
     <p>Sirene de Polícia:</p>
     <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=3" controls style="display:block; margin: 10px auto;"></audio>
     <p>Varejo Reg (David Guetta, Hypaton & Europe):</p>
@@ -30,6 +33,11 @@
     <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3" controls style="display:block; margin: 10px auto;"></audio>
 
     <script>
+        function testarDistribuicao() {
+            const a = document.getElementById('audio-distribuicao');
+            a.currentTime = 0;
+            a.play();
+        }
         function testarVarejoReg() {
             const a = document.getElementById('audio-varejo-reg');
             a.currentTime = 0;
