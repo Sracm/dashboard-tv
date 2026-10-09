@@ -15,7 +15,7 @@
     <p>Se não tocar aqui, o arquivo mp3 pode estar corrompido.</p>
     
     <button class="btn-green" onclick="document.getElementById('audio-caixa').play()">💵 Testar Caixa Registradora</button>
-    <button class="btn-red" onclick="document.getElementById('audio-policia').play()">🚨 Testar Sirene de Polícia</button>
+    <button class="btn-red" onclick="testarSirene15s()">🚨 Testar Sirene de Polícia (15s)</button>
     <button style="background: #37474f;" onclick="testarDistribuicao()">⚡ Testar Distribuição (Black Sabbath)</button>
     <button style="background: #e65100;" onclick="testarVarejoReg()">🎧 Testar Varejo Reg (David Guetta - 31s)</button>
     <button style="background: #6a1b9a;" onclick="testarEmpresa()">🎸 Testar Empresa (Van Halen - Jump)</button>
@@ -23,8 +23,8 @@
     <h3>Controles Diretos</h3>
     <p>Distribuição (Black Sabbath):</p>
     <audio id="audio-distribuicao" src="/static/audio/black_sabbath.mp3?v=1" controls style="display:block; margin: 10px auto;"></audio>
-    <p>Sirene de Polícia:</p>
-    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=3" controls style="display:block; margin: 10px auto;"></audio>
+    <p>Sirene de Polícia (15s):</p>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=4" controls style="display:block; margin: 10px auto;"></audio>
     <p>Varejo Reg (David Guetta, Hypaton & Europe):</p>
     <audio id="audio-varejo-reg" src="/static/audio/david_guetta_europe.mp3?v=1" controls style="display:block; margin: 10px auto;"></audio>
     <p>Empresa (Van Halen - Jump):</p>
@@ -55,6 +55,17 @@
                 a.pause();
                 a.currentTime = 0;
             }, 28000);
+        }
+        function testarSirene15s() {
+            const a = document.getElementById('audio-policia');
+            a.currentTime = 0;
+            a.loop = true;
+            a.play();
+            setTimeout(() => {
+                a.loop = false;
+                a.pause();
+                a.currentTime = 0;
+            }, 15000);
         }
     </script>
 

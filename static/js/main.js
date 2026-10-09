@@ -613,7 +613,8 @@ const AUDIO_CONFIG = {
     'varejo_reg':   { id: 'audio-varejo-reg',   duration: null,  nome: 'Varejo Reg (David Guetta, Hypaton & Europe)' },
     'parlux':       { id: 'audio-parlux',       duration: null,  nome: 'Parlux (Heart - Barracuda)' },
     'caixa':        { id: 'audio-caixa',        duration: 4000,  nome: 'Caixa Registradora' },
-    'policia':      { id: 'audio-policia',      duration: 7000,  nome: 'Sirene de Polícia' }
+    'policia':      { id: 'audio-policia',      duration: 15000, nome: 'Sirene de Polícia' },
+    'sirene':       { id: 'audio-policia',      duration: 15000, nome: 'Sirene de Polícia' }
 };
 
 let audioQueue = [];
@@ -884,6 +885,7 @@ function processarFilaAudios() {
         }
 
         try {
+            audioEl.loop = false;
             audioEl.pause();
             audioEl.currentTime = 0;
             audioEl.onended = null;
@@ -949,6 +951,7 @@ function processarFilaAudios() {
 
     const durDesc = config.duration ? `${config.duration / 1000}s` : 'música completa';
     console.log(`[Áudio Fila] 🎵 Tocando: ${config.nome} (${durDesc})`);
+    audioEl.loop = (config.id === 'audio-policia');
     audioEl.play().then(() => {
         // Marca meta tocada no storage apenas quando a música realmente começar a tocar
         const mesAtual = document.getElementById('filter-month')?.value;

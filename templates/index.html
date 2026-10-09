@@ -96,9 +96,9 @@
                             <button onclick="testarAudioIndividual('varejo_reg')" class="drop-item"><span class="drop-dot" style="background:#d63384;"></span><strong>Varejo Reg:</strong> ZZ Top (12s)</button>
                             <button onclick="testarAudioIndividual('parlux')" class="drop-item"><span class="drop-dot" style="background:#fd7e14;"></span><strong>Parlux:</strong> Heart (28s)</button>
                             <button onclick="testarAudioIndividual('caixa')" class="drop-item"><span class="drop-dot" style="background:#28a745;"></span><strong>Oscilação Positiva:</strong> 💵 Caixa Registradora</button>
-                            <button onclick="testarAudioIndividual('policia')" class="drop-item"><span class="drop-dot" style="background:#dc3545;"></span><strong>Oscilação Negativa:</strong> 🚨 Sirene de Polícia</button>
+                            <button onclick="testarAudioIndividual('policia')" class="drop-item"><span class="drop-dot" style="background:#dc3545;"></span><strong>Oscilação Negativa:</strong> 🚨 Sirene de Polícia (15s)</button>
                             <button onclick="simularOscilacaoTV('cima', 'empresa')" class="drop-item" style="border-top: 1px dashed rgba(255,255,255,0.15);"><span class="drop-dot" style="background:#10b981;"></span><strong>Testar Alerta:</strong> 💵 Subida (Verde + Caixa)</button>
-                            <button onclick="simularOscilacaoTV('baixo', 'empresa')" class="drop-item" style="border-top: 1px dashed rgba(255,255,255,0.15);"><span class="drop-dot" style="background:#ef4444;"></span><strong>Testar Alerta:</strong> 🚨 Queda (Vermelho + Sirene)</button>
+                            <button onclick="simularOscilacaoTV('baixo', 'empresa')" class="drop-item" style="border-top: 1px dashed rgba(255,255,255,0.15);"><span class="drop-dot" style="background:#ef4444;"></span><strong>Testar Alerta:</strong> 🚨 Queda (Vermelho + Sirene 15s)</button>
                         </div>
                     </div>
                 </div>
@@ -140,10 +140,10 @@
     
     <!-- Áudios de Oscilação (Preload Auto para Execução Imediata) -->
     <audio id="audio-caixa" src="/static/audio/caixa_registradora.mp3?v=2" preload="auto"></audio>
-    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=3" preload="auto"></audio>
+    <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=4" preload="auto"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=47"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=48"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
     <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=7"></script>
 </body>

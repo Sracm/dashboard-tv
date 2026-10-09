@@ -714,8 +714,9 @@ function verificarOscilacaoEmpresa(item) {
             if (audioPol) {
                 audioPol.currentTime = 0;
                 audioPol.volume = 1.0;
+                audioPol.loop = true;
                 audioPol.play().catch(() => {});
-                setTimeout(() => { try { audioPol.pause(); audioPol.currentTime = 0; } catch(e){} }, 7000);
+                setTimeout(() => { try { audioPol.loop = false; audioPol.pause(); audioPol.currentTime = 0; } catch(e){} }, 15000);
             }
             const deltaMinimoSubida = (pAntFmt >= 100) ? 0.5 : 0.1;
             if (deltaVisivel >= deltaMinimoSubida) {
