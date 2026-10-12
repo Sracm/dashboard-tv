@@ -1,0 +1,84 @@
+<!-- ==========================================================================
+     MQIA WIDGET - EMBUTIDO NOS DASHBOARDS
+     Inteligência: TypeSafe Jev Router (Decisão) + GPT-4o-mini (Execução e Resposta)
+     ========================================================================== -->
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai_chat_widget.css') }}?v=2">
+
+<div class="mq-ai-fab-container">
+    <!-- Botão Flutuante -->
+    <button id="mq-ai-fab-btn" class="mq-ai-fab-btn" title="Abrir MQIA">
+        <div class="mq-ai-fab-icon">⚡</div>
+        <span class="mq-ai-fab-label">MQIA</span>
+        <span class="mq-ai-fab-badge">IA Ativa</span>
+    </button>
+
+    <!-- Janela de Chat Flutuante -->
+    <div id="mq-ai-chat-window" class="mq-ai-chat-window hidden">
+        <!-- Header -->
+        <div class="mq-ai-header">
+            <div class="mq-ai-header-left">
+                <div class="mq-ai-avatar">⚡</div>
+                <div class="mq-ai-title-wrap">
+                    <h3>MQIA</h3>
+                    <div class="mq-ai-subtitle">
+                        <span>Decisão: <span class="mq-ai-engine-tag">TypeSafe Jev</span></span>
+                        <span>•</span>
+                        <span>IA: <span class="mq-ai-engine-tag">GPT-4o-mini</span></span>
+                    </div>
+                </div>
+            </div>
+            <div class="mq-ai-header-actions">
+                <button id="mq-ai-clear-btn" class="mq-ai-tool-btn" title="Limpar conversa">🗑️</button>
+                <button id="mq-ai-close-btn" class="mq-ai-tool-btn" title="Fechar chat">✕</button>
+            </div>
+        </div>
+
+        <!-- Chips de Sugestão Rápida -->
+        <div class="mq-ai-chips-bar">
+            <button type="button" class="mq-ai-chip" data-prompt="Como está o faturamento geral da empresa neste mês?">📊 Resumo do Mês</button>
+            <button type="button" class="mq-ai-chip" data-prompt="Quais canais já bateram a meta este mês?">🎯 Metas Batidas</button>
+            <button type="button" class="mq-ai-chip" data-prompt="Como está a performance do canal Distribuição?">🚚 Distribuição</button>
+            <button type="button" class="mq-ai-chip" data-prompt="Como está o faturamento do E-commerce MQ?">🛒 E-commerce MQ</button>
+        </div>
+
+        <!-- Histórico de Mensagens -->
+        <div id="mq-ai-messages" class="mq-ai-messages">
+            <!-- Mensagem de Boas-Vindas Dinâmica -->
+            <div id="mq-ai-welcome-msg" class="mq-ai-msg assistant welcome-msg">
+                <div id="mq-ai-welcome-bubble" class="mq-ai-msg-bubble">
+                    <p style="margin: 0 0 10px 0; font-size: 14px;"><strong>Bom dia!</strong></p>
+                    <p style="margin: 0 0 10px 0;">Sou a <strong>MQIA</strong>.</p>
+                    <p style="margin: 0 0 10px 0;">Minha análise cruza dados e objetivos para trazer clareza às suas decisões.</p>
+                    <p style="margin: 0;">Estou pronta e à disposição para o diagnóstico de hoje. Por qual indicador começamos?</p>
+                </div>
+            </div>
+
+            <!-- Indicador de Carregamento (Digitando...) -->
+            <div id="mq-ai-typing" class="mq-ai-typing" style="display: none;">
+                <div class="mq-ai-typing-dot"></div>
+                <div class="mq-ai-typing-dot"></div>
+                <div class="mq-ai-typing-dot"></div>
+                <span class="mq-ai-typing-label">Digitando...</span>
+            </div>
+        </div>
+
+        <!-- Rodapé e Input -->
+        <div class="mq-ai-footer">
+            <form id="mq-ai-form" class="mq-ai-input-form">
+                <input 
+                    type="text" 
+                    id="mq-ai-input" 
+                    class="mq-ai-input" 
+                    placeholder="Pergunte sobre vendas, metas, canais..." 
+                    autocomplete="off"
+                />
+                <button type="submit" id="mq-ai-send-btn" class="mq-ai-send-btn" title="Enviar mensagem">
+                    ➤
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/ai_chat_widget.js') }}?v=7"></script>

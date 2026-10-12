@@ -10,11 +10,13 @@ import os
 from dotenv import load_dotenv
 
 import metricas_tempo as mt
+from ai_agent import TypeSafeAgent
 
 env_path = os.path.join(os.path.dirname(__file__), '.env')
 load_dotenv(env_path)
 
 app = Flask(__name__)
+mqia_agent = TypeSafeAgent()
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
@@ -623,6 +625,61 @@ def api_vendas_tv():
         import traceback
         traceback.print_exc()
         return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/ai-agent/chat', methods=['POST'])
+def api_ai_agent_chat():
+    try:
+        body = request.get_json(force=True, silent=True) or {}
+        user_message = body.get('message', '').strip()
+        client_context = body.get('context', {})
+
+        if not user_message:
+            return jsonify({'success': False, 'error': 'Mensagem vazia'}), 400
+
+        now_dt = datetime.now()
+        mes = int(client_context.get('mes', now_dt.month))
+        ano = int(client_context.get('ano', now_dt.year))
+        if ano >= now_dt.year and mes > now_dt.month:
+            mes = now_dt.month
+
+        # Contexto enriquecido com dados reais do dashboard
+        painel_data = obter_dados_painel(mes, ano)
+        empresa_kpi = painel_data.get('EMPRESA', {}) if isinstance(painel_data, dict) else {}
+        
+        canais_resumo = {}
+        if isinstance(painel_data, dict):
+            for c in CANAIS_PAINEL:
+                d = painel_data.get(c, {})
+                canais_resumo[c] = {
+                    "realizado_rs": round(d.get("realizado", 0.0), 2),
+                    "meta_rs": round(d.get("meta", 0.0), 2),
+                    "atingimento_pct": d.get("percentual", 0.0)
+                }
+
+        full_context = {
+            "periodo_referencia": f"{mes:02d}/{ano}",
+            "pagina_atual": client_context.get("pagina", "Dashboard TV"),
+            "faturamento_empresa": {
+                "realizado_rs": round(empresa_kpi.get("realizado", 0.0), 2),
+                "meta_rs": round(empresa_kpi.get("meta", 0.0), 2),
+                "atingimento_pct": empresa_kpi.get("percentual", 0.0)
+            },
+            "canais": canais_resumo
+        }
+
+        # Fluxo integrado: TypeSafe Jev (Decisão) -> GPT-4o-mini (Execução e Resposta)
+        result = mqia_agent.run(user_message, context=full_context)
+
+        return jsonify({
+            'success': True,
+            'decision': result.get('decisao_typesafe_jev', {}),
+            'response': result.get('resposta_gpt4o_mini', '')
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/auditoria_medidas')
