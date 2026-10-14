@@ -10,6 +10,8 @@ try {
 
 let charts = {};
 let countdownSeconds = 600;
+let ultimosPercentuaisCanais = {};
+let isFirstDataLoad = true;
 
 // Atualizar o relógio a cada segundo
 function updateClock() {
@@ -37,11 +39,11 @@ function navigateTab(path) {
 window.addEventListener('beforeunload', () => pararTodosAudios());
 window.addEventListener('pagehide', () => pararTodosAudios());
 
-// Controle para tocar o áudio da meta: não repete a cada 10 min, mas permite tocar ao abrir a TV ou forçar
+// Controle para tocar o áudio da meta: Toca SOMENTE UMA VEZ quando a meta for realmente atingida.
+// Persistido em localStorage por canal/mês/ano para que NUNCA repita ao abrir o dashboard nos dias seguintes.
 function jaTocouMeta(chave, mes, ano) {
     try {
-        const hoje = new Date().toISOString().slice(0, 10);
-        return sessionStorage.getItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`) === 'true';
+        return localStorage.getItem(`meta_som_tocada_${chave}_${mes}_${ano}`) === 'true';
     } catch (e) {
         return false;
     }
@@ -49,25 +51,22 @@ function jaTocouMeta(chave, mes, ano) {
 
 function marcarMetaComoTocada(chave, mes, ano) {
     try {
-        const hoje = new Date().toISOString().slice(0, 10);
-        sessionStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`, 'true');
+        localStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}`, 'true');
     } catch (e) {}
 }
 
 function resetarMetaTocada(chave, mes, ano) {
     try {
-        const hoje = new Date().toISOString().slice(0, 10);
-        sessionStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}_${hoje}`);
+        localStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}`);
     } catch (e) {}
 }
 
 function resetarTodasMetasTocadasDoMes(mes, ano) {
     try {
-        const hoje = new Date().toISOString().slice(0, 10);
         const chaves = ['parlux', 'empresa', 'distribuicao', 'ecommerce', 'comex', 'varejo_sp', 'varejo_reg'];
         chaves.forEach(k => {
-            sessionStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}_${hoje}`);
             localStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}`);
+            sessionStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}`);
         });
     } catch (e) {}
 }
@@ -300,7 +299,6 @@ function renderCharts(data, mes, ano, contexto) {
             cardElement.classList.add('meta-batida');
         } else {
             cardElement.classList.remove('meta-batida');
-            if (chave) resetarMetaTocada(chave, mes, ano);
         }
 
         charts[chartId].setOption(getGaugeOption(equipe.percent, equipe.name));
@@ -315,17 +313,49 @@ function renderCharts(data, mes, ano, contexto) {
         }
     });
 
-    // Classificação dos canais que atingiram a meta (ranking ordenado por percentual decrescente)
-    const equipesBatidas = data
-        .filter(eq => eq.percent >= 100)
-        .sort((a, b) => b.percent - a.percent);
+    // REGRA DE OURO: A música da meta toca APENAS UMA VEZ no momento em que a meta for ATINGIDA (< 100% -> >= 100%).
+    // 1. Na abertura do dashboard (primeira carga): NÃO toca músicas de metas que já estavam batidas antes de abrir a página.
+    //    Memoriza os percentuais e garante que canais já batidos fiquem marcados no localStorage.
+    // 2. Em atualizações subsequentes (polling de 10 min, refresh ou alerta de oscilação):
+    //    Se um canal estava < 100% e cruza para >= 100%, toca o áudio de comemoração UMA ÚNICA VEZ.
+    if (isFirstDataLoad) {
+        data.forEach(equipe => {
+            const chave = obterChaveCanal(equipe.name);
+            if (chave) {
+                ultimosPercentuaisCanais[chave] = Number(equipe.percent) || 0;
+                if (Number(equipe.percent) >= 100) {
+                    marcarMetaComoTocada(chave, mes, ano);
+                }
+            }
+        });
+        isFirstDataLoad = false;
+        console.log('[TV Áudio Metas] Carga inicial: baseline memorizado. Nenhuma música tocada na abertura.');
+    } else {
+        const canaisRecemBatidos = [];
 
-    equipesBatidas.forEach(equipe => {
-        const chave = obterChaveCanal(equipe.name);
-        if (chave && !jaTocouMeta(chave, mes, ano)) {
-            enfileirarAudio(chave);
-        }
-    });
+        data.forEach(equipe => {
+            const chave = obterChaveCanal(equipe.name);
+            if (chave) {
+                const pAnt = ultimosPercentuaisCanais[chave];
+                const pAtual = Number(equipe.percent) || 0;
+
+                // Atingiu a meta AGORA se antes estava < 100% e agora está >= 100%, e ainda não tocou neste mês
+                if (pAnt !== undefined && pAnt < 100 && pAtual >= 100 && !jaTocouMeta(chave, mes, ano)) {
+                    console.log(`[TV Áudio Metas] 🎯 META ATINGIDA AGORA: ${equipe.name} (${pAnt.toFixed(1)}% -> ${pAtual.toFixed(1)}%)!`);
+                    canaisRecemBatidos.push({ chave, percent: pAtual, name: equipe.name });
+                }
+
+                ultimosPercentuaisCanais[chave] = pAtual;
+            }
+        });
+
+        canaisRecemBatidos.sort((a, b) => b.percent - a.percent);
+
+        canaisRecemBatidos.forEach(item => {
+            enfileirarAudio(item.chave);
+            marcarMetaComoTocada(item.chave, mes, ano);
+        });
+    }
 }
 
 let estadoAnterior = {};
@@ -408,7 +438,7 @@ function verificarOscilacao(data, mes, ano) {
         estadoSalvo = {};
     }
 
-    if (Object.keys(estadoSalvo).length === 0) {
+    if (isFirstDataLoad || Object.keys(estadoSalvo).length === 0) {
         const inicial = {};
         data.forEach((equipe, index) => {
             const chave = obterChaveCanal(equipe.name) || `canal_${index}`;
@@ -483,12 +513,6 @@ function verificarOscilacao(data, mes, ano) {
                     console.log(`[Oscilação] 🚨 QUEDA REAL em ${equipe.name}: ${pAntFmt.toFixed(1)}% -> ${pAtualFmt.toFixed(1)}% (Δ ${deltaVisivel.toFixed(1)}%). Tocando Sirene.`);
                     enfileirarAudioFrente('policia');
                 }
-                
-                // Desmarcar meta se caiu abaixo de 100
-                if (percentAtual < 100 && percentAntigo >= 100 && chave) {
-                    resetarMetaTocada(chave, mes, ano);
-                    console.log(`[Meta] Canal ${chave} rebaixado para menos de 100%. Meta desmarcada.`);
-                }
             } else {
                 // Se esse card não oscilou nesta rodada, remove animação antiga
                 if (cardElement) {
@@ -514,6 +538,8 @@ async function fetchData(forceRefresh = false) {
         const currentPeriod = `${month}_${year}`;
         if (lastPeriodLoaded && lastPeriodLoaded !== currentPeriod) {
             pararTodosAudios();
+            isFirstDataLoad = true;
+            ultimosPercentuaisCanais = {};
         }
         lastPeriodLoaded = currentPeriod;
         
@@ -1035,13 +1061,10 @@ function desbloquearSomTV() {
     esconderOverlayDesbloqueioTV();
     desbloquearAudiosNavegador();
     
-    // Se a fila de áudios já tiver músicas pendentes, inicia imediatamente
+    // Se a fila de áudios já tiver músicas pendentes aguardando desbloqueio, inicia
     if (audioQueue.length > 0) {
         audioQueueRunning = false;
         processarFilaAudios();
-    } else {
-        // Se a fila estava vazia, dispara a sequência das metas batidas
-        tocarSequenciaMetas(false);
     }
 }
 
@@ -1110,7 +1133,7 @@ function tocarSequenciaMetas(forcar = false) {
         musicaAtualIndex = 0;
         processarFilaAudios();
     } else {
-        mostrarStatusAudio('ℹ️ Músicas das metas batidas já foram tocadas hoje.', '#ffc107', 'rgba(255, 193, 7, 0.25)');
+        mostrarStatusAudio('ℹ️ Músicas das metas batidas já foram tocadas neste período.', '#ffc107', 'rgba(255, 193, 7, 0.25)');
         setTimeout(esconderStatusAudio, 5000);
     }
 }
