@@ -12,7 +12,7 @@
     
     <!-- CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_regionais.css') }}?v=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_regionais.css') }}?v=20261014_MAPA_V2">
 </head>
 <body>
     <div class="mapa-tv-container">
@@ -128,84 +128,87 @@
                 </div>
             </div>
 
-            <!-- Card Regional Sul (Dourado MQ) -->
-            <div class="glass-card card-sul" id="card-reg-sul">
-                <div class="card-reg-header">
-                    <div class="reg-title-wrap">
-                        <div class="reg-dot sul"></div>
-                        <div class="reg-name">Regional Sul</div>
+            <!-- Sidebar Lateral Direita: Os 3 Cards Regionais sem sobreposição -->
+            <div class="regionals-sidebar">
+                <!-- Card Regional NO-ND (Verde Esmeralda) -->
+                <div class="glass-card card-no" id="card-reg-no">
+                    <div class="card-reg-header">
+                        <div class="reg-title-wrap">
+                            <div class="reg-dot no"></div>
+                            <div class="reg-name">Regional NO/ND</div>
+                        </div>
+                        <div class="reg-meta-badge" id="no-meta-badge">98.4% da meta</div>
                     </div>
-                    <div class="reg-meta-badge" id="sul-meta-badge">101.4% da meta</div>
-                </div>
-                <div class="reg-metrics-grid">
-                    <div class="m-box">
-                        <span class="m-lbl">% Share Brasil</span>
-                        <span class="m-val" id="sul-share-br">5.2%</span>
-                    </div>
-                    <div class="m-box">
-                        <span class="m-lbl">Variações</span>
-                        <div class="growth-tags">
-                            <span class="growth-badge positive" id="sul-mom">MoM -10.9%</span>
-                            <span class="growth-badge positive" id="sul-yoy">YoY +3.5%</span>
+                    <div class="reg-metrics-grid">
+                        <div class="m-box">
+                            <span class="m-lbl">% Share Brasil</span>
+                            <span class="m-val" id="no-share-br">11.2%</span>
+                        </div>
+                        <div class="m-box">
+                            <span class="m-lbl">Variações</span>
+                            <div class="growth-tags">
+                                <span class="growth-badge positive" id="no-mom">MoM +11.2%</span>
+                                <span class="growth-badge positive" id="no-yoy">YoY +15.4%</span>
+                            </div>
                         </div>
                     </div>
+                    <div class="states-list" id="no-states-list">
+                        <!-- Estados BA, PE, CE, AL gerados dinamicamente via JS -->
+                    </div>
                 </div>
-                <div class="states-list" id="sul-states-list">
-                    <!-- Estados PR, RS, SC gerados dinamicamente via JS -->
-                </div>
-            </div>
 
-            <!-- Card Regional RJ-MG-ES (Ciano Neon) -->
-            <div class="glass-card card-rj" id="card-reg-rj">
-                <div class="card-reg-header">
-                    <div class="reg-title-wrap">
-                        <div class="reg-dot rj"></div>
-                        <div class="reg-name">Reg. RJ/MG/ES</div>
+                <!-- Card Regional RJ-MG-ES (Ciano Neon) -->
+                <div class="glass-card card-rj" id="card-reg-rj">
+                    <div class="card-reg-header">
+                        <div class="reg-title-wrap">
+                            <div class="reg-dot rj"></div>
+                            <div class="reg-name">Reg. RJ/MG/ES</div>
+                        </div>
+                        <div class="reg-meta-badge" id="rj-meta-badge">105.2% da meta</div>
                     </div>
-                    <div class="reg-meta-badge" id="rj-meta-badge">105.2% da meta</div>
-                </div>
-                <div class="reg-metrics-grid">
-                    <div class="m-box">
-                        <span class="m-lbl">% Share Brasil</span>
-                        <span class="m-val" id="rj-share-br">11.1%</span>
-                    </div>
-                    <div class="m-box">
-                        <span class="m-lbl">Variações</span>
-                        <div class="growth-tags">
-                            <span class="growth-badge positive" id="rj-mom">MoM +8.7%</span>
-                            <span class="growth-badge positive" id="rj-yoy">YoY +18.1%</span>
+                    <div class="reg-metrics-grid">
+                        <div class="m-box">
+                            <span class="m-lbl">% Share Brasil</span>
+                            <span class="m-val" id="rj-share-br">11.1%</span>
+                        </div>
+                        <div class="m-box">
+                            <span class="m-lbl">Variações</span>
+                            <div class="growth-tags">
+                                <span class="growth-badge positive" id="rj-mom">MoM +8.7%</span>
+                                <span class="growth-badge positive" id="rj-yoy">YoY +18.1%</span>
+                            </div>
                         </div>
                     </div>
+                    <div class="states-list" id="rj-states-list">
+                        <!-- Estados RJ, MG, ES gerados dinamicamente via JS -->
+                    </div>
                 </div>
-                <div class="states-list" id="rj-states-list">
-                    <!-- Estados RJ, MG, ES gerados dinamicamente via JS -->
-                </div>
-            </div>
 
-            <!-- Card Regional NO-ND (Verde Esmeralda) -->
-            <div class="glass-card card-no" id="card-reg-no">
-                <div class="card-reg-header">
-                    <div class="reg-title-wrap">
-                        <div class="reg-dot no"></div>
-                        <div class="reg-name">Regional NO/ND</div>
+                <!-- Card Regional Sul (Dourado MQ) -->
+                <div class="glass-card card-sul" id="card-reg-sul">
+                    <div class="card-reg-header">
+                        <div class="reg-title-wrap">
+                            <div class="reg-dot sul"></div>
+                            <div class="reg-name">Regional Sul</div>
+                        </div>
+                        <div class="reg-meta-badge" id="sul-meta-badge">101.4% da meta</div>
                     </div>
-                    <div class="reg-meta-badge" id="no-meta-badge">98.4% da meta</div>
-                </div>
-                <div class="reg-metrics-grid">
-                    <div class="m-box">
-                        <span class="m-lbl">% Share Brasil</span>
-                        <span class="m-val" id="no-share-br">11.2%</span>
-                    </div>
-                    <div class="m-box">
-                        <span class="m-lbl">Variações</span>
-                        <div class="growth-tags">
-                            <span class="growth-badge positive" id="no-mom">MoM +11.2%</span>
-                            <span class="growth-badge positive" id="no-yoy">YoY +15.4%</span>
+                    <div class="reg-metrics-grid">
+                        <div class="m-box">
+                            <span class="m-lbl">% Share Brasil</span>
+                            <span class="m-val" id="sul-share-br">5.2%</span>
+                        </div>
+                        <div class="m-box">
+                            <span class="m-lbl">Variações</span>
+                            <div class="growth-tags">
+                                <span class="growth-badge positive" id="sul-mom">MoM -10.9%</span>
+                                <span class="growth-badge positive" id="sul-yoy">YoY +3.5%</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="states-list" id="no-states-list">
-                    <!-- Estados BA, PE, CE, AL gerados dinamicamente via JS -->
+                    <div class="states-list" id="sul-states-list">
+                        <!-- Estados PR, RS, SC gerados dinamicamente via JS -->
+                    </div>
                 </div>
             </div>
 
@@ -233,7 +236,7 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261014_MAPA_V1"></script>
+    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261014_MAPA_V2"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
     <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=6"></script>
 </body>

@@ -375,12 +375,34 @@ body, html {
     border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
-/* ── Specific Positioning for the 3 Regional Cards ───────────────────────── */
+/* ── Sidebar Lateral Direita: 3 Cards Regionais ──────────────────────────── */
+.regionals-sidebar {
+    position: absolute;
+    right: 25px;
+    top: 15px;
+    bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 10px;
+    width: 315px;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+.regionals-sidebar .glass-card {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+}
+
 /* Card Regional Sul */
 .card-sul {
-    bottom: 25px;
-    left: 28%;
-    width: 290px;
     border-color: rgba(255, 215, 0, 0.35);
 }
 .card-sul .reg-name { color: var(--gold); }
@@ -388,9 +410,6 @@ body, html {
 
 /* Card Regional RJ-MG-ES */
 .card-rj {
-    top: 38%;
-    right: 40px;
-    width: 310px;
     border-color: rgba(0, 229, 255, 0.35);
 }
 .card-rj .reg-name { color: var(--cyan); }
@@ -398,9 +417,6 @@ body, html {
 
 /* Card Regional NO-ND */
 .card-no {
-    top: 20px;
-    right: 40px;
-    width: 320px;
     border-color: rgba(0, 230, 118, 0.35);
 }
 .card-no .reg-name { color: var(--green); }

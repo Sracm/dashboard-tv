@@ -357,9 +357,16 @@ function renderizarMapaECharts(data) {
                 },
                 label: {
                     show: true,
-                    color: '#000',
-                    fontWeight: 'bold',
-                    fontSize: 13
+                    color: '#000000',
+                    fontWeight: 800,
+                    fontSize: 11,
+                    textBorderWidth: 0,
+                    formatter: function (params) {
+                        const uf = params.name;
+                        const u = ufs[uf];
+                        const pct = u ? u.share_brasil_pct : 0;
+                        return pct > 0 ? `${uf}\n${pct}%` : uf;
+                    }
                 }
             }
         });
@@ -418,15 +425,26 @@ function renderizarMapaECharts(data) {
         geo: {
             map: 'brazil',
             roam: false,
-            zoom: 1.18,
-            center: [-53.0, -15.0],
+            zoom: 1.15,
+            center: [-53.5, -15.0],
             nameProperty: 'sigla',
             label: {
                 show: true,
-                color: 'rgba(255, 255, 255, 0.75)',
-                fontSize: 10,
+                color: '#ffffff',
+                fontSize: 9,
                 fontWeight: 700,
-                formatter: '{b}'
+                lineHeight: 11,
+                textBorderColor: '#000000',
+                textBorderWidth: 2.5,
+                formatter: function (params) {
+                    const uf = params.name;
+                    const u = ufs[uf];
+                    const pct = u ? u.share_brasil_pct : 0;
+                    if (pct > 0) {
+                        return `${uf}\n${pct}%`;
+                    }
+                    return uf;
+                }
             },
             itemStyle: {
                 areaColor: '#121824',
@@ -441,14 +459,12 @@ function renderizarMapaECharts(data) {
                 type: 'effectScatter',
                 coordinateSystem: 'geo',
                 data: scatterData,
-                symbolSize: function (val) {
-                    return Math.max(6, Math.min(val[2] * 0.45, 14));
-                },
+                symbolSize: 6,
                 showEffectOn: 'render',
                 rippleEffect: {
                     brushType: 'stroke',
-                    scale: 3,
-                    period: 4
+                    scale: 2.2,
+                    period: 3
                 },
                 itemStyle: {
                     color: function (params) {
