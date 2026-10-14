@@ -33,6 +33,7 @@
                     <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn {{ 'active' if canal_id == 'regional_no_nd' else '' }}">Regional NO/ND</button>
                     <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn {{ 'active' if canal_id == 'regional_rj_mg_es' else '' }}">Reg. RJ/MG/ES</button>
                     <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn {{ 'active' if canal_id == 'regional_sul' else '' }}">Regional Sul</button>
+                    <button onclick="navigateTab('/mapa_regionais')" class="tab-btn" style="color:#ffd700;">🗺️ Mapa Brasil</button>
                     <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
                     <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
@@ -127,6 +128,9 @@
         <section class="controls-bar">
             <div class="controls-left-group">
                 <div class="view-switch-container">
+                    <button class="view-btn" onclick="window.location.href='/mapa_regionais'" title="Visualização no Mapa do Brasil" style="color:#ffd700;">
+                        🗺️ Mapa do Brasil
+                    </button>
                     <button class="view-btn active" id="btn-mode-cards" onclick="switchViewMode('cards')" title="Visualização em Colunas Lado a Lado">
                         📊 Colunas Lado a Lado
                     </button>

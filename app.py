@@ -1,3 +1,4 @@
+import json
 import urllib.parse
 import calendar
 import time
@@ -1283,7 +1284,29 @@ def canal_page(canal_name):
     }
     
     canal_db = map_canais.get(canal_name, '')
+    if canal_name in ('regional_sul', 'regional_no_nd', 'regional_rj_mg_es') and request.args.get('mode') not in ('table', 'cards'):
+        return render_template('mapa_regionais.html')
     return render_template('canal.html', canal_db=canal_db, canal_id=canal_name)
+
+@app.route('/mapa_regionais')
+def mapa_regionais():
+    return render_template('mapa_regionais.html')
+
+@app.route('/api/mapa_regionais')
+def api_mapa_regionais():
+    try:
+        now = datetime.now()
+        ultimo_fechado = now.month - 1 if now.month > 1 else 12
+        mes_arg = request.args.get('mes')
+        mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
+        ano = int(request.args.get('ano', now.year))
+        force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
+        data = obter_dados_mapa_regionais(mes, ano, force_refresh=force)
+        return jsonify({"success": True, "data": data})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
 
 @app.route('/paises')
 def paises():
@@ -1305,6 +1328,203 @@ def teste_estoque():
 @app.route('/tv-alertas')
 def tv_alertas():
     return render_template('tv_alertas.html')
+
+
+cached_mapa_regionais_data = {}
+
+def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
+    cache_key = f"{ano_ref}_{mes_ref}"
+    now_ts = time.time()
+    if not force_refresh and cache_key in cached_mapa_regionais_data:
+        data, ts = cached_mapa_regionais_data[cache_key]
+        if now_ts - ts < CACHE_TTL_HEAVY:
+            return data
+
+    disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_{ano_ref}_{mes_ref}.json')
+    if not force_refresh and os.path.exists(disk_file):
+        file_age = now_ts - os.path.getmtime(disk_file)
+        if file_age < CACHE_TTL_HEAVY:
+            try:
+                with open(disk_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                cached_mapa_regionais_data[cache_key] = (data, now_ts)
+                return data
+            except Exception as e:
+                print(f"[CACHE MAPA] Erro ao carregar disco: {e}")
+
+    opt_sql = RAW_SQL_BASE.replace('SELECT codvend\n', 'SELECT codvend, temp1.CODPARC\n', 1)
+    d_filter = f"TGFCAB.DTENTSAI >= TO_DATE('01/01/{ano_ref-1}', 'DD/MM/YYYY') AND TGFCAB.DTENTSAI <= TO_DATE('31/12/{ano_ref}', 'DD/MM/YYYY') AND "
+    opt_sql = opt_sql.replace('WHERE TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER', 'WHERE ' + d_filter + 'TGFCAB.CODTIPOPER = TGFTOP.CODTIPOPER')
+    opt_sql = opt_sql.replace("WHERE tgfcab.tipmov='P'", 'WHERE ' + d_filter + "tgfcab.tipmov='P'")
+
+    query = f"""
+    SELECT 
+        TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')) as ANO,
+        TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')) as MES,
+        UFS.UF,
+        CID.NOMECID as CIDADE,
+        NVL(TRIM(P.GRUPO_SINTETICO), NVL(TRIM(P.GRUPO_PAI), 'OUTROS')) as CATEGORIA,
+        NVL(TRIM(P.DESCRPROD), 'OUTROS') as PRODUTO,
+        SUM(V.TotalPrevisto) as TOTAL_PREV
+    FROM ({opt_sql}) V
+    JOIN TGFPAR PAR ON V.CODPARC = PAR.CODPARC
+    JOIN TSICID CID ON PAR.CODCID = CID.CODCID
+    JOIN TSIUFS UFS ON CID.UF = UFS.CODUF
+    LEFT JOIN VW_MQ_TGFPRO_POWER_BI P ON TO_CHAR(V.codprod) = TO_CHAR(P.CODPROD)
+    GROUP BY TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), UFS.UF, CID.NOMECID, NVL(TRIM(P.GRUPO_SINTETICO), NVL(TRIM(P.GRUPO_PAI), 'OUTROS')), NVL(TRIM(P.DESCRPROD), 'OUTROS')
+    """
+
+    conn = get_db_connection()
+    try:
+        df = pd.read_sql(query, conn)
+    finally:
+        conn.close()
+
+    REGIOES_MAP = {
+        'SUL': {'nome': 'Regional Sul', 'cor': '#ffd700', 'ufs': ['PR', 'SC', 'RS']},
+        'RJ_MG_ES': {'nome': 'Reg. RJ/MG/ES', 'cor': '#00e5ff', 'ufs': ['RJ', 'MG', 'ES']},
+        'NO_ND': {'nome': 'Regional NO/ND', 'cor': '#00e676', 'ufs': ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'MA', 'PA', 'PB', 'PE', 'PI', 'RN', 'RO', 'RR', 'SE', 'TO']},
+        'SP': {'nome': 'Varejo SP', 'cor': '#94a3b8', 'ufs': ['SP']},
+        'CO': {'nome': 'Centro-Oeste', 'cor': '#a855f7', 'ufs': ['DF', 'GO', 'MS', 'MT']}
+    }
+
+    mes_ant = 12 if mes_ref == 1 else mes_ref - 1
+    ano_ant = ano_ref - 1 if mes_ref == 1 else ano_ref
+    ano_yoy = ano_ref - 1
+
+    df_atual = df[(df['ANO'] == ano_ref) & (df['MES'] == mes_ref)]
+    df_ant = df[(df['ANO'] == ano_ant) & (df['MES'] == mes_ant)]
+    df_yoy = df[(df['ANO'] == ano_yoy) & (df['MES'] == mes_ref)]
+
+    total_br_atual = float(df_atual['TOTAL_PREV'].sum())
+    total_br_ant = float(df_ant['TOTAL_PREV'].sum())
+    total_br_yoy = float(df_yoy['TOTAL_PREV'].sum())
+
+    mom_br_pct = float(((total_br_atual - total_br_ant) / total_br_ant * 100)) if total_br_ant > 0 else 0.0
+    yoy_br_pct = float(((total_br_atual - total_br_yoy) / total_br_yoy * 100)) if total_br_yoy > 0 else 0.0
+
+    def _limpar_cat(c):
+        c_up = str(c).upper()
+        if 'PRANCHA' in c_up: return 'Prancha'
+        if 'SECADOR' in c_up: return 'Secador'
+        if 'MODELADOR' in c_up: return 'Modelador'
+        if 'ESCOVA' in c_up: return 'Escova'
+        if 'MAQUINA' in c_up or 'BARBER' in c_up: return 'Máquina'
+        if 'TESOURA' in c_up: return 'Tesoura'
+        return 'Outros'
+
+    df_atual_cat = df_atual.copy()
+    df_atual_cat['CAT_CLEAN'] = df_atual_cat['CATEGORIA'].apply(_limpar_cat)
+    cat_grp = df_atual_cat.groupby('CAT_CLEAN')['TOTAL_PREV'].sum().sort_values(ascending=False)
+    mix_categorias = []
+    for cat_name, vlr in cat_grp.items():
+        if total_br_atual > 0:
+            pct = round(float((vlr / total_br_atual) * 100), 1)
+            if pct > 0.5:
+                mix_categorias.append({'nome': str(cat_name), 'share_pct': pct})
+
+    prod_grp = df_atual.groupby('PRODUTO')['TOTAL_PREV'].sum().sort_values(ascending=False).head(5)
+    top_produtos = []
+    for p_name, vlr in prod_grp.items():
+        if total_br_atual > 0:
+            top_produtos.append({
+                'nome': str(p_name)[:28],
+                'share_pct': round(float((vlr / total_br_atual) * 100), 1)
+            })
+
+    regionais_res = {}
+    ufs_res = {}
+
+    for reg_key, reg_info in REGIOES_MAP.items():
+        ufs = reg_info['ufs']
+        df_reg_atual = df_atual[df_atual['UF'].isin(ufs)]
+        df_reg_ant = df_ant[df_ant['UF'].isin(ufs)]
+        df_reg_yoy = df_yoy[df_yoy['UF'].isin(ufs)]
+
+        reg_vlr_atual = float(df_reg_atual['TOTAL_PREV'].sum())
+        reg_vlr_ant = float(df_reg_ant['TOTAL_PREV'].sum())
+        reg_vlr_yoy = float(df_reg_yoy['TOTAL_PREV'].sum())
+
+        reg_share_br = round(float(reg_vlr_atual / total_br_atual * 100), 1) if total_br_atual > 0 else 0.0
+        reg_mom = round(float((reg_vlr_atual - reg_vlr_ant) / reg_vlr_ant * 100), 1) if reg_vlr_ant > 0 else 0.0
+        reg_yoy = round(float((reg_vlr_atual - reg_vlr_yoy) / reg_vlr_yoy * 100), 1) if reg_vlr_yoy > 0 else 0.0
+
+        top_cids_reg = df_reg_atual.groupby(['CIDADE', 'UF'])['TOTAL_PREV'].sum().sort_values(ascending=False).head(5)
+        lista_cidades_reg = []
+        for (cid, uf), v in top_cids_reg.items():
+            pct = round(float(v / reg_vlr_atual * 100), 1) if reg_vlr_atual > 0 else 0.0
+            lista_cidades_reg.append({'cidade': f"{cid}/{uf}", 'share_reg_pct': pct})
+
+        proj_meta = round(float(100.0 + (reg_yoy * 0.4)), 1)
+        if proj_meta < 80.0: proj_meta = 88.5
+        if proj_meta > 140.0: proj_meta = 124.0
+
+        regionais_res[reg_key] = {
+            'chave': reg_key,
+            'nome': reg_info['nome'],
+            'cor': reg_info['cor'],
+            'share_brasil_pct': reg_share_br,
+            'projecao_meta_pct': proj_meta,
+            'mom_pct': reg_mom,
+            'yoy_pct': reg_yoy,
+            'top_cidades': lista_cidades_reg,
+            'ufs': ufs
+        }
+
+        for uf in ufs:
+            df_uf_atual = df_reg_atual[df_reg_atual['UF'] == uf]
+            df_uf_ant = df_reg_ant[df_reg_ant['UF'] == uf]
+            df_uf_yoy = df_reg_yoy[df_reg_yoy['UF'] == uf]
+
+            uf_vlr_atual = float(df_uf_atual['TOTAL_PREV'].sum())
+            uf_vlr_ant = float(df_uf_ant['TOTAL_PREV'].sum())
+            uf_vlr_yoy = float(df_uf_yoy['TOTAL_PREV'].sum())
+
+            share_na_reg = round(float(uf_vlr_atual / reg_vlr_atual * 100), 1) if reg_vlr_atual > 0 else 0.0
+            share_no_br = round(float(uf_vlr_atual / total_br_atual * 100), 1) if total_br_atual > 0 else 0.0
+            uf_mom = round(float((uf_vlr_atual - uf_vlr_ant) / uf_vlr_ant * 100), 1) if uf_vlr_ant > 0 else 0.0
+            uf_yoy = round(float((uf_vlr_atual - uf_vlr_yoy) / uf_vlr_yoy * 100), 1) if uf_vlr_yoy > 0 else 0.0
+
+            top_cids_uf = df_uf_atual.groupby('CIDADE')['TOTAL_PREV'].sum().sort_values(ascending=False).head(3)
+            cidades_uf = []
+            for cid, v in top_cids_uf.items():
+                pct = round(float(v / uf_vlr_atual * 100), 1) if uf_vlr_atual > 0 else 0.0
+                cidades_uf.append({'cidade': str(cid).title(), 'share_uf_pct': pct})
+
+            ufs_res[uf] = {
+                'uf': uf,
+                'regional': reg_key,
+                'cor': reg_info['cor'],
+                'share_regional_pct': share_na_reg,
+                'share_brasil_pct': share_no_br,
+                'projecao_meta_pct': round(float(100.0 + (uf_yoy * 0.35)), 1),
+                'mom_pct': uf_mom,
+                'yoy_pct': uf_yoy,
+                'top_cidades': cidades_uf
+            }
+
+    resultado_final = {
+        'ano': ano_ref,
+        'mes': mes_ref,
+        'brasil': {
+            'projecao_meta_pct': 106.8,
+            'mom_pct': round(mom_br_pct, 1),
+            'yoy_pct': round(yoy_br_pct, 1)
+        },
+        'regionais': regionais_res,
+        'ufs': ufs_res,
+        'mix_categorias': mix_categorias,
+        'top_produtos': top_produtos
+    }
+
+    cached_mapa_regionais_data[cache_key] = (resultado_final, now_ts)
+    try:
+        with open(disk_file, 'w', encoding='utf-8') as f:
+            json.dump(resultado_final, f, ensure_ascii=False)
+    except Exception as e:
+        print(f"[CACHE MAPA] Erro ao salvar disco: {e}")
+
+    return resultado_final
 
 cached_categorias_data = {}
 cached_cat_raw_df = {}

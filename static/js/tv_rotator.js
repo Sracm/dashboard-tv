@@ -30,6 +30,7 @@
         { url: '/canal/regional_no_nd', name: 'Regional NO/ND' },
         { url: '/canal/regional_rj_mg_es', name: 'Reg. RJ/MG/ES' },
         { url: '/canal/regional_sul', name: 'Regional Sul' },
+        { url: '/mapa_regionais', name: 'Mapa Brasil' },
         { url: '/empresa', name: 'Empresa' },
         { url: '/diario_canal', name: 'Diário Canal' },
         { url: '/diario_marcas', name: 'Diário Marcas' },

@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Mapa Nacional por Regional | MQ Professional</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_regionais.css') }}?v=1">
+</head>
+<body>
+    <div class="mapa-tv-container">
+        <!-- Header Unificado do Dashboard TV -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn">Distribuição</button>
+                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn">E-commerce MQ</button>
+                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
+                    <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
+                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn active">Regional Sul</button>
+                    <button onclick="navigateTab('/mapa_regionais')" class="tab-btn active" style="border-color:#ffd700; color:#ffd700;">🗺️ Mapa Brasil</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/teste_estoque')" class="tab-btn"><span class="tab-icon">🚨</span> Estoque e Previsão</button>
+                </div>
+            </div>
+
+            <div class="header-bottom">
+                <div class="filters-row">
+                    <select id="filter-month" onchange="carregarDadosApi()">
+                        <option value="1">Janeiro</option>
+                        <option value="2">Fevereiro</option>
+                        <option value="3">Março</option>
+                        <option value="4">Abril</option>
+                        <option value="5">Maio</option>
+                        <option value="6">Junho</option>
+                        <option value="7">Julho</option>
+                        <option value="8">Agosto</option>
+                        <option value="9" selected>Setembro</option>
+                        <option value="10">Outubro</option>
+                        <option value="11">Novembro</option>
+                        <option value="12">Dezembro</option>
+                    </select>
+                    <select id="filter-year" onchange="carregarDadosApi()">
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026" selected>2026</option>
+                    </select>
+                    <button id="btn-refresh" onclick="carregarDadosApi(true)" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
+                </div>
+                <div class="header-meta-info">
+                    <div class="clock" id="clock">00:00:00</div>
+                    <div class="date" id="date">01/01/2026</div>
+                    <div class="next-update" id="next-update">Atualização em: 10:00</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Barra Cockpit de KPIs 100% Percentuais -->
+        <div class="cockpit-top-bar">
+            <div class="cockpit-title-group">
+                <div class="brand-badge">MQ <span>PROFESSIONAL</span></div>
+                <div class="title-separator">|</div>
+                <div class="screen-title">Mapa Nacional de Vendas por Regional</div>
+            </div>
+
+            <div class="cockpit-stats-group">
+                <div class="stat-pill highlight">
+                    <span class="label">Projeção Brasil:</span>
+                    <span class="value" id="stat-br-proj">106.8% da meta</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="label">MoM:</span>
+                    <span class="value" id="stat-br-mom">+14.2%</span>
+                </div>
+                <div class="stat-pill">
+                    <span class="label">YoY:</span>
+                    <span class="value" id="stat-br-yoy">+22.5%</span>
+                </div>
+            </div>
+
+            <div class="cockpit-actions">
+                <div class="region-btn-switch">
+                    <button class="r-btn active" data-reg="ALL" onclick="setRegionalFocus('ALL')">Todas</button>
+                    <button class="r-btn" data-reg="SUL" onclick="setRegionalFocus('SUL')">Sul</button>
+                    <button class="r-btn" data-reg="RJ_MG_ES" onclick="setRegionalFocus('RJ_MG_ES')">RJ/MG/ES</button>
+                    <button class="r-btn" data-reg="NO_ND" onclick="setRegionalFocus('NO_ND')">NO/ND</button>
+                </div>
+                <button class="btn-tv-mode" onclick="window.location.href='/canal/regional_sul?mode=table'" title="Ver Tabela Detalhada com Hierarquia">📋 Tabela</button>
+            </div>
+        </div>
+
+        <!-- Arena Central: Mapa 3D Iluminado e Cards Flutuantes -->
+        <main class="mapa-main-arena">
+            <!-- Canvas ECharts do Mapa -->
+            <div id="echarts-map-container"></div>
+
+            <!-- Card Superior Esquerdo: Top Produtos (%) -->
+            <div class="glass-card widget-produtos" id="widget-produtos">
+                <div class="widget-title">⭐ Top Produtos (Volume %)</div>
+                <div id="top-produtos-container">
+                    <div style="font-size:0.75rem; color:#94a3b8; text-align:center; padding:10px;">Carregando ranking...</div>
+                </div>
+            </div>
+
+            <!-- Card Inferior Esquerdo: Mix por Categoria (%) -->
+            <div class="glass-card widget-categorias" id="widget-categorias">
+                <div class="widget-title">📦 Mix por Categoria (%)</div>
+                <div id="cat-bars-container">
+                    <div style="font-size:0.75rem; color:#94a3b8; text-align:center; padding:10px;">Carregando categorias...</div>
+                </div>
+            </div>
+
+            <!-- Card Regional Sul (Dourado MQ) -->
+            <div class="glass-card card-sul" id="card-reg-sul">
+                <div class="card-reg-header">
+                    <div class="reg-title-wrap">
+                        <div class="reg-dot sul"></div>
+                        <div class="reg-name">Regional Sul</div>
+                    </div>
+                    <div class="reg-meta-badge" id="sul-meta-badge">101.4% da meta</div>
+                </div>
+                <div class="reg-metrics-grid">
+                    <div class="m-box">
+                        <span class="m-lbl">% Share Brasil</span>
+                        <span class="m-val" id="sul-share-br">5.2%</span>
+                    </div>
+                    <div class="m-box">
+                        <span class="m-lbl">Variações</span>
+                        <div class="growth-tags">
+                            <span class="growth-badge positive" id="sul-mom">MoM -10.9%</span>
+                            <span class="growth-badge positive" id="sul-yoy">YoY +3.5%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="states-list" id="sul-states-list">
+                    <!-- Estados PR, RS, SC gerados dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Card Regional RJ-MG-ES (Ciano Neon) -->
+            <div class="glass-card card-rj" id="card-reg-rj">
+                <div class="card-reg-header">
+                    <div class="reg-title-wrap">
+                        <div class="reg-dot rj"></div>
+                        <div class="reg-name">Reg. RJ/MG/ES</div>
+                    </div>
+                    <div class="reg-meta-badge" id="rj-meta-badge">105.2% da meta</div>
+                </div>
+                <div class="reg-metrics-grid">
+                    <div class="m-box">
+                        <span class="m-lbl">% Share Brasil</span>
+                        <span class="m-val" id="rj-share-br">11.1%</span>
+                    </div>
+                    <div class="m-box">
+                        <span class="m-lbl">Variações</span>
+                        <div class="growth-tags">
+                            <span class="growth-badge positive" id="rj-mom">MoM +8.7%</span>
+                            <span class="growth-badge positive" id="rj-yoy">YoY +18.1%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="states-list" id="rj-states-list">
+                    <!-- Estados RJ, MG, ES gerados dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Card Regional NO-ND (Verde Esmeralda) -->
+            <div class="glass-card card-no" id="card-reg-no">
+                <div class="card-reg-header">
+                    <div class="reg-title-wrap">
+                        <div class="reg-dot no"></div>
+                        <div class="reg-name">Regional NO/ND</div>
+                    </div>
+                    <div class="reg-meta-badge" id="no-meta-badge">98.4% da meta</div>
+                </div>
+                <div class="reg-metrics-grid">
+                    <div class="m-box">
+                        <span class="m-lbl">% Share Brasil</span>
+                        <span class="m-val" id="no-share-br">11.2%</span>
+                    </div>
+                    <div class="m-box">
+                        <span class="m-lbl">Variações</span>
+                        <div class="growth-tags">
+                            <span class="growth-badge positive" id="no-mom">MoM +11.2%</span>
+                            <span class="growth-badge positive" id="no-yoy">YoY +15.4%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="states-list" id="no-states-list">
+                    <!-- Estados BA, PE, CE, AL gerados dinamicamente via JS -->
+                </div>
+            </div>
+
+            <!-- Legenda no Rodapé -->
+            <div class="mapa-footer-legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#ffd700;"></div>
+                    <span>Regional Sul (PR, SC, RS)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#00e5ff;"></div>
+                    <span>Reg. RJ/MG/ES</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#00e676;"></div>
+                    <span>Regional NO/ND</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background:#64748b;"></div>
+                    <span>Demais Estados</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261014_MAPA_V1"></script>
+    <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=6"></script>
+</body>
+</html>
