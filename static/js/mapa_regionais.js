@@ -34,7 +34,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     initChart();
     await carregarGeoJson();
     await carregarDadosApi();
+
+    // Sincroniza aba inicial caso informada na URL pelo TV Rotator (?tab=rankings / ?tab=hierarquia)
+    const tabParam = urlParams.get('tab');
+    if (tabParam === 'rankings') {
+        trocarPainelDetalhe('rankings');
+    } else {
+        trocarPainelDetalhe('hierarquia');
+    }
+
     iniciarAutoRotacao();
+    iniciarAlternanciaAbasTV();
 });
 
 // ── Relógio e Contadores da TV ────────────────────────────────────────────────
@@ -448,16 +458,20 @@ function selecionarEstado(uf, autoScroll = false) {
             `).join('');
     }
 
-    // Destaca linha na tabela e expande categorias
+    // Destaca linha na tabela e expande categorias e produtos
     if (autoScroll && uf !== 'EX') {
         expandedUfs.add(uf);
+        if (estadoObj && estadoObj.categorias && estadoObj.categorias.length > 0) {
+            // Expande também a categoria líder da UF para expor seus produtos na tabela
+            expandedCats.add(`${uf}_${estadoObj.categorias[0].categoria}`);
+        }
         renderizarTabelaHierarquia(currentData);
         setTimeout(() => {
             const targetRow = document.querySelector(`.row-uf[data-uf="${uf}"]`);
             if (targetRow) {
-                targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-        }, 40);
+        }, 50);
     } else {
         document.querySelectorAll('.row-uf').forEach(row => {
             row.classList.toggle('selected', row.getAttribute('data-uf') === uf);
@@ -717,7 +731,11 @@ function trocarPainelDetalhe(painel) {
     const targetPanel = document.getElementById(`panel-${painel}`);
 
     if (targetBtn) targetBtn.classList.add('active');
-    if (targetPanel) targetPanel.classList.add('active');
+    if (targetPanel) {
+        targetPanel.classList.add('active');
+        const scrollable = targetPanel.querySelector('.hierarchy-table-container, .rankings-split-grid, .rank-list');
+        if (scrollable) scrollable.scrollTop = 0;
+    }
 
     setTimeout(initAutoScrollTV, 300);
 }
@@ -738,6 +756,22 @@ function iniciarAutoRotacao() {
         const nextIdx = (currIdx + 1) % topUfs.length;
         selecionarEstado(topUfs[nextIdx], true);
     }, 12000); // Muda a cada 12 segundos na TV
+}
+
+// ── Alternância Automática entre Hierarquia e Rankings na TV ────────────────
+let tabAlternatorTimer = null;
+function iniciarAlternanciaAbasTV() {
+    if (tabAlternatorTimer) clearInterval(tabAlternatorTimer);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let activePanel = urlParams.get('tab') === 'rankings' ? 'rankings' : 'hierarquia';
+
+    // Alterna a cada 45 segundos entre Hierarquia (Estado -> Categoria -> Produto) e Rankings
+    tabAlternatorTimer = setInterval(() => {
+        if (!isAutoRotateActive) return;
+        activePanel = (activePanel === 'hierarquia') ? 'rankings' : 'hierarquia';
+        trocarPainelDetalhe(activePanel);
+    }, 45000);
 }
 
 function toggleAutoRotacao() {

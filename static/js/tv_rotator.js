@@ -15,7 +15,7 @@
  */
 
 (function () {
-    // 18 Guias na ordem exata da barra de navegação superior
+    // 19 Guias na ordem exata da barra de navegação superior
     const TV_TABS = [
         { url: '/tv', name: 'Mensal (%)' },
         { url: '/acumulado', name: 'Acumulado (%)' },
@@ -30,7 +30,8 @@
         { url: '/canal/regional_no_nd', name: 'Regional NO/ND' },
         { url: '/canal/regional_rj_mg_es', name: 'Reg. RJ/MG/ES' },
         { url: '/canal/regional_sul', name: 'Regional Sul' },
-        { url: '/mapa_regionais', name: 'Mapa Brasil' },
+        { url: '/mapa_regionais?tab=hierarquia', name: 'Mapa Brasil (Hierarquia)' },
+        { url: '/mapa_regionais?tab=rankings', name: 'Mapa Brasil (Rankings)' },
         { url: '/empresa', name: 'Empresa' },
         { url: '/diario_canal', name: 'Diário Canal' },
         { url: '/diario_marcas', name: 'Diário Marcas' },
@@ -101,16 +102,31 @@
     function getCurrentTabIndex() {
         const rawPath = window.location.pathname.toLowerCase().replace(/\/$/, '') || '/tv';
         if (rawPath === '' || rawPath === '/') return 0;
+        const currentParams = new URLSearchParams(window.location.search);
+        const currentTabParam = currentParams.get('tab');
 
-        // Match exato de URL
-        const exact = TV_TABS.findIndex(t => t.url.toLowerCase() === rawPath);
+        // 1. Match de rota com query param (ex: /mapa_regionais?tab=rankings)
+        if (currentTabParam) {
+            const withTabIdx = TV_TABS.findIndex(t => {
+                const [tPath, tQuery] = t.url.toLowerCase().split('?');
+                if (tPath === rawPath && tQuery) {
+                    const tParams = new URLSearchParams(tQuery);
+                    return tParams.get('tab') === currentTabParam.toLowerCase();
+                }
+                return false;
+            });
+            if (withTabIdx !== -1) return withTabIdx;
+        }
+
+        // 2. Match exato de pathname (sem query param)
+        const exact = TV_TABS.findIndex(t => t.url.toLowerCase().split('?')[0] === rawPath);
         if (exact !== -1) return exact;
 
-        // Match de sub-rotas (ex: /canal/distribuicao)
-        const partial = TV_TABS.findIndex(t => rawPath.startsWith(t.url.toLowerCase()));
+        // 3. Match de sub-rotas (ex: /canal/distribuicao)
+        const partial = TV_TABS.findIndex(t => rawPath.startsWith(t.url.toLowerCase().split('?')[0]));
         if (partial !== -1) return partial;
 
-        // Caso especial para aliases de estoque
+        // 4. Caso especial para aliases de estoque
         if (rawPath.includes('estoque')) {
             const estIdx = TV_TABS.findIndex(t => t.url.includes('estoque'));
             if (estIdx !== -1) return estIdx;
