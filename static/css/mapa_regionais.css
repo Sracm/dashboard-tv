@@ -162,10 +162,11 @@ body, html {
 .mapa-main-arena-split {
     flex: 1;
     display: flex;
+    flex-direction: row;
     width: 100%;
-    height: calc(100vh - 105px);
+    min-height: 0;
     box-sizing: border-box;
-    padding: 10px 16px 12px 16px;
+    padding: 8px 16px 10px 16px;
     gap: 14px;
     overflow: hidden;
 }
@@ -892,12 +893,238 @@ body, html {
     text-align: right;
 }
 
-/* Responsividade TV / Desktop */
-@media (max-width: 1366px) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   SISTEMA RESPONSIVO E ADAPTATIVO PARA TV E DESKTOP (LANDSCAPE)
+   O layout permanece SEMPRE dividido lado a lado (Mapa à Esquerda + Detalhes à Direita).
+   Ajusta proporcionalmente fontes, espaçamentos e alturas para caber 100% na tela sem rolagem global.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Telas Médias e Pequenas de TV / Monitores (ex: 1366x768, 1280x720, 1080p com escala de 125% a 150%) */
+@media (max-width: 1440px), (max-height: 850px) {
+    .cockpit-top-bar {
+        padding: 5px 14px;
+    }
+    .brand-badge {
+        font-size: 0.95rem;
+    }
+    .screen-title {
+        font-size: 0.84rem;
+    }
+    .ytd-pill {
+        font-size: 0.62rem;
+        padding: 2px 7px;
+    }
+    .cockpit-stats-group {
+        gap: 6px;
+    }
+    .stat-pill {
+        padding: 2px 8px;
+        font-size: 0.70rem;
+    }
+    .stat-pill .label {
+        font-size: 0.62rem;
+    }
+
     .mapa-main-arena-split {
-        flex-direction: column;
-        overflow-y: auto;
-        height: auto;
+        padding: 6px 12px 8px 12px;
+        gap: 10px;
+    }
+
+    /* Coluna Esquerda */
+    .map-toolbar {
+        padding: 5px 10px;
+    }
+    .map-title-text {
+        font-size: 0.74rem;
+    }
+    .region-filter-chips {
+        gap: 3px;
+    }
+    .chip {
+        font-size: 0.64rem;
+        padding: 2px 6px;
+    }
+
+    /* Spotlight Card Compacto */
+    .state-spotlight-card {
+        padding: 6px 10px;
+        gap: 4px;
+    }
+    .spotlight-uf-badge {
+        font-size: 0.98rem;
+        padding: 1px 7px;
+    }
+    .spot-name {
+        font-size: 0.88rem;
+    }
+    .spot-region {
+        font-size: 0.64rem;
+    }
+    .spotlight-status-badge span {
+        font-size: 0.72rem;
+        padding: 2px 6px;
+    }
+    .spotlight-status-badge small {
+        font-size: 0.64rem;
+    }
+    .spotlight-metrics-row {
+        gap: 5px;
+    }
+    .spot-metric {
+        padding: 4px 6px;
+    }
+    .spot-metric .m-lbl {
+        font-size: 0.58rem;
+    }
+    .spot-metric .m-val {
+        font-size: 0.82rem;
+    }
+    .spotlight-top-cats {
+        font-size: 0.64rem;
+        gap: 5px;
+        padding-top: 2px;
+    }
+    .spot-cat-pill {
+        padding: 1px 6px;
+    }
+
+    /* Coluna Direita (Detalhes) */
+    .details-tab-nav {
+        padding: 4px 8px 0 8px;
+        gap: 4px;
+    }
+    .d-tab-btn {
+        font-size: 0.70rem;
+        padding: 6px 10px;
+    }
+    .panel-actions-bar {
+        padding: 5px 8px;
+    }
+    .search-input-wrapper {
+        padding: 3px 8px;
+    }
+    .search-input-wrapper input {
+        font-size: 0.68rem;
+    }
+    .btn-micro {
+        font-size: 0.64rem;
+        padding: 3px 6px;
+    }
+
+    /* Tabela */
+    .hierarchy-table {
+        font-size: 0.70rem;
+    }
+    .hierarchy-table thead th {
+        font-size: 0.60rem;
+        padding: 5px 7px;
+    }
+    .row-uf td {
+        padding: 5px 7px;
+    }
+    .row-cat td {
+        padding: 4px 7px;
+    }
+    .row-prod td {
+        padding: 3px 7px;
+        font-size: 0.67rem;
+    }
+
+    /* Rankings */
+    .rank-col-header {
+        padding: 5px 8px;
+    }
+    .col-title {
+        font-size: 0.68rem;
+    }
+    .rank-card-item {
+        padding: 5px 8px;
+        gap: 3px;
+    }
+    .r-pos-name {
+        font-size: 0.68rem;
+    }
+    .r-share-badge {
+        font-size: 0.74rem;
+    }
+}
+
+/* 2. Telas Muito Baixas (ex: 720p ou navegadores de TV com barras do sistema: height <= 720px) */
+@media (max-height: 720px) {
+    .cockpit-top-bar {
+        padding: 3px 10px;
+    }
+    .stat-pill {
+        padding: 1px 6px;
+    }
+    .state-spotlight-card {
+        padding: 4px 8px;
+        gap: 3px;
+    }
+    .spotlight-top-cats {
+        display: none; /* Oculta mini categorias no rodapé do spotlight para dar máximo respiro ao mapa em telas baixas */
+    }
+}
+
+/* 3. Telas Grandes / 4K (min-width: 2560px) */
+@media (min-width: 2560px) {
+    .cockpit-top-bar {
+        padding: 12px 30px;
+    }
+    .brand-badge {
+        font-size: 1.5rem;
+    }
+    .screen-title {
+        font-size: 1.3rem;
+    }
+    .stat-pill {
+        font-size: 1rem;
+        padding: 6px 16px;
+    }
+    .map-title-text {
+        font-size: 1.1rem;
+    }
+    .chip {
+        font-size: 0.95rem;
+        padding: 5px 12px;
+    }
+    .spotlight-uf-badge {
+        font-size: 1.6rem;
+    }
+    .spot-name {
+        font-size: 1.4rem;
+    }
+    .spot-metric .m-val {
+        font-size: 1.3rem;
+    }
+    .hierarchy-table {
+        font-size: 1rem;
+    }
+    .hierarchy-table thead th {
+        font-size: 0.85rem;
+        padding: 10px 14px;
+    }
+    .row-uf td {
+        padding: 10px 14px;
+    }
+    .row-cat td {
+        padding: 8px 14px;
+    }
+    .row-prod td {
+        padding: 7px 14px;
+        font-size: 0.92rem;
+    }
+}
+
+/* 4. Apenas Dispositivos Móveis em Modo Retrato (largura extrema de celular) */
+@media (max-width: 768px) and (orientation: portrait) {
+    body, html, .mapa-tv-container {
+        overflow-y: auto !important;
+        height: auto !important;
+    }
+    .mapa-main-arena-split {
+        flex-direction: column !important;
+        height: auto !important;
     }
     .arena-left-map {
         height: 520px;
@@ -908,3 +1135,4 @@ body, html {
         flex: none;
     }
 }
+

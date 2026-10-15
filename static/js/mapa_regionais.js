@@ -21,6 +21,15 @@ let expandedCats = new Set(['SP_Pranchas']);
 
 // ── Inicialização ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+    // Sincroniza selects com parâmetros da URL caso tenham sido informados
+    const urlParams = new URLSearchParams(window.location.search);
+    const mesParam = urlParams.get('mes');
+    const anoParam = urlParams.get('ano');
+    const monthEl = document.getElementById('filter-month');
+    const yearEl = document.getElementById('filter-year');
+    if (mesParam && monthEl) monthEl.value = mesParam;
+    if (anoParam && yearEl) yearEl.value = anoParam;
+
     initClock();
     initChart();
     await carregarGeoJson();
@@ -69,6 +78,14 @@ function initChart() {
     window.addEventListener('resize', () => {
         if (myChart) myChart.resize();
     });
+
+    // ResizeObserver garante que o mapa ECharts se adapte imediatamente a qualquer redimensionamento do container
+    if (window.ResizeObserver) {
+        const ro = new ResizeObserver(() => {
+            if (myChart) myChart.resize();
+        });
+        ro.observe(chartDom);
+    }
 }
 
 // ── Carregamento do GeoJSON do Brasil ─────────────────────────────────────────
