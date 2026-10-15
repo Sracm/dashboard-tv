@@ -474,11 +474,6 @@ function renderizarTabelaHierarquia(data) {
                 <td style="text-align:right;" class="val-share gold">${est.share_atual}%</td>
                 <td style="text-align:right;" class="val-share">${est.share_ant}%</td>
                 <td style="text-align:right;" class="val-diff ${isMaior ? 'positive' : 'negative'}">${diffStr}</td>
-                <td style="text-align:center;">
-                    <span class="status-badge ${isMaior ? 'maior' : 'menor'}">
-                        ${isMaior ? '▲ MAIOR' : '▼ MENOR'}
-                    </span>
-                </td>
             </tr>
         `;
 
@@ -500,11 +495,6 @@ function renderizarTabelaHierarquia(data) {
                         <td style="text-align:right;" class="val-share">${cat.share_atual}%</td>
                         <td style="text-align:right; color:#94a3b8;">${cat.share_ant}%</td>
                         <td style="text-align:right;" class="val-diff ${isCatMaior ? 'positive' : 'negative'}">${catDiffStr}</td>
-                        <td style="text-align:center;">
-                            <span class="status-badge ${isCatMaior ? 'maior' : 'menor'}">
-                                ${isCatMaior ? '▲ MAIOR' : '▼ MENOR'}
-                            </span>
-                        </td>
                     </tr>
                 `;
 
@@ -524,11 +514,6 @@ function renderizarTabelaHierarquia(data) {
                                 <td style="text-align:right; font-weight:700; color:#e2e8f0;">${prod.share_atual}%</td>
                                 <td style="text-align:right; color:#64748b;">${prod.share_ant}%</td>
                                 <td style="text-align:right;" class="val-diff ${isProdMaior ? 'positive' : 'negative'}">${prodDiffStr}</td>
-                                <td style="text-align:center;">
-                                    <span class="status-badge ${isProdMaior ? 'maior' : 'menor'}" style="font-size:0.62rem; padding:1px 5px;">
-                                        ${isProdMaior ? '▲ MAIOR' : '▼ MENOR'}
-                                    </span>
-                                </td>
                             </tr>
                         `;
                     });

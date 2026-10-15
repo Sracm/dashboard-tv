@@ -1367,14 +1367,14 @@ def _limpar_cat_mapa(c):
     return c_up.title()
 
 def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
-    cache_key = f"ytd_{ano_ref}_{mes_ref}"
+    cache_key = f"ytd_nocomex_{ano_ref}_{mes_ref}"
     now_ts = time.time()
     if not force_refresh and cache_key in cached_mapa_regionais_data:
         data, ts = cached_mapa_regionais_data[cache_key]
         if now_ts - ts < CACHE_TTL_HEAVY:
             return data
 
-    disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_{ano_ref}_{mes_ref}.json')
+    disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_nocomex_{ano_ref}_{mes_ref}.json')
     if not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
         if file_age < CACHE_TTL_HEAVY:
@@ -1413,6 +1413,9 @@ def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
         df = pd.read_sql(query, conn)
     finally:
         conn.close()
+
+    # Exclui COMEX / Exportação da equação (foco 100% no mercado nacional do Brasil)
+    df = df[(df['UF'] != 'EX') & (df['UF'].notna()) & (df['UF'].astype(str).str.strip() != '')]
 
     df['CAT_CLEAN'] = df['CATEGORIA'].apply(_limpar_cat_mapa)
     df['PROD_CLEAN'] = df['PRODUTO'].astype(str).str.strip()

@@ -11,8 +11,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=16">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_regionais.css') }}?v=20261015_YTD_V3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=17">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mapa_regionais.css') }}?v=20261015_V4">
 </head>
 <body>
     <div class="mapa-tv-container">
@@ -123,7 +123,6 @@
                         <button class="chip" data-region="Nordeste" onclick="filtrarRegiaoMapa('Nordeste')">Nordeste</button>
                         <button class="chip" data-region="Centro-Oeste" onclick="filtrarRegiaoMapa('Centro-Oeste')">C-Oeste</button>
                         <button class="chip" data-region="Norte" onclick="filtrarRegiaoMapa('Norte')">Norte</button>
-                        <button class="chip" data-region="Comex" onclick="filtrarRegiaoMapa('Comex')">Comex</button>
                     </div>
                 </div>
 
@@ -207,13 +206,12 @@
                                     <th>Estado / Categoria / Produto</th>
                                     <th style="text-align:right; width: 110px;">Share Atual</th>
                                     <th style="text-align:right; width: 110px;">Ano Anterior</th>
-                                    <th style="text-align:right; width: 95px;">Dif. p.p.</th>
-                                    <th style="text-align:center; width: 120px;">Comparação</th>
+                                    <th style="text-align:right; width: 100px;">Dif. p.p.</th>
                                 </tr>
                             </thead>
                             <tbody id="hierarchy-table-body">
                                 <tr>
-                                    <td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">
+                                    <td colspan="5" style="text-align:center; padding:30px; color:#94a3b8;">
                                         Carregando hierarquia acumulada...
                                     </td>
                                 </tr>
@@ -254,8 +252,8 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261015_YTD_V3"></script>
+    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261015_V4"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo) -->
-    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=8"></script>
 </body>
 </html>
