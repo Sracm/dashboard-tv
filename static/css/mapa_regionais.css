@@ -679,12 +679,15 @@ body, html {
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.68rem;
+    justify-content: center;
+    font-size: 0.72rem;
     font-weight: 800;
-    padding: 2px 7px;
+    min-width: 20px;
+    height: 19px;
+    padding: 0 5px;
     border-radius: 4px;
     white-space: nowrap;
+    line-height: 1;
 }
 
 .status-badge.maior {

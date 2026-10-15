@@ -269,8 +269,7 @@ function renderizarMapa(data) {
                         </div>
                         <div style="font-size:0.8rem; line-height:1.6;">
                             <div>Share Atual (YTD): <b style="color:#ffd700; font-size:0.95rem;">${d.share}%</b></div>
-                            <div>Variação: <b style="color:${stColor};">${diffTxt}</b></div>
-                            <div>Status: <b style="color:${stColor};">${d.status === 'MAIOR' ? '▲ MAIOR' : '▼ MENOR'}</b></div>
+                            <div>Variação: <b style="color:${stColor};">${d.diff >= 0 ? '▲ +' : '▼ '}${d.diff} p.p.</b></div>
                         </div>
                     `;
                 }
@@ -291,8 +290,7 @@ function renderizarMapa(data) {
                         <div>Posição Ranking: <b style="color:#fff;">#${u.rank || '-'}</b></div>
                         <div>Share Atual (YTD): <b style="color:#ffd700; font-size:0.95rem;">${u.share_atual}%</b></div>
                         <div>Share Ano Anterior: <b style="color:#cbd5e1;">${u.share_ant}%</b></div>
-                        <div>Variação: <b style="color:${stColor};">${diffTxt}</b></div>
-                        <div style="margin-top:4px;">Status: <b style="color:${stColor};">${stIcon} ${u.status}</b></div>
+                        <div>Variação: <b style="color:${stColor};">${stIcon} ${(u.diff_pp >= 0 ? '+' : '') + u.diff_pp} p.p.</b></div>
                     </div>
                 `;
             }
@@ -406,8 +404,11 @@ function selecionarEstado(uf, autoScroll = false) {
     if (statusBox) {
         statusBox.className = `spotlight-status-badge ${isMaior ? 'maior' : 'menor'}`;
     }
-    if (statusTxt) statusTxt.innerText = `${isMaior ? '▲ MAIOR' : '▼ MENOR'}`;
-    if (diffTxt) diffTxt.innerText = `${u.diff_pp >= 0 ? '+' : ''}${u.diff_pp} p.p.`;
+    if (statusTxt) statusTxt.innerText = isMaior ? '▲' : '▼';
+    if (diffTxt) {
+        diffTxt.innerText = `${u.diff_pp >= 0 ? '+' : ''}${u.diff_pp} p.p.`;
+        diffTxt.style.color = isMaior ? 'var(--green)' : 'var(--red)';
+    }
 
     if (shareAtualEl) shareAtualEl.innerText = `${u.share_atual}%`;
     if (shareAntEl) shareAntEl.innerText = `${u.share_ant}%`;
@@ -460,7 +461,7 @@ function renderizarTabelaHierarquia(data) {
     data.estados.forEach(est => {
         const isUfExpanded = expandedUfs.has(est.uf);
         const isMaior = est.status === 'MAIOR';
-        const diffStr = (est.diff_pp >= 0 ? '+' : '') + est.diff_pp + ' p.p.';
+        const diffStr = (isMaior ? '▲ ' : '▼ ') + (est.diff_pp >= 0 ? '+' : '') + est.diff_pp + ' p.p.';
 
         // Nível 1: Estado
         html += `
@@ -483,7 +484,7 @@ function renderizarTabelaHierarquia(data) {
                 const catKey = `${est.uf}_${cat.categoria}`;
                 const isCatExpanded = expandedCats.has(catKey);
                 const isCatMaior = cat.status === 'MAIOR';
-                const catDiffStr = (cat.diff_pp >= 0 ? '+' : '') + cat.diff_pp + ' p.p.';
+                const catDiffStr = (isCatMaior ? '▲ ' : '▼ ') + (cat.diff_pp >= 0 ? '+' : '') + cat.diff_pp + ' p.p.';
 
                 html += `
                     <tr class="row-cat" data-cat-key="${catKey}" onclick="toggleCatExpand('${catKey}', event)">
@@ -502,7 +503,7 @@ function renderizarTabelaHierarquia(data) {
                 if (isCatExpanded && cat.produtos) {
                     cat.produtos.slice(0, 10).forEach(prod => {
                         const isProdMaior = prod.status === 'MAIOR';
-                        const prodDiffStr = (prod.diff_pp >= 0 ? '+' : '') + prod.diff_pp + ' p.p.';
+                        const prodDiffStr = (isProdMaior ? '▲ ' : '▼ ') + (prod.diff_pp >= 0 ? '+' : '') + prod.diff_pp + ' p.p.';
 
                         html += `
                             <tr class="row-prod">
@@ -644,7 +645,7 @@ function renderizarRankings(data) {
                     <div class="rank-item-sub">
                         <span>Ano Ant: ${cat.share_ant}%</span>
                         <span class="val-diff ${isMaior ? 'positive' : 'negative'}">${diffStr}</span>
-                        <span class="status-badge ${isMaior ? 'maior' : 'menor'}">${isMaior ? '▲ MAIOR' : '▼ MENOR'}</span>
+                        <span class="status-badge ${isMaior ? 'maior' : 'menor'}">${isMaior ? '▲' : '▼'}</span>
                     </div>
                     ${prodsHtml}
                 </div>
@@ -669,7 +670,7 @@ function renderizarRankings(data) {
                     <div class="rank-item-sub">
                         <span style="color:#e2e8f0; font-weight:600;">${p.categoria}</span>
                         <span class="val-diff ${isMaior ? 'positive' : 'negative'}">${diffStr}</span>
-                        <span class="status-badge ${isMaior ? 'maior' : 'menor'}">${isMaior ? '▲ MAIOR' : '▼ MENOR'}</span>
+                        <span class="status-badge ${isMaior ? 'maior' : 'menor'}">${isMaior ? '▲' : '▼'}</span>
                     </div>
                 </div>
             `;
