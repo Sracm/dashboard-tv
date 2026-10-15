@@ -1332,15 +1332,49 @@ def tv_alertas():
 
 cached_mapa_regionais_data = {}
 
+ESTADOS_NOMES_MAP = {
+    'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA': 'Bahia',
+    'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo', 'GO': 'Goiás',
+    'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul', 'MG': 'Minas Gerais',
+    'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná', 'PE': 'Pernambuco', 'PI': 'Piauí',
+    'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte', 'RS': 'Rio Grande do Sul',
+    'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina', 'SP': 'São Paulo',
+    'SE': 'Sergipe', 'TO': 'Tocantins', 'EX': 'Exportação (Comex)'
+}
+
+REGIOES_UF_MAP = {
+    'PR': 'Sul', 'SC': 'Sul', 'RS': 'Sul',
+    'SP': 'Sudeste', 'RJ': 'Sudeste', 'MG': 'Sudeste', 'ES': 'Sudeste',
+    'BA': 'Nordeste', 'PE': 'Nordeste', 'CE': 'Nordeste', 'AL': 'Nordeste', 'PB': 'Nordeste',
+    'RN': 'Nordeste', 'MA': 'Nordeste', 'PI': 'Nordeste', 'SE': 'Nordeste',
+    'DF': 'Centro-Oeste', 'GO': 'Centro-Oeste', 'MT': 'Centro-Oeste', 'MS': 'Centro-Oeste',
+    'AM': 'Norte', 'PA': 'Norte', 'RO': 'Norte', 'TO': 'Norte', 'AC': 'Norte', 'AP': 'Norte', 'RR': 'Norte',
+    'EX': 'Comex'
+}
+
+def _limpar_cat_mapa(c):
+    if not c or pd.isna(c):
+        return 'Outros'
+    c_up = str(c).strip().upper()
+    if 'PRANCHA' in c_up: return 'Pranchas'
+    if 'SECADOR' in c_up: return 'Secadores'
+    if 'MODELADOR' in c_up: return 'Modeladores'
+    if 'ESCOVA' in c_up: return 'Escovas'
+    if 'MAQUINA' in c_up or 'BARBER' in c_up or 'MÁQUINA' in c_up: return 'Máquinas'
+    if 'TESOURA' in c_up: return 'Tesouras'
+    if 'ACESSOR' in c_up or 'ACESSÓR' in c_up: return 'Acessórios'
+    if 'COSMET' in c_up or 'COSMÉT' in c_up: return 'Cosméticos'
+    return c_up.title()
+
 def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
-    cache_key = f"{ano_ref}_{mes_ref}"
+    cache_key = f"ytd_{ano_ref}_{mes_ref}"
     now_ts = time.time()
     if not force_refresh and cache_key in cached_mapa_regionais_data:
         data, ts = cached_mapa_regionais_data[cache_key]
         if now_ts - ts < CACHE_TTL_HEAVY:
             return data
 
-    disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_{ano_ref}_{mes_ref}.json')
+    disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_{ano_ref}_{mes_ref}.json')
     if not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
         if file_age < CACHE_TTL_HEAVY:
@@ -1380,141 +1414,204 @@ def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
     finally:
         conn.close()
 
-    REGIOES_MAP = {
-        'SUL': {'nome': 'Regional Sul', 'cor': '#ffd700', 'ufs': ['PR', 'SC', 'RS']},
-        'RJ_MG_ES': {'nome': 'Reg. RJ/MG/ES', 'cor': '#00e5ff', 'ufs': ['RJ', 'MG', 'ES']},
-        'NO_ND': {'nome': 'Regional NO/ND', 'cor': '#00e676', 'ufs': ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'MA', 'PA', 'PB', 'PE', 'PI', 'RN', 'RO', 'RR', 'SE', 'TO']},
-        'SP': {'nome': 'Varejo SP', 'cor': '#94a3b8', 'ufs': ['SP']},
-        'CO': {'nome': 'Centro-Oeste', 'cor': '#a855f7', 'ufs': ['DF', 'GO', 'MS', 'MT']}
-    }
+    df['CAT_CLEAN'] = df['CATEGORIA'].apply(_limpar_cat_mapa)
+    df['PROD_CLEAN'] = df['PRODUTO'].astype(str).str.strip()
 
-    mes_ant = 12 if mes_ref == 1 else mes_ref - 1
-    ano_ant = ano_ref - 1 if mes_ref == 1 else ano_ref
-    ano_yoy = ano_ref - 1
+    # Filtro Acumulado até a data (YTD)
+    df_atual = df[(df['ANO'] == ano_ref) & (df['MES'] <= mes_ref)]
+    df_ant = df[(df['ANO'] == ano_ref - 1) & (df['MES'] <= mes_ref)]
 
-    df_atual = df[(df['ANO'] == ano_ref) & (df['MES'] == mes_ref)]
-    df_ant = df[(df['ANO'] == ano_ant) & (df['MES'] == mes_ant)]
-    df_yoy = df[(df['ANO'] == ano_yoy) & (df['MES'] == mes_ref)]
+    tot_br_atual = float(df_atual['TOTAL_PREV'].sum())
+    tot_br_ant = float(df_ant['TOTAL_PREV'].sum())
 
-    total_br_atual = float(df_atual['TOTAL_PREV'].sum())
-    total_br_ant = float(df_ant['TOTAL_PREV'].sum())
-    total_br_yoy = float(df_yoy['TOTAL_PREV'].sum())
+    # Agrupamento por UF
+    uf_tot_atual = df_atual.groupby('UF')['TOTAL_PREV'].sum()
+    uf_tot_ant = df_ant.groupby('UF')['TOTAL_PREV'].sum()
+    all_ufs = sorted(list(set(list(uf_tot_atual.index) + list(uf_tot_ant.index))))
 
-    mom_br_pct = float(((total_br_atual - total_br_ant) / total_br_ant * 100)) if total_br_ant > 0 else 0.0
-    yoy_br_pct = float(((total_br_atual - total_br_yoy) / total_br_yoy * 100)) if total_br_yoy > 0 else 0.0
+    ufs_list = []
+    ufs_map = {}
 
-    def _limpar_cat(c):
-        c_up = str(c).upper()
-        if 'PRANCHA' in c_up: return 'Prancha'
-        if 'SECADOR' in c_up: return 'Secador'
-        if 'MODELADOR' in c_up: return 'Modelador'
-        if 'ESCOVA' in c_up: return 'Escova'
-        if 'MAQUINA' in c_up or 'BARBER' in c_up: return 'Máquina'
-        if 'TESOURA' in c_up: return 'Tesoura'
-        return 'Outros'
+    for uf in all_ufs:
+        va = float(uf_tot_atual.get(uf, 0.0))
+        vant = float(uf_tot_ant.get(uf, 0.0))
+        sh_a = round((va / tot_br_atual * 100), 2) if tot_br_atual > 0 else 0.0
+        sh_ant = round((vant / tot_br_ant * 100), 2) if tot_br_ant > 0 else 0.0
+        diff = round(sh_a - sh_ant, 2)
+        status = "MAIOR" if diff >= 0 else "MENOR"
 
-    df_atual_cat = df_atual.copy()
-    df_atual_cat['CAT_CLEAN'] = df_atual_cat['CATEGORIA'].apply(_limpar_cat)
-    cat_grp = df_atual_cat.groupby('CAT_CLEAN')['TOTAL_PREV'].sum().sort_values(ascending=False)
-    mix_categorias = []
-    for cat_name, vlr in cat_grp.items():
-        if total_br_atual > 0:
-            pct = round(float((vlr / total_br_atual) * 100), 1)
-            if pct > 0.5:
-                mix_categorias.append({'nome': str(cat_name), 'share_pct': pct})
+        # Categorias da UF
+        df_uf_atual = df_atual[df_atual['UF'] == uf]
+        df_uf_ant = df_ant[df_ant['UF'] == uf]
+        
+        cat_uf_atual = df_uf_atual.groupby('CAT_CLEAN')['TOTAL_PREV'].sum()
+        cat_uf_ant = df_uf_ant.groupby('CAT_CLEAN')['TOTAL_PREV'].sum()
+        cats_in_uf = sorted(list(set(list(cat_uf_atual.index) + list(cat_uf_ant.index))))
 
-    prod_grp = df_atual.groupby('PRODUTO')['TOTAL_PREV'].sum().sort_values(ascending=False).head(5)
-    top_produtos = []
-    for p_name, vlr in prod_grp.items():
-        if total_br_atual > 0:
-            top_produtos.append({
-                'nome': str(p_name)[:28],
-                'share_pct': round(float((vlr / total_br_atual) * 100), 1)
+        cats_data = []
+        for cat in cats_in_uf:
+            ca_val = float(cat_uf_atual.get(cat, 0.0))
+            cant_val = float(cat_uf_ant.get(cat, 0.0))
+            ca_sh = round((ca_val / va * 100), 1) if va > 0 else 0.0
+            cant_sh = round((cant_val / vant * 100), 1) if vant > 0 else 0.0
+            cdiff = round(ca_sh - cant_sh, 1)
+            cstatus = "MAIOR" if cdiff >= 0 else "MENOR"
+
+            # Produtos dentro da Categoria nessa UF
+            df_cat_atual = df_uf_atual[df_uf_atual['CAT_CLEAN'] == cat]
+            df_cat_ant = df_uf_ant[df_uf_ant['CAT_CLEAN'] == cat]
+
+            prod_atual = df_cat_atual.groupby('PROD_CLEAN')['TOTAL_PREV'].sum().sort_values(ascending=False)
+            prod_ant = df_cat_ant.groupby('PROD_CLEAN')['TOTAL_PREV'].sum()
+
+            prods_data = []
+            for p_idx, (pname, pval) in enumerate(prod_atual.items()):
+                p_ant_val = float(prod_ant.get(pname, 0.0))
+                psh = round((pval / ca_val * 100), 1) if ca_val > 0 else 0.0
+                psh_ant = round((p_ant_val / cant_val * 100), 1) if cant_val > 0 else 0.0
+                pdiff = round(psh - psh_ant, 1)
+                pstatus = "MAIOR" if pdiff >= 0 else "MENOR"
+                prods_data.append({
+                    'rank': p_idx + 1,
+                    'produto': pname,
+                    'share_atual': psh,
+                    'share_ant': psh_ant,
+                    'diff_pp': pdiff,
+                    'status': pstatus
+                })
+
+            cats_data.append({
+                'categoria': cat,
+                'share_atual': ca_sh,
+                'share_ant': cant_sh,
+                'diff_pp': cdiff,
+                'status': cstatus,
+                'produtos': prods_data
             })
 
-    regionais_res = {}
-    ufs_res = {}
+        cats_data.sort(key=lambda x: x['share_atual'], reverse=True)
+        for c_idx, c_item in enumerate(cats_data):
+            c_item['rank'] = c_idx + 1
 
-    for reg_key, reg_info in REGIOES_MAP.items():
-        ufs = reg_info['ufs']
-        df_reg_atual = df_atual[df_atual['UF'].isin(ufs)]
-        df_reg_ant = df_ant[df_ant['UF'].isin(ufs)]
-        df_reg_yoy = df_yoy[df_yoy['UF'].isin(ufs)]
-
-        reg_vlr_atual = float(df_reg_atual['TOTAL_PREV'].sum())
-        reg_vlr_ant = float(df_reg_ant['TOTAL_PREV'].sum())
-        reg_vlr_yoy = float(df_reg_yoy['TOTAL_PREV'].sum())
-
-        reg_share_br = round(float(reg_vlr_atual / total_br_atual * 100), 1) if total_br_atual > 0 else 0.0
-        reg_mom = round(float((reg_vlr_atual - reg_vlr_ant) / reg_vlr_ant * 100), 1) if reg_vlr_ant > 0 else 0.0
-        reg_yoy = round(float((reg_vlr_atual - reg_vlr_yoy) / reg_vlr_yoy * 100), 1) if reg_vlr_yoy > 0 else 0.0
-
-        top_cids_reg = df_reg_atual.groupby(['CIDADE', 'UF'])['TOTAL_PREV'].sum().sort_values(ascending=False).head(5)
-        lista_cidades_reg = []
-        for (cid, uf), v in top_cids_reg.items():
-            pct = round(float(v / reg_vlr_atual * 100), 1) if reg_vlr_atual > 0 else 0.0
-            lista_cidades_reg.append({'cidade': f"{cid}/{uf}", 'share_reg_pct': pct})
-
-        proj_meta = round(float(100.0 + (reg_yoy * 0.4)), 1)
-        if proj_meta < 80.0: proj_meta = 88.5
-        if proj_meta > 140.0: proj_meta = 124.0
-
-        regionais_res[reg_key] = {
-            'chave': reg_key,
-            'nome': reg_info['nome'],
-            'cor': reg_info['cor'],
-            'share_brasil_pct': reg_share_br,
-            'projecao_meta_pct': proj_meta,
-            'mom_pct': reg_mom,
-            'yoy_pct': reg_yoy,
-            'top_cidades': lista_cidades_reg,
-            'ufs': ufs
+        uf_obj = {
+            'uf': uf,
+            'nome': ESTADOS_NOMES_MAP.get(uf, uf),
+            'regiao': REGIOES_UF_MAP.get(uf, 'Outros'),
+            'share_atual': sh_a,
+            'share_ant': sh_ant,
+            'diff_pp': diff,
+            'status': status,
+            'categorias': cats_data
+        }
+        ufs_list.append(uf_obj)
+        ufs_map[uf] = {
+            'uf': uf,
+            'nome': ESTADOS_NOMES_MAP.get(uf, uf),
+            'regiao': REGIOES_UF_MAP.get(uf, 'Outros'),
+            'share_atual': sh_a,
+            'share_ant': sh_ant,
+            'diff_pp': diff,
+            'status': status
         }
 
-        for uf in ufs:
-            df_uf_atual = df_reg_atual[df_reg_atual['UF'] == uf]
-            df_uf_ant = df_reg_ant[df_reg_ant['UF'] == uf]
-            df_uf_yoy = df_reg_yoy[df_reg_yoy['UF'] == uf]
+    ufs_list.sort(key=lambda x: x['share_atual'], reverse=True)
+    for idx, u in enumerate(ufs_list):
+        u['rank'] = idx + 1
+        ufs_map[u['uf']]['rank'] = idx + 1
 
-            uf_vlr_atual = float(df_uf_atual['TOTAL_PREV'].sum())
-            uf_vlr_ant = float(df_uf_ant['TOTAL_PREV'].sum())
-            uf_vlr_yoy = float(df_uf_yoy['TOTAL_PREV'].sum())
+    # Ranking Geral Brasil de Categorias
+    br_cat_atual = df_atual.groupby('CAT_CLEAN')['TOTAL_PREV'].sum()
+    br_cat_ant = df_ant.groupby('CAT_CLEAN')['TOTAL_PREV'].sum()
+    all_cats_br = sorted(list(set(list(br_cat_atual.index) + list(br_cat_ant.index))))
 
-            share_na_reg = round(float(uf_vlr_atual / reg_vlr_atual * 100), 1) if reg_vlr_atual > 0 else 0.0
-            share_no_br = round(float(uf_vlr_atual / total_br_atual * 100), 1) if total_br_atual > 0 else 0.0
-            uf_mom = round(float((uf_vlr_atual - uf_vlr_ant) / uf_vlr_ant * 100), 1) if uf_vlr_ant > 0 else 0.0
-            uf_yoy = round(float((uf_vlr_atual - uf_vlr_yoy) / uf_vlr_yoy * 100), 1) if uf_vlr_yoy > 0 else 0.0
+    ranking_categorias = []
+    for cat in all_cats_br:
+        va = float(br_cat_atual.get(cat, 0.0))
+        vant = float(br_cat_ant.get(cat, 0.0))
+        sh_a = round((va / tot_br_atual * 100), 1) if tot_br_atual > 0 else 0.0
+        sh_ant = round((vant / tot_br_ant * 100), 1) if tot_br_ant > 0 else 0.0
+        diff = round(sh_a - sh_ant, 1)
+        st = "MAIOR" if diff >= 0 else "MENOR"
 
-            top_cids_uf = df_uf_atual.groupby('CIDADE')['TOTAL_PREV'].sum().sort_values(ascending=False).head(3)
-            cidades_uf = []
-            for cid, v in top_cids_uf.items():
-                pct = round(float(v / uf_vlr_atual * 100), 1) if uf_vlr_atual > 0 else 0.0
-                cidades_uf.append({'cidade': str(cid).title(), 'share_uf_pct': pct})
+        # Top produtos dessa categoria no Brasil
+        df_c_atual = df_atual[df_atual['CAT_CLEAN'] == cat]
+        df_c_ant = df_ant[df_ant['CAT_CLEAN'] == cat]
+        p_grp_atual = df_c_atual.groupby('PROD_CLEAN')['TOTAL_PREV'].sum().sort_values(ascending=False)
+        p_grp_ant = df_c_ant.groupby('PROD_CLEAN')['TOTAL_PREV'].sum()
 
-            ufs_res[uf] = {
-                'uf': uf,
-                'regional': reg_key,
-                'cor': reg_info['cor'],
-                'share_regional_pct': share_na_reg,
-                'share_brasil_pct': share_no_br,
-                'projecao_meta_pct': round(float(100.0 + (uf_yoy * 0.35)), 1),
-                'mom_pct': uf_mom,
-                'yoy_pct': uf_yoy,
-                'top_cidades': cidades_uf
-            }
+        top_prods = []
+        for p_idx, (pname, pval) in enumerate(p_grp_atual.head(15).items()):
+            p_ant_val = float(p_grp_ant.get(pname, 0.0))
+            psh = round((pval / va * 100), 1) if va > 0 else 0.0
+            psh_ant = round((p_ant_val / vant * 100), 1) if vant > 0 else 0.0
+            pdiff = round(psh - psh_ant, 1)
+            pst = "MAIOR" if pdiff >= 0 else "MENOR"
+            top_prods.append({
+                'rank': p_idx + 1,
+                'produto': pname,
+                'share_atual': psh,
+                'share_ant': psh_ant,
+                'diff_pp': pdiff,
+                'status': pst
+            })
+
+        ranking_categorias.append({
+            'categoria': cat,
+            'share_atual': sh_a,
+            'share_ant': sh_ant,
+            'diff_pp': diff,
+            'status': st,
+            'produtos': top_prods
+        })
+
+    ranking_categorias.sort(key=lambda x: x['share_atual'], reverse=True)
+    for idx, c in enumerate(ranking_categorias):
+        c['rank'] = idx + 1
+
+    # Ranking Geral Brasil de Produtos Mais Vendidos (Top 25)
+    prod_br_atual = df_atual.groupby(['PROD_CLEAN', 'CAT_CLEAN'])['TOTAL_PREV'].sum().sort_values(ascending=False).head(25)
+    prod_br_ant = df_ant.groupby('PROD_CLEAN')['TOTAL_PREV'].sum()
+
+    ranking_produtos = []
+    for idx, ((pname, cname), pval) in enumerate(prod_br_atual.items()):
+        p_ant_val = float(prod_br_ant.get(pname, 0.0))
+        sh_a = round((pval / tot_br_atual * 100), 1) if tot_br_atual > 0 else 0.0
+        sh_ant = round((p_ant_val / tot_br_ant * 100), 1) if tot_br_ant > 0 else 0.0
+        diff = round(sh_a - sh_ant, 1)
+        st = "MAIOR" if diff >= 0 else "MENOR"
+        ranking_produtos.append({
+            'rank': idx + 1,
+            'produto': pname,
+            'categoria': cname,
+            'share_atual': sh_a,
+            'share_ant': sh_ant,
+            'diff_pp': diff,
+            'status': st
+        })
 
     resultado_final = {
         'ano': ano_ref,
         'mes': mes_ref,
+        'ano_ant': ano_ref - 1,
         'brasil': {
-            'projecao_meta_pct': 106.8,
-            'mom_pct': round(mom_br_pct, 1),
-            'yoy_pct': round(yoy_br_pct, 1)
+            'total_share': 100.0,
+            'total_share_ant': 100.0,
+            'diff_share': 0.0,
+            'status': 'ESTÁVEL',
+            'total_ufs': len(ufs_list),
+            'total_categorias': len(ranking_categorias),
+            'total_produtos': len(df_atual['PROD_CLEAN'].unique()),
+            'lider_uf': ufs_list[0]['uf'] if ufs_list else 'SP',
+            'lider_share': ufs_list[0]['share_atual'] if ufs_list else 0.0
         },
-        'regionais': regionais_res,
-        'ufs': ufs_res,
-        'mix_categorias': mix_categorias,
-        'top_produtos': top_produtos
+        'estados': ufs_list,
+        'ufs_map': ufs_map,
+        'ranking_categorias': ranking_categorias,
+        'ranking_produtos': ranking_produtos,
+        # Mantém compatibilidade com campos anteriores se algum script legado consumir
+        'mix_categorias': [{'nome': c['categoria'], 'share_pct': c['share_atual']} for c in ranking_categorias],
+        'top_produtos': [{'nome': p['produto'], 'share_pct': p['share_atual']} for p in ranking_produtos[:10]],
+        'ufs': ufs_map
     }
 
     cached_mapa_regionais_data[cache_key] = (resultado_final, now_ts)
