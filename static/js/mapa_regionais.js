@@ -125,12 +125,41 @@ function atualizarTopCockpit(data) {
     if (compAnoEl) compAnoEl.innerText = `${data.ano} vs ${data.ano_ant}`;
 }
 
+// Coordenadas geográficas dos centros de cada estado para o radar luminoso em evidência
+const COORDENADAS_ESTADOS = {
+    'AC': [-70.55, -9.02], 'AL': [-36.27, -9.57], 'AM': [-64.68, -4.15],
+    'AP': [-51.77, 1.41], 'BA': [-41.71, -12.58], 'CE': [-39.63, -5.09],
+    'DF': [-47.88, -15.79], 'ES': [-40.34, -19.18], 'GO': [-49.84, -15.83],
+    'MA': [-45.27, -5.42], 'MG': [-44.55, -18.51], 'MS': [-54.54, -20.51],
+    'MT': [-55.92, -12.68], 'PA': [-52.29, -3.79], 'PB': [-36.78, -7.24],
+    'PE': [-37.99, -8.36], 'PI': [-42.80, -7.71], 'PR': [-51.49, -24.89],
+    'RJ': [-42.87, -22.28], 'RN': [-36.56, -5.81], 'RO': [-62.82, -10.83],
+    'RR': [-61.40, 2.09], 'RS': [-53.50, -29.75], 'SC': [-50.45, -27.24],
+    'SE': [-37.38, -10.57], 'SP': [-48.50, -22.18], 'TO': [-48.29, -10.25]
+};
+
 // ── Renderização do Mapa do Brasil ────────────────────────────────────────────
 function renderizarMapa(data) {
     if (!myChart) return;
 
     const ufsMap = data.ufs_map || {};
     const regionsConfig = [];
+    const activeScatter = [];
+
+    // Se temos um estado selecionado válido com coordenadas, cria o beacon luminoso
+    const selU = ufsMap[selectedUf];
+    const coordSel = COORDENADAS_ESTADOS[selectedUf];
+    if (coordSel && selU) {
+        activeScatter.push({
+            name: `${selU.nome || selectedUf} (${selectedUf})`,
+            value: [...coordSel, selU.share_atual],
+            uf: selectedUf,
+            nome: selU.nome || selectedUf,
+            share: selU.share_atual,
+            status: selU.status,
+            diff: selU.diff_pp
+        });
+    }
 
     // Monta estilos customizados por UF
     Object.keys(ufsMap).forEach(uf => {
@@ -161,12 +190,24 @@ function renderizarMapa(data) {
         let borderWidth = 1;
         let shadowColor = 'rgba(0, 0, 0, 0.4)';
         let shadowBlur = 4;
+        let customLabel = undefined;
 
         if (isSelected) {
-            borderColor = '#ffd700';
-            borderWidth = 2.5;
-            shadowColor = 'rgba(255, 215, 0, 0.85)';
-            shadowBlur = 16;
+            areaColor = '#ffd700'; // Destaque em ouro absoluto
+            borderColor = '#ffffff';
+            borderWidth = 3;
+            shadowColor = 'rgba(255, 215, 0, 1)';
+            shadowBlur = 32;
+            customLabel = {
+                show: true,
+                color: '#000000',
+                fontWeight: 900,
+                fontSize: 12.5,
+                textBorderWidth: 0,
+                formatter: function () {
+                    return `${uf}\n${u.share_atual}%`;
+                }
+            };
         } else if (u.share_atual >= 5) {
             borderColor = 'rgba(255, 215, 0, 0.45)';
             borderWidth = 1.4;
@@ -187,19 +228,20 @@ function renderizarMapa(data) {
                 shadowColor: shadowColor,
                 shadowBlur: shadowBlur
             },
+            label: customLabel,
             emphasis: {
                 itemStyle: {
                     areaColor: '#ffd700',
                     borderColor: '#ffffff',
-                    borderWidth: 2,
-                    shadowBlur: 20,
-                    shadowColor: 'rgba(255, 215, 0, 0.9)'
+                    borderWidth: 2.5,
+                    shadowBlur: 25,
+                    shadowColor: 'rgba(255, 215, 0, 0.95)'
                 },
                 label: {
                     show: true,
                     color: '#000000',
                     fontWeight: 900,
-                    fontSize: 12,
+                    fontSize: 13,
                     textBorderWidth: 0
                 }
             }
@@ -211,11 +253,27 @@ function renderizarMapa(data) {
         tooltip: {
             trigger: 'item',
             backgroundColor: 'rgba(9, 14, 22, 0.95)',
-            borderColor: 'rgba(255, 215, 0, 0.5)',
+            borderColor: 'rgba(255, 215, 0, 0.6)',
             borderWidth: 1.5,
             padding: [10, 14],
             textStyle: { color: '#f8fafc', fontFamily: 'Montserrat' },
             formatter: function (params) {
+                if (params.seriesType === 'effectScatter') {
+                    const d = params.data;
+                    const stColor = d.status === 'MAIOR' ? 'var(--green)' : 'var(--red)';
+                    const diffTxt = (d.diff >= 0 ? '+' : '') + d.diff + ' p.p.';
+                    return `
+                        <div style="font-weight:900; font-size:1.05rem; color:#ffd700; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px; margin-bottom:6px;">
+                            📍 ${d.nome} (${d.uf})
+                        </div>
+                        <div style="font-size:0.8rem; line-height:1.6;">
+                            <div>Share Atual (YTD): <b style="color:#ffd700; font-size:0.95rem;">${d.share}%</b></div>
+                            <div>Variação: <b style="color:${stColor};">${diffTxt}</b></div>
+                            <div>Status: <b style="color:${stColor};">${d.status === 'MAIOR' ? '▲ MAIOR' : '▼ MENOR'}</b></div>
+                        </div>
+                    `;
+                }
+
                 const uf = params.name;
                 const u = ufsMap[uf];
                 if (!u) return params.name;
@@ -268,7 +326,50 @@ function renderizarMapa(data) {
                 borderWidth: 1
             },
             regions: regionsConfig
-        }
+        },
+        series: [
+            {
+                name: 'Estado em Evidência',
+                type: 'effectScatter',
+                coordinateSystem: 'geo',
+                data: activeScatter,
+                symbolSize: 14,
+                showEffectOn: 'render',
+                rippleEffect: {
+                    brushType: 'stroke',
+                    scale: 4,
+                    period: 2
+                },
+                itemStyle: {
+                    color: '#ffd700',
+                    shadowBlur: 20,
+                    shadowColor: '#ffffff'
+                },
+                label: {
+                    show: true,
+                    position: 'top',
+                    distance: 12,
+                    formatter: function(params) {
+                        return `{badge|📍 ${params.data.uf}: ${params.data.share}%}`;
+                    },
+                    rich: {
+                        badge: {
+                            backgroundColor: 'rgba(10, 15, 24, 0.95)',
+                            borderColor: '#ffd700',
+                            borderWidth: 1.5,
+                            color: '#ffd700',
+                            fontWeight: 900,
+                            fontSize: 12,
+                            padding: [4, 8],
+                            borderRadius: 6,
+                            shadowBlur: 14,
+                            shadowColor: 'rgba(0, 0, 0, 0.85)'
+                        }
+                    }
+                },
+                zlevel: 10
+            }
+        ]
     };
 
     myChart.setOption(option, true);
@@ -328,19 +429,23 @@ function selecionarEstado(uf, autoScroll = false) {
             `).join('');
     }
 
-    // Destaca linha na tabela
-    document.querySelectorAll('.row-uf').forEach(row => {
-        row.classList.toggle('selected', row.getAttribute('data-uf') === uf);
-    });
-
-    if (autoScroll) {
-        const targetRow = document.querySelector(`.row-uf[data-uf="${uf}"]`);
-        if (targetRow) {
-            targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+    // Destaca linha na tabela e expande categorias
+    if (autoScroll && uf !== 'EX') {
+        expandedUfs.add(uf);
+        renderizarTabelaHierarquia(currentData);
+        setTimeout(() => {
+            const targetRow = document.querySelector(`.row-uf[data-uf="${uf}"]`);
+            if (targetRow) {
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 40);
+    } else {
+        document.querySelectorAll('.row-uf').forEach(row => {
+            row.classList.toggle('selected', row.getAttribute('data-uf') === uf);
+        });
     }
 
-    // Atualiza mapa com destaque
+    // Atualiza mapa com destaque em evidência máxima
     renderizarMapa(currentData);
 }
 
@@ -591,12 +696,15 @@ function iniciarAutoRotacao() {
     autoRotateTimer = setInterval(() => {
         if (!isAutoRotateActive || !currentData || !currentData.estados || currentData.estados.length === 0) return;
 
-        // Lista das UFs principais para rotacionar
-        const topUfs = currentData.estados.slice(0, 10).map(e => e.uf);
+        // Lista das UFs principais para rotacionar no mapa geográfico (exclui EX que não é polígono no mapa)
+        const estadosGeograficos = currentData.estados.filter(e => e.uf !== 'EX');
+        if (estadosGeograficos.length === 0) return;
+
+        const topUfs = estadosGeograficos.slice(0, 15).map(e => e.uf);
         const currIdx = topUfs.indexOf(selectedUf);
         const nextIdx = (currIdx + 1) % topUfs.length;
         selecionarEstado(topUfs[nextIdx], true);
-    }, 14000); // Muda a cada 14 segundos na TV
+    }, 12000); // Muda a cada 12 segundos na TV
 }
 
 function toggleAutoRotacao() {
