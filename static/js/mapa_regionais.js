@@ -156,21 +156,36 @@ function renderizarMapa(data) {
             areaColor = 'rgba(15, 23, 42, 0.3)';
         }
 
-        if (isSelected) {
-            areaColor = '#ffd700'; // Dourado brilhante para o selecionado
-        }
+        // Cor de borda refinada e profissional (sem vermelho agressivo)
+        let borderColor = 'rgba(255, 215, 0, 0.22)';
+        let borderWidth = 1;
+        let shadowColor = 'rgba(0, 0, 0, 0.4)';
+        let shadowBlur = 4;
 
-        const borderColor = u.status === 'MAIOR' ? '#00e676' : '#ff5252';
-        const borderWidth = isSelected ? 2.5 : 1;
+        if (isSelected) {
+            borderColor = '#ffd700';
+            borderWidth = 2.5;
+            shadowColor = 'rgba(255, 215, 0, 0.85)';
+            shadowBlur = 16;
+        } else if (u.share_atual >= 5) {
+            borderColor = 'rgba(255, 215, 0, 0.45)';
+            borderWidth = 1.4;
+        } else if (u.share_atual >= 1) {
+            borderColor = 'rgba(255, 215, 0, 0.3)';
+            borderWidth = 1;
+        } else {
+            borderColor = isFilteredRegion ? 'rgba(148, 163, 184, 0.22)' : 'rgba(255, 255, 255, 0.06)';
+            borderWidth = 0.8;
+        }
 
         regionsConfig.push({
             name: uf,
             itemStyle: {
                 areaColor: areaColor,
-                borderColor: isSelected ? '#ffffff' : (isFilteredRegion ? borderColor : 'rgba(255,255,255,0.08)'),
+                borderColor: borderColor,
                 borderWidth: borderWidth,
-                shadowColor: isSelected ? 'rgba(255, 215, 0, 0.8)' : (u.status === 'MAIOR' ? 'rgba(0, 230, 118, 0.3)' : 'rgba(255, 82, 82, 0.3)'),
-                shadowBlur: isSelected ? 16 : 6
+                shadowColor: shadowColor,
+                shadowBlur: shadowBlur
             },
             emphasis: {
                 itemStyle: {
@@ -178,7 +193,7 @@ function renderizarMapa(data) {
                     borderColor: '#ffffff',
                     borderWidth: 2,
                     shadowBlur: 20,
-                    shadowColor: '#ffd700'
+                    shadowColor: 'rgba(255, 215, 0, 0.9)'
                 },
                 label: {
                     show: true,
