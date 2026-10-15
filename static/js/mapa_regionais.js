@@ -103,6 +103,7 @@ async function carregarDadosApi(force = false) {
             renderizarTabelaHierarquia(currentData);
             renderizarRankings(currentData);
             selecionarEstado(selectedUf || (currentData.estados[0] ? currentData.estados[0].uf : 'SP'), false);
+            setTimeout(initAutoScrollTV, 800);
         } else {
             console.error('Falha na API mapa_regionais:', json.error);
         }
@@ -612,17 +613,43 @@ function renderizarRankings(data) {
     const catListEl = document.getElementById('rank-categorias-list');
     const prodListEl = document.getElementById('rank-produtos-list');
 
-    // 1. Categorias
+    // 1. Categorias com TUDO EXPANDIDO (exibe os produtos de cada categoria)
     if (catListEl && data.ranking_categorias) {
         catListEl.innerHTML = data.ranking_categorias.map(cat => {
             const isMaior = cat.status === 'MAIOR';
             const diffStr = (cat.diff_pp >= 0 ? '+' : '') + cat.diff_pp + ' p.p.';
+            
+            // Sub-lista de produtos da categoria (TUDO EXPANDIDO)
+            const prods = cat.produtos || [];
+            const prodsHtml = prods.length > 0 ? `
+                <div class="cat-prods-expanded-list">
+                    <div style="font-size:0.64rem; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:3px; padding-left:2px;">
+                        ⭐ Produtos da Categoria:
+                    </div>
+                    ${prods.map(p => {
+                        const isPMaior = p.status === 'MAIOR';
+                        const pDiffStr = (p.diff_pp >= 0 ? '+' : '') + p.diff_pp + ' p.p.';
+                        return `
+                            <div class="cat-prod-sub-row">
+                                <span class="p-sub-rank">#${p.rank}</span>
+                                <span class="p-sub-name" title="${p.produto}">${p.produto}</span>
+                                <span class="p-sub-share">${p.share_atual}%</span>
+                                <span class="val-diff ${isPMaior ? 'positive' : 'negative'}" style="font-size:0.62rem; min-width:36px; text-align:right;">${pDiffStr}</span>
+                                <span class="status-badge ${isPMaior ? 'maior' : 'menor'}" style="font-size:0.58rem; padding:1px 4px;">
+                                    ${isPMaior ? '▲' : '▼'}
+                                </span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            ` : '';
+
             return `
                 <div class="rank-card-item">
                     <div class="rank-item-top">
                         <div class="r-pos-name">
                             <span class="r-num">#${cat.rank}</span>
-                            <span>${cat.categoria}</span>
+                            <span style="font-size:0.82rem; font-weight:800;">${cat.categoria}</span>
                         </div>
                         <span class="r-share-badge">${cat.share_atual}%</span>
                     </div>
@@ -634,12 +661,13 @@ function renderizarRankings(data) {
                         <span class="val-diff ${isMaior ? 'positive' : 'negative'}">${diffStr}</span>
                         <span class="status-badge ${isMaior ? 'maior' : 'menor'}">${isMaior ? '▲ MAIOR' : '▼ MENOR'}</span>
                     </div>
+                    ${prodsHtml}
                 </div>
             `;
         }).join('');
     }
 
-    // 2. Produtos
+    // 2. Produtos Gerais Brasil
     if (prodListEl && data.ranking_produtos) {
         prodListEl.innerHTML = data.ranking_produtos.map(p => {
             const isMaior = p.status === 'MAIOR';
@@ -687,6 +715,8 @@ function trocarPainelDetalhe(painel) {
 
     if (targetBtn) targetBtn.classList.add('active');
     if (targetPanel) targetPanel.classList.add('active');
+
+    setTimeout(initAutoScrollTV, 300);
 }
 
 // ── Auto-Rotação de Estados na TV ────────────────────────────────────────────
@@ -714,4 +744,59 @@ function toggleAutoRotacao() {
         btn.innerText = isAutoRotateActive ? '⏸️ Rotação TV' : '▶️ Rotação TV';
         btn.style.color = isAutoRotateActive ? 'var(--gold)' : '#94a3b8';
     }
+}
+
+// ── Auto-Scroll Contínuo até o Final da Lista (TV Mode) ───────────────────────
+let autoScrollIntervals = [];
+
+function initAutoScrollTV() {
+    autoScrollIntervals.forEach(clearInterval);
+    autoScrollIntervals = [];
+
+    const scrollContainers = [
+        document.querySelector('.hierarchy-table-container'),
+        document.getElementById('rank-categorias-list'),
+        document.getElementById('rank-produtos-list'),
+        document.querySelector('.rankings-split-grid')
+    ].filter(Boolean);
+
+    scrollContainers.forEach(container => {
+        let isPaused = false;
+        let resumeTimer = null;
+
+        const pause = () => {
+            isPaused = true;
+            clearTimeout(resumeTimer);
+            resumeTimer = setTimeout(() => { isPaused = false; }, 3500);
+        };
+
+        container.addEventListener('mouseenter', () => { isPaused = true; });
+        container.addEventListener('mouseleave', () => { isPaused = false; });
+        container.addEventListener('touchstart', () => { isPaused = true; }, { passive: true });
+        container.addEventListener('touchend', () => { isPaused = false; }, { passive: true });
+        container.addEventListener('wheel', pause, { passive: true });
+
+        const interval = setInterval(() => {
+            if (isPaused) return;
+            // Se o contêiner estiver oculto (aba inativa), não incrementa
+            if (container.offsetParent === null) return;
+
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            if (maxScroll <= 5) return;
+
+            container.scrollTop += 0.8;
+
+            if (container.scrollTop >= maxScroll - 2) {
+                isPaused = true;
+                setTimeout(() => {
+                    container.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(() => {
+                        isPaused = false;
+                    }, 1500);
+                }, 3000); // Fica 3 segundos no final para leitura
+            }
+        }, 35);
+
+        autoScrollIntervals.push(interval);
+    });
 }

@@ -842,6 +842,53 @@ body, html {
     border-radius: 2px;
 }
 
+/* ── Sub-lista de produtos expandidos dentro da categoria no ranking ──────── */
+.cat-prods-expanded-list {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.cat-prod-sub-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.67rem;
+    padding: 3px 6px;
+    background: rgba(0, 0, 0, 0.28);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.cat-prod-sub-row:hover {
+    background: rgba(255, 215, 0, 0.08);
+}
+
+.p-sub-rank {
+    font-weight: 800;
+    color: var(--gold);
+    min-width: 18px;
+    font-size: 0.64rem;
+}
+
+.p-sub-name {
+    flex: 1;
+    color: #e2e8f0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.p-sub-share {
+    font-weight: 800;
+    color: #fff;
+    min-width: 36px;
+    text-align: right;
+}
+
 /* Responsividade TV / Desktop */
 @media (max-width: 1366px) {
     .mapa-main-arena-split {
