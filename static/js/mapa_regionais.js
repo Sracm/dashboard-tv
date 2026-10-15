@@ -19,6 +19,8 @@ let nextRefreshSeconds = 600;
 let expandedUfs = new Set(['SP']);
 let expandedCats = new Set(['SP_Pranchas']);
 
+let isGeoJsonLoaded = false;
+
 // ── Inicialização ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     // Sincroniza selects com parâmetros da URL caso tenham sido informados
@@ -27,13 +29,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     const anoParam = urlParams.get('ano');
     const monthEl = document.getElementById('filter-month');
     const yearEl = document.getElementById('filter-year');
-    if (mesParam && monthEl) monthEl.value = mesParam;
-    if (anoParam && yearEl) yearEl.value = anoParam;
+
+    // Sanitização segura do mês (aceita "9" ou "1,2,3,4,5,6,7,8,9" pegando o último mês da lista)
+    let cleanMes = 9;
+    if (mesParam) {
+        const parts = String(mesParam).split(',').map(s => s.trim()).filter(Boolean);
+        const lastPart = parts[parts.length - 1];
+        const num = parseInt(lastPart, 10);
+        if (!isNaN(num) && num >= 1 && num <= 12) {
+            cleanMes = num;
+        }
+    }
+    if (monthEl) {
+        monthEl.value = String(cleanMes);
+    }
+    if (anoParam && yearEl) {
+        const numAno = parseInt(anoParam, 10);
+        if (!isNaN(numAno) && numAno >= 2020) {
+            yearEl.value = String(numAno);
+        }
+    }
 
     initClock();
     initChart();
-    await carregarGeoJson();
-    await carregarDadosApi();
+    
+    // Carregamento concorrente do GeoJSON e dos Dados da API
+    await Promise.allSettled([
+        carregarGeoJson(),
+        carregarDadosApi()
+    ]);
 
     // Sincroniza aba inicial caso informada na URL pelo TV Rotator (?tab=rankings / ?tab=hierarquia)
     const tabParam = urlParams.get('tab');
@@ -100,12 +124,19 @@ function initChart() {
 
 // ── Carregamento do GeoJSON do Brasil ─────────────────────────────────────────
 async function carregarGeoJson() {
+    if (isGeoJsonLoaded) return true;
     try {
         const resp = await fetch('/static/js/brazil_geo.json');
         const geoJson = await resp.json();
         echarts.registerMap('brazil', geoJson);
+        isGeoJsonLoaded = true;
+        if (currentData) {
+            renderizarMapa(currentData);
+        }
+        return true;
     } catch (err) {
         console.error('Erro ao carregar brazil_geo.json:', err);
+        return false;
     }
 }
 
@@ -113,14 +144,26 @@ async function carregarGeoJson() {
 async function carregarDadosApi(force = false) {
     const monthEl = document.getElementById('filter-month');
     const yearEl = document.getElementById('filter-year');
-    const mes = monthEl ? monthEl.value : 9;
-    const ano = yearEl ? yearEl.value : 2026;
+    
+    let mes = 9;
+    if (monthEl && monthEl.value) {
+        const v = parseInt(monthEl.value, 10);
+        if (!isNaN(v) && v >= 1 && v <= 12) mes = v;
+    }
+    let ano = 2026;
+    if (yearEl && yearEl.value) {
+        const y = parseInt(yearEl.value, 10);
+        if (!isNaN(y) && y >= 2020) ano = y;
+    }
 
     try {
         let url = `/api/mapa_regionais?mes=${mes}&ano=${ano}`;
         if (force) url += `&refresh=1&_t=${Date.now()}`;
 
         const resp = await fetch(url);
+        if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status}`);
+        }
         const json = await resp.json();
 
         if (json.success && json.data) {
@@ -133,9 +176,23 @@ async function carregarDadosApi(force = false) {
             setTimeout(initAutoScrollTV, 800);
         } else {
             console.error('Falha na API mapa_regionais:', json.error);
+            const tbody = document.getElementById('hierarchy-table-body');
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#ef4444;">
+                    Erro ao carregar dados: ${json.error || 'Falha na resposta'}<br>
+                    <button onclick="carregarDadosApi(true)" style="margin-top:10px; padding:6px 14px; background:#ffd700; color:#000; border:none; border-radius:4px; cursor:pointer; font-weight:700;">Tentar Novamente</button>
+                </td></tr>`;
+            }
         }
     } catch (e) {
         console.error('Erro de conexão com /api/mapa_regionais:', e);
+        const tbody = document.getElementById('hierarchy-table-body');
+        if (tbody) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#ef4444;">
+                Erro de conexão com o servidor (${e.message}).<br>
+                <button onclick="carregarDadosApi(true)" style="margin-top:10px; padding:6px 14px; background:#ffd700; color:#000; border:none; border-radius:4px; cursor:pointer; font-weight:700;">Tentar Novamente</button>
+            </td></tr>`;
+        }
     }
 }
 
@@ -168,7 +225,7 @@ const COORDENADAS_ESTADOS = {
 
 // ── Renderização do Mapa do Brasil ────────────────────────────────────────────
 function renderizarMapa(data) {
-    if (!myChart) return;
+    if (!myChart || !isGeoJsonLoaded) return;
 
     const ufsMap = data.ufs_map || {};
     const regionsConfig = [];

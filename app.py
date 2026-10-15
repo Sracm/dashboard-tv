@@ -1284,7 +1284,7 @@ def canal_page(canal_name):
     }
     
     canal_db = map_canais.get(canal_name, '')
-    if canal_name in ('regional_sul', 'regional_no_nd', 'regional_rj_mg_es') and request.args.get('mode') not in ('table', 'cards'):
+    if request.args.get('mode') == 'mapa':
         return render_template('mapa_regionais.html')
     return render_template('canal.html', canal_db=canal_db, canal_id=canal_name)
 
@@ -1297,9 +1297,24 @@ def api_mapa_regionais():
     try:
         now = datetime.now()
         ultimo_fechado = now.month - 1 if now.month > 1 else 12
-        mes_arg = request.args.get('mes')
-        mes = int(mes_arg) if mes_arg and mes_arg.isdigit() else ultimo_fechado
-        ano = int(request.args.get('ano', now.year))
+        mes_arg = request.args.get('mes', '')
+        if ',' in str(mes_arg):
+            parts = [p.strip() for p in str(mes_arg).split(',') if p.strip().isdigit()]
+            mes_arg = parts[-1] if parts else str(ultimo_fechado)
+        
+        try:
+            mes = int(mes_arg) if mes_arg and str(mes_arg).isdigit() else ultimo_fechado
+        except Exception:
+            mes = ultimo_fechado
+            
+        if mes < 1 or mes > 12:
+            mes = ultimo_fechado
+            
+        try:
+            ano = int(request.args.get('ano', now.year))
+        except Exception:
+            ano = now.year
+            
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         data = obter_dados_mapa_regionais(mes, ano, force_refresh=force)
         return jsonify({"success": True, "data": data})
@@ -1369,15 +1384,19 @@ def _limpar_cat_mapa(c):
 def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
     cache_key = f"ytd_nocomex_{ano_ref}_{mes_ref}"
     now_ts = time.time()
+    now = datetime.now()
+    is_fechado = (ano_ref < now.year) or (ano_ref == now.year and mes_ref < now.month)
+    ttl = CACHE_TTL_HISTORIC if is_fechado else CACHE_TTL_HEAVY
+
     if not force_refresh and cache_key in cached_mapa_regionais_data:
         data, ts = cached_mapa_regionais_data[cache_key]
-        if now_ts - ts < CACHE_TTL_HEAVY:
+        if now_ts - ts < ttl:
             return data
 
     disk_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_nocomex_{ano_ref}_{mes_ref}.json')
     if not force_refresh and os.path.exists(disk_file):
         file_age = now_ts - os.path.getmtime(disk_file)
-        if file_age < CACHE_TTL_HEAVY:
+        if file_age < ttl:
             try:
                 with open(disk_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -1408,11 +1427,35 @@ def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
     GROUP BY TO_NUMBER(TO_CHAR(V.DTENTSAI, 'YYYY')), TO_NUMBER(TO_CHAR(V.DTENTSAI, 'MM')), UFS.UF, CID.NOMECID, NVL(TRIM(P.GRUPO_SINTETICO), NVL(TRIM(P.GRUPO_PAI), 'OUTROS')), NVL(TRIM(P.DESCRPROD), 'OUTROS')
     """
 
-    conn = get_db_connection()
+    df = None
     try:
-        df = pd.read_sql(query, conn)
-    finally:
-        conn.close()
+        conn = get_db_connection()
+        try:
+            df = pd.read_sql(query, conn)
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"[CACHE MAPA] Falha na consulta Oracle: {e}")
+        # Fallback de sobrevivência 1: arquivo em disco do mês solicitado
+        if os.path.exists(disk_file):
+            try:
+                with open(disk_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                cached_mapa_regionais_data[cache_key] = (data, now_ts)
+                return data
+            except Exception:
+                pass
+        # Fallback de sobrevivência 2: qualquer arquivo do ano corrente
+        for fb_m in (9, 10, 8, 7, 6, 5):
+            fb_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_nocomex_{ano_ref}_{fb_m}.json')
+            if os.path.exists(fb_file):
+                try:
+                    with open(fb_file, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    return data
+                except Exception:
+                    pass
+        raise
 
     # Exclui COMEX / Exportação da equação (foco 100% no mercado nacional do Brasil)
     df = df[(df['UF'] != 'EX') & (df['UF'].notna()) & (df['UF'].astype(str).str.strip() != '')]
@@ -3695,6 +3738,13 @@ def loop_atualizacao_cache_background():
                 obter_dados_teste_estoque()
             except Exception as e:
                 print(f"[CACHE AUTO-REFRESH] Erro teste estoque: {e}")
+                
+            # 6. Mapa Brasil YTD
+            try:
+                obter_dados_mapa_regionais(mes, ano)
+                obter_dados_mapa_regionais(mes_ant, ano)
+            except Exception as e:
+                print(f"[CACHE AUTO-REFRESH] Erro mapa brasil: {e}")
                 
             print(f"[CACHE AUTO-REFRESH] Ciclo concluído com sucesso. Próxima checagem em 10 minutos.")
         except Exception as e:
