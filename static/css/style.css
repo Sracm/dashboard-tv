@@ -510,16 +510,16 @@ body {
 
 @keyframes badge-glow-pulse {
     0%, 100% {
-        background: linear-gradient(90deg, #00C853, #00B0FF);
-        box-shadow: 0 0 16px rgba(0, 230, 118, 0.9);
-        border-color: #00E676;
+        background: linear-gradient(90deg, #00B0FF 0%, #00E676 100%);
+        box-shadow: 0 0 16px rgba(0, 230, 118, 0.85), 0 0 28px rgba(0, 176, 255, 0.6);
+        border-color: rgba(255, 255, 255, 0.55);
         color: #FFFFFF;
         transform: scale(1);
     }
     50% {
-        background: linear-gradient(90deg, #0091EA, #00E676);
-        box-shadow: 0 0 16px rgba(0, 176, 255, 0.9);
-        border-color: #00B0FF;
+        background: linear-gradient(90deg, #00E5FF 0%, #00C853 100%);
+        box-shadow: 0 0 24px rgba(0, 230, 118, 0.95), 0 0 38px rgba(0, 176, 255, 0.75);
+        border-color: rgba(255, 255, 255, 0.85);
         color: #FFFFFF;
         transform: scale(1.03);
     }
@@ -550,32 +550,34 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 3px 12px;
-    border-radius: 20px;
+    padding: 5px 22px;
+    border-radius: 999px;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 800;
-    font-size: 0.70rem;
-    letter-spacing: 0.8px;
+    font-weight: 900;
+    font-size: 0.95rem;
+    letter-spacing: 1.1px;
     text-transform: uppercase;
-    border: 1px solid transparent;
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.55);
     z-index: 15;
     animation: badge-glow-pulse 1.2s infinite ease-in-out;
-    margin-top: 1px;
-    margin-bottom: 2px;
+    margin: 3px auto 4px auto;
     user-select: none;
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
-.gauge-card.meta-batida .badge-objetivo-alcancado {
+.gauge-card.meta-batida .badge-objetivo-alcancado,
+.canal-card.meta-batida .badge-objetivo-alcancado {
     display: inline-flex;
 }
 
 /* Na Empresa (card grande em destaque) */
 .gauge-card.empresa-card .badge-objetivo-alcancado {
-    font-size: 0.82rem;
-    padding: 4px 18px;
-    letter-spacing: 1px;
-    box-shadow: 0 0 22px rgba(0, 230, 118, 0.95);
+    font-size: 1.25rem;
+    padding: 7px 32px;
+    letter-spacing: 1.5px;
+    box-shadow: 0 0 28px rgba(0, 230, 118, 0.95), 0 0 45px rgba(0, 176, 255, 0.75);
 }
 
 .gauge-card.meta-batida .gauge-title {
