@@ -280,8 +280,8 @@ function renderCharts(data, mes, ano, contexto) {
             const badgeObjetivo = document.createElement('div');
             badgeObjetivo.className = 'badge-objetivo-alcancado';
             badgeObjetivo.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
-                ? '🏆 OBJETIVO ALCANÇADO — META SUPERADA! 🚀'
-                : '🏆 OBJETIVO ALCANÇADO!!! 🚀';
+                ? 'OBJETIVO ALCANÇADO — META SUPERADA!'
+                : 'OBJETIVO ALCANÇADO!!!';
             
             const chartDiv = document.createElement('div');
             chartDiv.className = 'gauge-chart';
@@ -311,8 +311,8 @@ function renderCharts(data, mes, ano, contexto) {
             badgeEl = document.createElement('div');
             badgeEl.className = 'badge-objetivo-alcancado';
             badgeEl.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
-                ? '🏆 OBJETIVO ALCANÇADO — META SUPERADA! 🚀'
-                : '🏆 OBJETIVO ALCANÇADO!!! 🚀';
+                ? 'OBJETIVO ALCANÇADO — META SUPERADA!'
+                : 'OBJETIVO ALCANÇADO!!!';
             const titleEl = cardElement.querySelector('.gauge-title');
             if (titleEl && titleEl.nextSibling) {
                 cardElement.insertBefore(badgeEl, titleEl.nextSibling);

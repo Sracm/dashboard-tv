@@ -492,7 +492,7 @@ function renderEmpresa() {
         }
         if (bannerEl) {
             bannerEl.classList.add('show');
-            bannerEl.innerText = `🎉 META DA EMPRESA ATINGIDA: ${item.percent.toFixed(1)}% (${item.diff >= 0 ? '+' : ''}${item.diff.toFixed(1)}%) 🎉`;
+            bannerEl.innerText = `META DA EMPRESA ATINGIDA: ${item.percent.toFixed(1)}% (${item.diff >= 0 ? "+" : ""}${item.diff.toFixed(1)}%)`;
         }
     } else {
         if (cardEl) {

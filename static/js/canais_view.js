@@ -432,7 +432,7 @@ function renderCards(dadosEquipes, periodoKey = 'mes', triData = null) {
 
         card.innerHTML = `
             <div class="canal-title">${baseTitle} ${tagHtml}</div>
-            <div class="badge-objetivo-alcancado">🏆 OBJETIVO ALCANÇADO!!! 🚀</div>
+            <div class="badge-objetivo-alcancado">OBJETIVO ALCANÇADO!!!</div>
             <div class="canal-chart" id="chart-canal-${idx}"></div>
             <div class="canal-tri-footer">
                 <div class="canal-tri-badges">
