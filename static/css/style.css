@@ -494,16 +494,94 @@ body {
     height: 100%;
 }
 
-/* Animação para quando a meta for batida (>= 100%) */
-@keyframes blink-success {
-    0% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
-    50% { border-color: rgba(40, 167, 69, 1); box-shadow: 0 0 40px rgba(40, 167, 69, 0.8); }
-    100% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
+/* Animação para quando a meta for batida (>= 100%): Piscar Verde e Azul Alternado */
+@keyframes blink-green-blue {
+    0%, 100% {
+        border-color: #00E676;
+        box-shadow: 0 0 26px rgba(0, 230, 118, 0.85), inset 0 0 16px rgba(0, 230, 118, 0.35);
+        background: linear-gradient(180deg, rgba(0, 230, 118, 0.14) 0%, rgba(13, 16, 23, 0.95) 100%);
+    }
+    50% {
+        border-color: #00B0FF;
+        box-shadow: 0 0 26px rgba(0, 176, 255, 0.85), inset 0 0 16px rgba(0, 176, 255, 0.35);
+        background: linear-gradient(180deg, rgba(0, 176, 255, 0.14) 0%, rgba(13, 16, 23, 0.95) 100%);
+    }
+}
+
+@keyframes badge-glow-pulse {
+    0%, 100% {
+        background: linear-gradient(90deg, #00C853, #00B0FF);
+        box-shadow: 0 0 16px rgba(0, 230, 118, 0.9);
+        border-color: #00E676;
+        color: #FFFFFF;
+        transform: scale(1);
+    }
+    50% {
+        background: linear-gradient(90deg, #0091EA, #00E676);
+        box-shadow: 0 0 16px rgba(0, 176, 255, 0.9);
+        border-color: #00B0FF;
+        color: #FFFFFF;
+        transform: scale(1.03);
+    }
+}
+
+@keyframes text-shine-celebrate {
+    0% {
+        filter: drop-shadow(0 0 6px #00E676);
+        color: #E5B244;
+    }
+    50% {
+        filter: drop-shadow(0 0 8px #00B0FF);
+        color: #00B0FF;
+    }
+    100% {
+        filter: drop-shadow(0 0 6px #00E676);
+        color: #E5B244;
+    }
 }
 
 .gauge-card.meta-batida {
-    animation: blink-success 1.5s infinite;
+    animation: blink-green-blue 1.2s infinite ease-in-out !important;
+    border-width: 2px !important;
 }
+
+/* Badge / Faixa Objetivo Alcançado */
+.badge-objetivo-alcancado {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 0.70rem;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    z-index: 15;
+    animation: badge-glow-pulse 1.2s infinite ease-in-out;
+    margin-top: 1px;
+    margin-bottom: 2px;
+    user-select: none;
+}
+
+.gauge-card.meta-batida .badge-objetivo-alcancado {
+    display: inline-flex;
+}
+
+/* Na Empresa (card grande em destaque) */
+.gauge-card.empresa-card .badge-objetivo-alcancado {
+    font-size: 0.82rem;
+    padding: 4px 18px;
+    letter-spacing: 1px;
+    box-shadow: 0 0 22px rgba(0, 230, 118, 0.95);
+}
+
+.gauge-card.meta-batida .gauge-title {
+    animation: text-shine-celebrate 1.2s infinite ease-in-out;
+}
+
 
 /* ========================================================
    ALERTAS VISUAIS DE OSCILAÇÃO: REDUÇÃO (POLÍCIA) & SUBIDA (CAIXA)

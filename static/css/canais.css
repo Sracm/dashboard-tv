@@ -119,14 +119,12 @@
 }
 
 .canal-card.meta-batida {
-    border-color: #28a745;
-    animation: blink-success 1.5s infinite;
+    animation: blink-green-blue 1.2s infinite ease-in-out !important;
+    border-width: 2px !important;
 }
 
-@keyframes blink-success {
-    0% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
-    50% { border-color: rgba(40, 167, 69, 1); box-shadow: 0 0 40px rgba(40, 167, 69, 0.8); }
-    100% { border-color: rgba(40, 167, 69, 0.3); box-shadow: 0 0 10px rgba(40, 167, 69, 0.2); }
+.canal-card.meta-batida .badge-objetivo-alcancado {
+    display: inline-flex;
 }
 
 /* Régua de Trimestres na base dos cards dos canais */

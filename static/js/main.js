@@ -277,6 +277,12 @@ function renderCharts(data, mes, ano, contexto) {
             title.className = 'gauge-title';
             title.textContent = equipe.name;
             
+            const badgeObjetivo = document.createElement('div');
+            badgeObjetivo.className = 'badge-objetivo-alcancado';
+            badgeObjetivo.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
+                ? '🏆 OBJETIVO ALCANÇADO — META SUPERADA! 🚀'
+                : '🏆 OBJETIVO ALCANÇADO!!! 🚀';
+            
             const chartDiv = document.createElement('div');
             chartDiv.className = 'gauge-chart';
             chartDiv.id = chartId;
@@ -286,6 +292,9 @@ function renderCharts(data, mes, ano, contexto) {
             compDiv.id = `comp-${index}`;
             
             card.appendChild(title);
+            card.appendChild(badgeObjetivo);
+            
+
             card.appendChild(chartDiv);
             card.appendChild(compDiv);
             container.appendChild(card);
@@ -295,6 +304,23 @@ function renderCharts(data, mes, ano, contexto) {
         
         const cardElement = document.getElementById(chartId).parentElement;
         const chave = obterChaveCanal(equipe.name);
+
+        // Garante que o badge exista no card mesmo em atualizações subsequentes
+        let badgeEl = cardElement.querySelector('.badge-objetivo-alcancado');
+        if (!badgeEl) {
+            badgeEl = document.createElement('div');
+            badgeEl.className = 'badge-objetivo-alcancado';
+            badgeEl.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
+                ? '🏆 OBJETIVO ALCANÇADO — META SUPERADA! 🚀'
+                : '🏆 OBJETIVO ALCANÇADO!!! 🚀';
+            const titleEl = cardElement.querySelector('.gauge-title');
+            if (titleEl && titleEl.nextSibling) {
+                cardElement.insertBefore(badgeEl, titleEl.nextSibling);
+            } else {
+                cardElement.prepend(badgeEl);
+            }
+        }
+
         if (equipe.percent >= 100) {
             cardElement.classList.add('meta-batida');
         } else {

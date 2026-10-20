@@ -1340,6 +1340,11 @@ def estoque():
 def teste_estoque():
     return render_template('teste_estoque.html')
 
+@app.route('/teste_meta')
+@app.route('/teste_meta_alcancada')
+def teste_meta():
+    return render_template('teste_meta.html')
+
 @app.route('/tv-alertas')
 def tv_alertas():
     return render_template('tv_alertas.html')

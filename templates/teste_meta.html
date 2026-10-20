@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel TV - Teste de Efeito: Meta Batida (Verde e Azul)</title>
+    
+    <!-- Google Fonts: Montserrat (MQ Design System) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS Base da TV -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=49">
+    
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+
+    <style>
+        /* Estilos do Painel de Simulação de Teste */
+        .test-control-panel {
+            background: linear-gradient(135deg, rgba(20, 24, 33, 0.95), rgba(11, 14, 20, 0.98));
+            border: 1px solid rgba(203, 151, 39, 0.4);
+            border-radius: 10px;
+            padding: 8px 16px;
+            margin: 0 10px 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+            flex-wrap: wrap;
+        }
+
+        .test-panel-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-badge-tag {
+            background: linear-gradient(90deg, #00E676, #00B0FF);
+            color: #0d1017;
+            font-weight: 900;
+            font-size: 0.72rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .test-panel-title {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #FFFFFF;
+            margin: 0;
+        }
+
+        .test-panel-desc {
+            font-size: 0.72rem;
+            color: #A0A5B5;
+            margin: 0;
+        }
+
+        .test-btn-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .btn-sim-test {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #E2E8F0;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Montserrat', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-sim-test:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: #E5B244;
+            color: #FFFFFF;
+        }
+
+        .btn-sim-test.active {
+            background: linear-gradient(135deg, rgba(0, 230, 118, 0.25), rgba(0, 176, 255, 0.25));
+            border-color: #00E676;
+            color: #FFFFFF;
+            box-shadow: 0 0 12px rgba(0, 230, 118, 0.4);
+        }
+
+        .btn-sim-test.btn-all-hit {
+            background: linear-gradient(135deg, rgba(0, 230, 118, 0.2), rgba(0, 176, 255, 0.2));
+            border-color: #00E676;
+            color: #00E676;
+        }
+
+        .btn-sim-test.btn-all-hit:hover {
+            background: linear-gradient(135deg, #00E676, #00B0FF);
+            color: #0d1017;
+            font-weight: 800;
+        }
+
+        .btn-sim-test.btn-reset {
+            border-color: rgba(239, 68, 68, 0.5);
+            color: #f87171;
+        }
+
+        .btn-sim-test.btn-reset:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #FFFFFF;
+        }
+
+        /* Sliders de ajuste individual em cada card */
+        .card-slider-adjust {
+            position: absolute;
+            bottom: 2px;
+            left: 8px;
+            right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(13, 16, 23, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 2px 6px;
+            z-index: 20;
+            opacity: 0.35;
+            transition: opacity 0.2s ease;
+        }
+
+        .gauge-card:hover .card-slider-adjust {
+            opacity: 1;
+        }
+
+        .card-slider-adjust label {
+            font-size: 0.62rem;
+            color: #94A3B8;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .card-slider-adjust input[type=range] {
+            flex: 1;
+            height: 3px;
+            accent-color: #00E676;
+            cursor: pointer;
+        }
+
+        .speed-selector {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.72rem;
+            color: #A0A5B5;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .speed-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #94A3B8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .speed-btn.active {
+            background: #CB9727;
+            color: #0d1017;
+            border-color: #CB9727;
+            font-weight: 800;
+        }
+
+        /* ===================================================
+           ESTILOS DOS SELOS / CARIMBOS "DE LADO" NA META BATIDA
+           =================================================== */
+        .stamp-meta-container {
+            position: absolute;
+            pointer-events: none;
+            z-index: 30;
+            display: none;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.85));
+        }
+
+        .gauge-card.meta-batida .stamp-meta-container {
+            display: block;
+            animation: stampRubberHit 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes stampRubberHit {
+            0% {
+                opacity: 0;
+                transform: scale(2.2) rotate(-35deg);
+            }
+            65% {
+                opacity: 0.95;
+                transform: scale(0.92) rotate(-10deg);
+            }
+            100% {
+                opacity: 0.95;
+                transform: scale(1) var(--stamp-rotation, rotate(-14deg));
+            }
+        }
+
+        /* Variações de Posição "De Lado" */
+        /* Posição 1 (Padrão Recomendado): Canto Superior Direito */
+        .stamp-pos-top-right {
+            top: 14px;
+            right: 12px;
+            --stamp-rotation: rotate(-13deg);
+        }
+
+        /* Posição 2: Sobre o Velocímetro */
+        .stamp-pos-over-gauge {
+            top: 48px;
+            left: 36px;
+            --stamp-rotation: rotate(-16deg);
+        }
+
+        /* Posição 3: Lateral Direita (junto à tabela) */
+        .stamp-pos-side-table {
+            bottom: 24px;
+            right: 14px;
+            --stamp-rotation: rotate(-11deg);
+        }
+
+        /* Tamanhos dos Selos */
+        .stamp-img-retangular {
+            width: 130px;
+            height: auto;
+            display: block;
+        }
+
+        .gauge-card.empresa-card .stamp-img-retangular {
+            width: 170px;
+        }
+
+        .stamp-img-circular {
+            width: 80px;
+            height: 80px;
+            display: block;
+        }
+
+        .gauge-card.empresa-card .stamp-img-circular {
+            width: 105px;
+            height: 105px;
+        }
+
+        /* Seletor de Selos na Barra de Controle */
+        .stamp-selector-bar {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(203, 151, 39, 0.35);
+            border-radius: 8px;
+            padding: 3px 8px;
+        }
+
+        .stamp-selector-label {
+            font-size: 0.68rem;
+            font-weight: 800;
+            color: #FFB300;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-right: 2px;
+            white-space: nowrap;
+        }
+
+        .btn-stamp-option {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #CBD5E1;
+            padding: 3px 9px;
+            border-radius: 5px;
+            font-size: 0.70rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Montserrat', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+
+        .btn-stamp-option:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #FFFFFF;
+        }
+
+        .btn-stamp-option.active {
+            background: linear-gradient(135deg, rgba(203, 151, 39, 0.4), rgba(255, 82, 82, 0.35));
+            border-color: #CB9727;
+            color: #FFFFFF;
+            box-shadow: 0 0 10px rgba(203, 151, 39, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container" style="height: 100vh; display: flex; flex-direction: column;">
+        <!-- Header Principal com Abas -->
+        <header class="header">
+            <div class="header-top">
+                <div class="nav-tabs-container">
+                    <button onclick="navigateTab('/tv')" class="tab-btn">Mensal(%)</button>
+                    <button onclick="navigateTab('/acumulado')" class="tab-btn">Acumulado(%)</button>
+                    <button onclick="navigateTab('/trimestre')" class="tab-btn">Trimestre</button>
+                    <button onclick="navigateTab('/todos_canais')" class="tab-btn">Todos os Canais</button>
+                    <button onclick="navigateTab('/categorias')" class="tab-btn">Categorias</button>
+                    <button onclick="navigateTab('/marcas')" class="tab-btn">Marcas</button>
+                    <button onclick="navigateTab('/canal/distribuicao')" class="tab-btn">Distribuição</button>
+                    <button onclick="navigateTab('/canal/ecommerce_mq')" class="tab-btn">E-commerce MQ</button>
+                    <button onclick="navigateTab('/canal/varejo_sp')" class="tab-btn">Varejo SP</button>
+                    <button onclick="navigateTab('/canal/comex')" class="tab-btn">Comex</button>
+                    <button onclick="navigateTab('/canal/regional_no_nd')" class="tab-btn">Regional NO/ND</button>
+                    <button onclick="navigateTab('/canal/regional_rj_mg_es')" class="tab-btn">Reg. RJ/MG/ES</button>
+                    <button onclick="navigateTab('/canal/regional_sul')" class="tab-btn">Regional Sul</button>
+                    <button onclick="navigateTab('/mapa_regionais')" class="tab-btn" style="color:#ffd700;">🗺️ Mapa Brasil</button>
+                    <button onclick="navigateTab('/empresa')" class="tab-btn">Empresa</button>
+                    <button onclick="navigateTab('/diario_canal')" class="tab-btn">Diário Canal</button>
+                    <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
+                    <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
+                    <button onclick="navigateTab('/teste_estoque')" class="tab-btn"><span class="tab-icon">🚨</span> Estoque e Previsão</button>
+                    <button onclick="navigateTab('/teste_meta')" class="tab-btn active" style="color: #00E676; font-weight: 700;"><span class="tab-icon">🎯</span> Teste Meta</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Barra de Simulação Interativa de Teste -->
+        <div class="test-control-panel">
+            <div class="test-panel-header">
+                <span class="test-badge-tag">Homologação</span>
+                <div>
+                    <h3 class="test-panel-title">Efeito Visual: Selo de Meta Batida no Canal</h3>
+                    <p class="test-panel-desc">Compare as 2 imagens tratadas (fundo transparente) aplicadas de lado no canal</p>
+                </div>
+            </div>
+
+            <!-- Seletor dos Modelos de Imagem -->
+            <div class="stamp-selector-bar">
+                <span class="stamp-selector-label">Selo:</span>
+                <button type="button" class="btn-stamp-option active" id="btn-selo-op1" onclick="trocarModoSelo('opcao1', this)">
+                    🏷️ 1A: Letras Brancas
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-selo-op1b" onclick="trocarModoSelo('opcao1_b', this)">
+                    🏷️ 1B: Letras + Check Brancos
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-selo-op1d" onclick="trocarModoSelo('opcao1_d', this)">
+                    🏷️ 1D: Selo Carmesim
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-selo-op2" onclick="trocarModoSelo('opcao2', this)">
+                    ⭕ Opção 2 (Circular)
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-selo-comp" onclick="trocarModoSelo('comparativo', this)">
+                    ⚖️ Comparar
+                </button>
+            </div>
+
+            <!-- Seletor de Posição de Lado -->
+            <div class="stamp-selector-bar">
+                <span class="stamp-selector-label">Posição:</span>
+                <button type="button" class="btn-stamp-option active" id="btn-pos-top" onclick="trocarPosicaoSelo('stamp-pos-top-right', this)">
+                    ↗️ Canto Superior
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-pos-gauge" onclick="trocarPosicaoSelo('stamp-pos-over-gauge', this)">
+                    🎯 Sobre Velocímetro
+                </button>
+                <button type="button" class="btn-stamp-option" id="btn-pos-side" onclick="trocarPosicaoSelo('stamp-pos-side-table', this)">
+                    ↘️ Lateral
+                </button>
+            </div>
+
+            <div class="test-btn-group">
+                <button type="button" class="btn-sim-test btn-all-hit active" id="btn-hit-all" onclick="aplicarCenario('todos')">
+                    🏆 Todas Metas Batidas
+                </button>
+                <button type="button" class="btn-sim-test" id="btn-hit-empresa" onclick="aplicarCenario('empresa')">
+                    🏢 Apenas Empresa
+                </button>
+                <button type="button" class="btn-sim-test" id="btn-hit-canais" onclick="aplicarCenario('empresa_canais')">
+                    🛒 Distr. + E-com + Empresa
+                </button>
+                <button type="button" class="btn-sim-test btn-reset" id="btn-hit-none" onclick="aplicarCenario('normal')">
+                    ⏸️ Normal (< 100%)
+                </button>
+
+                <div class="speed-selector">
+                    <span>Ritmo:</span>
+                    <button type="button" class="speed-btn" onclick="alterarVelocidade(0.8, this)">⚡ 0.8s</button>
+                    <button type="button" class="speed-btn active" onclick="alterarVelocidade(1.2, this)">⏱️ 1.2s</button>
+                    <button type="button" class="speed-btn" onclick="alterarVelocidade(1.8, this)">🌊 1.8s</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid Principal com os 7 Velocímetros (3x3 Layout Oficial) -->
+        <main class="grid-container" id="gauges-container" style="flex: 1; min-height: 0;">
+            <!-- Os cards dos 6 canais e da Empresa serão gerados dinamicamente via JS -->
+        </main>
+    </div>
+
+    <!-- Script de Simulação e Renderização -->
+    <script>
+        const CANAIS_TESTE = [
+            { name: "VAREJO ESPECIALIZADO - SP", percent: 104.5, mtd: 385000, mes_ant: 360000, yoy: 15.2, mom: 6.9, ytd: 3450000 },
+            { name: "VAREJO ESPECIALIZADO REG.", percent: 101.8, mtd: 420000, mes_ant: 405000, yoy: 8.5, mom: 3.7, ytd: 4120000 },
+            { name: "DISTRIBUIÇÃO", percent: 112.3, mtd: 1450000, mes_ant: 1280000, yoy: 22.4, mom: 13.3, ytd: 12800000 },
+            { name: "COMEX", percent: 103.0, mtd: 680000, mes_ant: 640000, yoy: 18.0, mom: 6.25, ytd: 5900000 },
+            { name: "E-COMMERCE - MQ", percent: 115.6, mtd: 1708816, mes_ant: 1450000, yoy: 31.8, mom: 17.8, ytd: 14950000 },
+            { name: "E-COMMERCE - PARLUX", percent: 102.1, mtd: 185000, mes_ant: 178000, yoy: 11.0, mom: 3.9, ytd: 1650000 },
+            { name: "EMPRESA", percent: 108.4, mtd: 4828816, mes_ant: 4313000, yoy: 20.8, mom: 11.9, ytd: 42870000 }
+        ];
+
+        let chartInstances = {};
+        let dadosAtuais = JSON.parse(JSON.stringify(CANAIS_TESTE));
+        let modeloSeloAtual = 'comparativo';
+        let posicaoSeloAtual = 'stamp-pos-top-right';
+
+        function navigateTab(path) {
+            window.location.href = path;
+        }
+
+        function trocarModoSelo(modo, btnEl) {
+            modeloSeloAtual = modo;
+            document.querySelectorAll('.stamp-selector-bar .btn-stamp-option').forEach(b => {
+                if (b.id.startsWith('btn-selo-')) b.classList.remove('active');
+            });
+            if (btnEl) btnEl.classList.add('active');
+            inicializarCards();
+        }
+
+        function trocarPosicaoSelo(pos, btnEl) {
+            posicaoSeloAtual = pos;
+            document.querySelectorAll('.stamp-selector-bar .btn-stamp-option').forEach(b => {
+                if (b.id.startsWith('btn-pos-')) b.classList.remove('active');
+            });
+            if (btnEl) btnEl.classList.add('active');
+            document.querySelectorAll('.stamp-meta-container').forEach(el => {
+                el.className = `stamp-meta-container ${posicaoSeloAtual}`;
+            });
+        }
+
+        // Opções do Velocímetro ECharts
+        function getGaugeOption(percent, name) {
+            const isEmpresa = name && name.toUpperCase() === 'EMPRESA';
+            const centerX = '50%';
+            const isMetaBatida = percent >= 100;
+
+            return {
+                series: [
+                    {
+                        type: 'gauge',
+                        startAngle: 180,
+                        endAngle: 0,
+                        min: 0,
+                        max: 120,
+                        splitNumber: 12,
+                        radius: isEmpresa ? '120%' : '135%',
+                        center: [centerX, isEmpresa ? '72%' : '66%'],
+                        axisLine: {
+                            lineStyle: {
+                                width: isEmpresa ? 24 : 18,
+                                color: [
+                                    [80 / 120, '#ff2424'],
+                                    [100 / 120, '#ffd600'],
+                                    [1, '#00d26a']
+                                ]
+                            }
+                        },
+                        pointer: {
+                            icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
+                            length: '62%',
+                            width: isEmpresa ? 9 : 7,
+                            offsetCenter: [0, '-4%'],
+                            itemStyle: {
+                                color: isMetaBatida ? '#00E676' : '#f5c518',
+                                shadowColor: isMetaBatida ? 'rgba(0, 230, 118, 0.8)' : 'rgba(0, 0, 0, 0.6)',
+                                shadowBlur: isMetaBatida ? 10 : 4
+                            }
+                        },
+                        axisTick: {
+                            length: 6,
+                            lineStyle: { color: 'auto', width: 1.2 }
+                        },
+                        splitLine: {
+                            length: 12,
+                            lineStyle: { color: 'auto', width: 2 }
+                        },
+                        axisLabel: { show: false },
+                        title: { show: false },
+                        detail: {
+                            fontSize: isEmpresa ? 25 : 20,
+                            offsetCenter: [0, '20%'],
+                            valueAnimation: true,
+                            formatter: function () {
+                                return '{value|' + percent.toFixed(1) + '%}';
+                            },
+                            rich: {
+                                value: {
+                                    fontSize: isEmpresa ? 25 : 20,
+                                    fontWeight: '900',
+                                    color: isMetaBatida ? '#FFFFFF' : '#FFFFFF',
+                                    fontFamily: 'Montserrat',
+                                    textShadowColor: isMetaBatida ? 'rgba(0, 230, 118, 0.9)' : 'transparent',
+                                    textShadowBlur: isMetaBatida ? 12 : 0
+                                }
+                            }
+                        },
+                        data: [{ value: Math.min(Math.max(percent, 0), 120), name: '' }]
+                    }
+                ]
+            };
+        }
+
+        function formatarMoedaCompacta(valor) {
+            const v = Number(valor) || 0;
+            const sinal = v < 0 ? '-' : '';
+            const abs = Math.abs(v);
+            if (abs >= 1e6) return `${sinal}R$ ${(abs / 1e6).toFixed(1).replace('.', ',')} mi`;
+            if (abs >= 1e3) return `${sinal}R$ ${(abs / 1e3).toFixed(0)} mil`;
+            return `${sinal}R$ ${abs.toFixed(0)}`;
+        }
+
+        function renderTabelaIndicadores(item) {
+            return `<table class="kpi-table">
+                <caption class="kpi-caption">Até 19/10 · Mês Atual</caption>
+                <tbody>
+                    <tr>
+                        <th class="kpi-rotulo">MoM</th>
+                        <td class="kpi-valor"><span class="kpi-pct-box"><span class="trend-up">▲ +${item.mom}%</span></span></td>
+                    </tr>
+                    <tr>
+                        <th class="kpi-rotulo">YoY</th>
+                        <td class="kpi-valor"><span class="kpi-pct-box"><span class="trend-up">▲ +${item.yoy}%</span></span></td>
+                    </tr>
+                    <tr>
+                        <th class="kpi-rotulo">YTD</th>
+                        <td class="kpi-valor"><span class="kpi-pct-box"><span class="trend-up">▲ +18.4%</span></span></td>
+                    </tr>
+                </tbody>
+            </table>`;
+        }
+
+        function inicializarCards() {
+            const container = document.getElementById('gauges-container');
+            container.innerHTML = '';
+
+            dadosAtuais.forEach((item, index) => {
+                const chartId = `test-gauge-${index}`;
+                const isEmpresa = item.name.toUpperCase() === 'EMPRESA';
+
+                const card = document.createElement('div');
+                card.className = 'gauge-card';
+                card.id = `card-test-${index}`;
+                if (isEmpresa) card.classList.add('empresa-card');
+
+                // Título
+                const title = document.createElement('div');
+                title.className = 'gauge-title';
+                title.textContent = item.name;
+
+                // Badge Objetivo Alcançado
+                const badge = document.createElement('div');
+                badge.className = 'badge-objetivo-alcancado';
+                badge.id = `badge-test-${index}`;
+                badge.innerHTML = isEmpresa 
+                    ? '🏆 OBJETIVO ALCANÇADO — META SUPERADA! 🚀' 
+                    : '🏆 OBJETIVO ALCANÇADO!!! 🚀';
+
+                // Chart Container
+                const chartDiv = document.createElement('div');
+                chartDiv.className = 'gauge-chart';
+                chartDiv.id = chartId;
+
+                // Indicadores laterais
+                const compDiv = document.createElement('div');
+                compDiv.className = 'comparison-container';
+                compDiv.innerHTML = renderTabelaIndicadores(item);
+
+                // Slider manual de ajuste para teste dinâmico fino
+                const sliderDiv = document.createElement('div');
+                sliderDiv.className = 'card-slider-adjust';
+                sliderDiv.innerHTML = `
+                    <label>Meta:</label>
+                    <input type="range" min="0" max="130" value="${item.percent}" oninput="ajustarPercentualManual(${index}, this.value)">
+                    <span id="slider-val-${index}" style="font-size:0.65rem; color:#FFFFFF; font-weight:700;">${item.percent.toFixed(1)}%</span>
+                `;
+
+                // Stamp / Carimbo de Meta Batida
+                const stampDiv = document.createElement('div');
+                stampDiv.className = `stamp-meta-container ${posicaoSeloAtual}`;
+                stampDiv.id = `stamp-test-${index}`;
+                
+                let imgSrc = '';
+                let imgClass = '';
+                if (modeloSeloAtual === 'opcao1') {
+                    imgSrc = '/static/img/selo_var_a_letras_brancas.png?v=' + Date.now();
+                    imgClass = 'stamp-img-retangular';
+                } else if (modeloSeloAtual === 'opcao1_b') {
+                    imgSrc = '/static/img/selo_var_b_letras_e_check_brancos.png?v=' + Date.now();
+                    imgClass = 'stamp-img-retangular';
+                } else if (modeloSeloAtual === 'opcao1_d') {
+                    imgSrc = '/static/img/selo_var_d_preenchido_vermelho.png?v=' + Date.now();
+                    imgClass = 'stamp-img-retangular';
+                } else if (modeloSeloAtual === 'opcao2') {
+                    imgSrc = '/static/img/selo_opcao2_meta_batida.png?v=' + Date.now();
+                    imgClass = 'stamp-img-circular';
+                } else {
+                    // Modo comparativo: canais com índices 0, 2, 4 com Opção 1 e 1, 3, 5, 6 com Opção 2
+                    if (index % 2 === 0 && !isEmpresa) {
+                        imgSrc = '/static/img/selo_var_a_letras_brancas.png?v=' + Date.now();
+                        imgClass = 'stamp-img-retangular';
+                    } else {
+                        imgSrc = '/static/img/selo_opcao2_meta_batida.png?v=' + Date.now();
+                        imgClass = 'stamp-img-circular';
+                    }
+                }
+
+                stampDiv.innerHTML = `<img src="${imgSrc}" class="${imgClass}" alt="Selo Meta Batida">`;
+
+                card.appendChild(title);
+                card.appendChild(badge);
+                card.appendChild(stampDiv);
+                card.appendChild(chartDiv);
+                card.appendChild(compDiv);
+                card.appendChild(sliderDiv);
+                container.appendChild(card);
+
+                // Instancia ECharts
+                const chart = echarts.init(chartDiv);
+                chartInstances[chartId] = chart;
+                chart.setOption(getGaugeOption(item.percent, item.name));
+
+                // Aplica classe meta-batida se >= 100
+                if (item.percent >= 100) {
+                    card.classList.add('meta-batida');
+                } else {
+                    card.classList.remove('meta-batida');
+                }
+            });
+        }
+
+        // Cenários Rápidos de Teste
+        function aplicarCenario(cenario) {
+            document.querySelectorAll('.btn-sim-test').forEach(b => b.classList.remove('active'));
+
+            if (cenario === 'todos') {
+                document.getElementById('btn-hit-all').classList.add('active');
+                dadosAtuais = [
+                    { name: "VAREJO ESPECIALIZADO - SP", percent: 104.5, mom: 6.9, yoy: 15.2 },
+                    { name: "VAREJO ESPECIALIZADO REG.", percent: 101.8, mom: 3.7, yoy: 8.5 },
+                    { name: "DISTRIBUIÇÃO", percent: 112.3, mom: 13.3, yoy: 22.4 },
+                    { name: "COMEX", percent: 103.0, mom: 6.25, yoy: 18.0 },
+                    { name: "E-COMMERCE - MQ", percent: 115.6, mom: 17.8, yoy: 31.8 },
+                    { name: "E-COMMERCE - PARLUX", percent: 102.1, mom: 3.9, yoy: 11.0 },
+                    { name: "EMPRESA", percent: 108.4, mom: 11.9, yoy: 20.8 }
+                ];
+            } else if (cenario === 'empresa') {
+                document.getElementById('btn-hit-empresa').classList.add('active');
+                dadosAtuais = [
+                    { name: "VAREJO ESPECIALIZADO - SP", percent: 84.5, mom: -2.1, yoy: 5.2 },
+                    { name: "VAREJO ESPECIALIZADO REG.", percent: 79.2, mom: -4.3, yoy: 2.1 },
+                    { name: "DISTRIBUIÇÃO", percent: 96.0, mom: 5.1, yoy: 12.0 },
+                    { name: "COMEX", percent: 88.4, mom: 1.5, yoy: 9.0 },
+                    { name: "E-COMMERCE - MQ", percent: 94.2, mom: 7.2, yoy: 14.5 },
+                    { name: "E-COMMERCE - PARLUX", percent: 82.0, mom: -1.0, yoy: 4.0 },
+                    { name: "EMPRESA", percent: 108.4, mom: 11.9, yoy: 20.8 } // EMPRESA BATIDA!
+                ];
+            } else if (cenario === 'empresa_canais') {
+                document.getElementById('btn-hit-canais').classList.add('active');
+                dadosAtuais = [
+                    { name: "VAREJO ESPECIALIZADO - SP", percent: 88.0, mom: 1.0, yoy: 7.0 },
+                    { name: "VAREJO ESPECIALIZADO REG.", percent: 82.5, mom: -1.2, yoy: 3.4 },
+                    { name: "DISTRIBUIÇÃO", percent: 109.4, mom: 11.5, yoy: 21.0 }, // BATIDA!
+                    { name: "COMEX", percent: 91.2, mom: 2.0, yoy: 10.1 },
+                    { name: "E-COMMERCE - MQ", percent: 114.8, mom: 16.5, yoy: 30.2 }, // BATIDA!
+                    { name: "E-COMMERCE - PARLUX", percent: 86.4, mom: 0.5, yoy: 6.0 },
+                    { name: "EMPRESA", percent: 106.2, mom: 9.8, yoy: 18.5 } // BATIDA!
+                ];
+            } else if (cenario === 'normal') {
+                document.getElementById('btn-hit-none').classList.add('active');
+                dadosAtuais = [
+                    { name: "VAREJO ESPECIALIZADO - SP", percent: 78.5, mom: -3.5, yoy: 2.0 },
+                    { name: "VAREJO ESPECIALIZADO REG.", percent: 72.1, mom: -6.0, yoy: -1.5 },
+                    { name: "DISTRIBUIÇÃO", percent: 86.3, mom: 2.1, yoy: 8.5 },
+                    { name: "COMEX", percent: 81.0, mom: -0.5, yoy: 6.2 },
+                    { name: "E-COMMERCE - MQ", percent: 89.4, mom: 4.8, yoy: 11.0 },
+                    { name: "E-COMMERCE - PARLUX", percent: 75.8, mom: -2.2, yoy: 1.8 },
+                    { name: "EMPRESA", percent: 84.6, mom: 1.2, yoy: 7.5 }
+                ];
+            }
+
+            atualizarTodosCards();
+        }
+
+        function atualizarTodosCards() {
+            dadosAtuais.forEach((item, index) => {
+                const chartId = `test-gauge-${index}`;
+                const card = document.getElementById(`card-test-${index}`);
+                const slider = card.querySelector('input[type=range]');
+                const valSpan = document.getElementById(`slider-val-${index}`);
+
+                if (slider) slider.value = item.percent;
+                if (valSpan) valSpan.textContent = item.percent.toFixed(1) + '%';
+
+                if (item.percent >= 100) {
+                    card.classList.add('meta-batida');
+                } else {
+                    card.classList.remove('meta-batida');
+                }
+
+                if (chartInstances[chartId]) {
+                    chartInstances[chartId].setOption(getGaugeOption(item.percent, item.name));
+                }
+            });
+        }
+
+        function ajustarPercentualManual(index, novoValor) {
+            const p = parseFloat(novoValor);
+            dadosAtuais[index].percent = p;
+            
+            const card = document.getElementById(`card-test-${index}`);
+            const valSpan = document.getElementById(`slider-val-${index}`);
+            const chartId = `test-gauge-${index}`;
+
+            if (valSpan) valSpan.textContent = p.toFixed(1) + '%';
+
+            if (p >= 100) {
+                card.classList.add('meta-batida');
+            } else {
+                card.classList.remove('meta-batida');
+            }
+
+            if (chartInstances[chartId]) {
+                chartInstances[chartId].setOption(getGaugeOption(p, dadosAtuais[index].name));
+            }
+        }
+
+        function alterarVelocidade(segundos, btnEl) {
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+
+            const styleId = 'dynamic-speed-style';
+            let styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+            styleEl.innerHTML = `
+                .gauge-card.meta-batida {
+                    animation-duration: ${segundos}s !important;
+                }
+                .badge-objetivo-alcancado {
+                    animation-duration: ${segundos}s !important;
+                }
+            `;
+        }
+
+        window.addEventListener('resize', () => {
+            Object.values(chartInstances).forEach(c => c && c.resize && c.resize());
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            inicializarCards();
+        });
+    </script>
+</body>
+</html>

@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=54">
     
     <!-- ECharts -->
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -41,6 +41,7 @@
                     <button onclick="navigateTab('/diario_marcas')" class="tab-btn">Diário Marcas</button>
                     <button onclick="navigateTab('/paises')" class="tab-btn">Países</button>
                     <button onclick="navigateTab('/teste_estoque')" class="tab-btn"><span class="tab-icon">🚨</span> Estoque e Previsão</button>
+                    <button onclick="navigateTab('/teste_meta')" class="tab-btn" style="color: #00E676; font-weight: 700;"><span class="tab-icon">🎯</span> Teste Meta</button>
                 </div>
             </div>
 
@@ -144,7 +145,7 @@
     <audio id="audio-policia" src="/static/audio/sirene_policia.mp3?v=4" preload="auto"></audio>
 
     <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=48"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=54"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo 2.5 min) -->
     <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=7"></script>
 
