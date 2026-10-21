@@ -76,119 +76,97 @@ function updateClock() {
 
 function getEmpresaGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
-    const isWarning = percent >= 80 && percent < 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '% vs META';
-
-    // Status visual alinhado com o Design System da MQ Hair e abas da TV
-    const statusColor = isSuccess ? '#00e676' : (isWarning ? '#ffd600' : '#ff3b30');
-    const statusGlow = isSuccess ? 'rgba(0, 230, 118, 0.85)' : (isWarning ? 'rgba(255, 214, 0, 0.85)' : 'rgba(255, 59, 48, 0.85)');
+    const diffColor = isSuccess ? '#00d26a' : '#ff4d4d';
 
     return {
         series: [
             {
                 type: 'gauge',
-                startAngle: 215,
-                endAngle: -35,
+                startAngle: 180,
+                endAngle: 0,
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '98%',
-                center: ['50%', '50%'],
+                radius: '125%',
+                center: ['50%', '72%'],
                 axisLine: {
-                    roundCap: true,
                     lineStyle: {
-                        width: 22,
+                        width: 26,
                         color: [
-                            [80 / 120, '#ff3b30'],   // 0 a 80%: Crítico (Vermelho vibrante)
-                            [100 / 120, '#ffd600'],  // 80 a 100%: Atenção (Amarelo Ouro MQ)
-                            [1, '#00e676']           // 100 a 120%: Meta Batida (Verde Neon)
+                            [80 / 120, '#ff2424'],
+                            [100 / 120, '#ffd600'],
+                            [1, '#00d26a']
                         ]
                     }
                 },
                 pointer: {
-                    icon: 'path://M2.9,0.7L2.9,0.7c1.4,0,2.6,1.2,2.6,2.6v115c0,1.4-1.2,2.6-2.6,2.6l0,0c-1.4,0-2.6-1.2-2.6-2.6V3.3C0.3,1.9,1.4,0.7,2.9,0.7z',
-                    width: 7,
+                    icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
                     length: '62%',
-                    offsetCenter: [0, '0%'],
+                    width: 10,
+                    offsetCenter: [0, '-4%'],
                     itemStyle: {
-                        color: statusColor,
-                        shadowColor: statusGlow,
-                        shadowBlur: 12
+                        color: '#f5c518',
+                        shadowColor: 'rgba(0, 0, 0, 0.6)',
+                        shadowBlur: 4
                     }
                 },
                 anchor: {
                     show: true,
                     showAbove: true,
-                    size: 24,
+                    size: 20,
                     itemStyle: {
-                        borderWidth: 4,
-                        borderColor: statusColor,
                         color: '#121622',
+                        borderWidth: 4,
+                        borderColor: '#f5c518',
                         shadowColor: 'rgba(0, 0, 0, 0.8)',
-                        shadowBlur: 10
+                        shadowBlur: 6
                     }
                 },
                 axisTick: {
-                    distance: -28,
-                    length: 8,
-                    lineStyle: { color: 'rgba(255, 255, 255, 0.3)', width: 1.5 }
-                },
-                splitLine: {
-                    distance: -32,
-                    length: 12,
-                    lineStyle: { color: 'rgba(255, 255, 255, 0.5)', width: 2 }
-                },
-                axisLabel: {
-                    distance: -18,
-                    color: '#94a3b8',
-                    fontSize: 11,
-                    fontWeight: '700',
-                    fontFamily: 'Montserrat',
-                    formatter: function (value) {
-                        if (value === 0) return '0%';
-                        if (value === 50) return '50%';
-                        if (value === 80) return '80%';
-                        if (value === 100) return '{meta|100% META}';
-                        if (value === 120) return '120%';
-                        return '';
-                    },
-                    rich: {
-                        meta: {
-                            color: '#00e676',
-                            fontWeight: '800',
-                            fontSize: 11,
-                            padding: [2, 6],
-                            borderRadius: 4,
-                            backgroundColor: 'rgba(0, 230, 118, 0.15)',
-                            borderColor: 'rgba(0, 230, 118, 0.5)',
-                            borderWidth: 1,
-                            shadowColor: 'rgba(0, 230, 118, 0.4)',
-                            shadowBlur: 6
-                        }
+                    length: 7,
+                    lineStyle: {
+                        color: 'auto',
+                        width: 1.5
                     }
                 },
-                title: {
-                    offsetCenter: [0, '58%'],
-                    fontSize: 13,
-                    color: isSuccess ? '#00e676' : (diff < 0 ? '#ff5252' : '#94a3b8'),
-                    fontWeight: '700',
-                    fontFamily: 'Montserrat'
+                splitLine: {
+                    length: 14,
+                    lineStyle: {
+                        color: 'auto',
+                        width: 2.5
+                    }
                 },
-                detail: {
-                    valueAnimation: true,
-                    offsetCenter: [0, '36%'],
-                    fontSize: 48,
+                axisLabel: {
+                    show: false
+                },
+                title: {
+                    offsetCenter: [0, '15%'],
+                    fontSize: 44,
+                    color: isSuccess ? '#00d26a' : '#ffffff',
                     fontWeight: '800',
                     fontFamily: 'Montserrat',
-                    formatter: function () {
-                        return percent.toFixed(1) + '%';
-                    },
-                    color: isSuccess ? '#00e676' : '#ffffff',
-                    textShadowColor: isSuccess ? 'rgba(0, 230, 118, 0.6)' : 'rgba(0, 0, 0, 0.8)',
-                    textShadowBlur: 15
+                    textShadowColor: isSuccess ? 'rgba(0, 210, 106, 0.6)' : 'rgba(0, 0, 0, 0.8)',
+                    textShadowBlur: 12
                 },
-                data: [{ value: Math.min(Math.max(percent, 0), 120), name: diffText }]
+                detail: {
+                    fontSize: 16,
+                    offsetCenter: [0, '40%'],
+                    valueAnimation: true,
+                    formatter: function () {
+                        return diffText;
+                    },
+                    color: diffColor,
+                    fontWeight: '800',
+                    fontFamily: 'Montserrat'
+                },
+                data: [
+                    {
+                        value: Math.min(Math.max(percent, 0), 120),
+                        name: percent.toFixed(1) + '%'
+                    }
+                ]
             }
         ]
     };
