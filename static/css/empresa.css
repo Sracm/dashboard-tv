@@ -258,6 +258,7 @@
 
 /* Indicador 100% Meta flutuante */
 .gauge-target-flag {
+    display: none !important;
     position: absolute;
     top: 18%;
     right: 20%;

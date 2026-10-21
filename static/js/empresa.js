@@ -76,8 +76,13 @@ function updateClock() {
 
 function getEmpresaGaugeOption(percent, diff) {
     const isSuccess = percent >= 100;
+    const isWarning = percent >= 80 && percent < 100;
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '% vs META';
+
+    // Status visual alinhado com o Design System da MQ Hair e abas da TV
+    const statusColor = isSuccess ? '#00e676' : (isWarning ? '#ffd600' : '#ff3b30');
+    const statusGlow = isSuccess ? 'rgba(0, 230, 118, 0.85)' : (isWarning ? 'rgba(255, 214, 0, 0.85)' : 'rgba(255, 59, 48, 0.85)');
 
     return {
         series: [
@@ -95,10 +100,9 @@ function getEmpresaGaugeOption(percent, diff) {
                     lineStyle: {
                         width: 22,
                         color: [
-                            [70 / 120, '#ff3b30'],
-                            [90 / 120, '#ff9500'],
-                            [100 / 120, '#cb9727'],
-                            [1, '#00e676']
+                            [80 / 120, '#ff3b30'],   // 0 a 80%: Crítico (Vermelho vibrante)
+                            [100 / 120, '#ffd600'],  // 80 a 100%: Atenção (Amarelo Ouro MQ)
+                            [1, '#00e676']           // 100 a 120%: Meta Batida (Verde Neon)
                         ]
                     }
                 },
@@ -108,9 +112,9 @@ function getEmpresaGaugeOption(percent, diff) {
                     length: '62%',
                     offsetCenter: [0, '0%'],
                     itemStyle: {
-                        color: '#f5c518',
-                        shadowColor: 'rgba(245, 197, 24, 0.8)',
-                        shadowBlur: 10
+                        color: statusColor,
+                        shadowColor: statusGlow,
+                        shadowBlur: 12
                     }
                 },
                 anchor: {
@@ -119,7 +123,7 @@ function getEmpresaGaugeOption(percent, diff) {
                     size: 24,
                     itemStyle: {
                         borderWidth: 4,
-                        borderColor: '#cb9727',
+                        borderColor: statusColor,
                         color: '#121622',
                         shadowColor: 'rgba(0, 0, 0, 0.8)',
                         shadowBlur: 10
@@ -139,17 +143,35 @@ function getEmpresaGaugeOption(percent, diff) {
                     distance: -18,
                     color: '#94a3b8',
                     fontSize: 11,
-                    fontWeight: '600',
+                    fontWeight: '700',
                     fontFamily: 'Montserrat',
                     formatter: function (value) {
-                        if (value === 0 || value === 50 || value === 100 || value === 120) return value + '%';
+                        if (value === 0) return '0%';
+                        if (value === 50) return '50%';
+                        if (value === 80) return '80%';
+                        if (value === 100) return '{meta|100% META}';
+                        if (value === 120) return '120%';
                         return '';
+                    },
+                    rich: {
+                        meta: {
+                            color: '#00e676',
+                            fontWeight: '800',
+                            fontSize: 11,
+                            padding: [2, 6],
+                            borderRadius: 4,
+                            backgroundColor: 'rgba(0, 230, 118, 0.15)',
+                            borderColor: 'rgba(0, 230, 118, 0.5)',
+                            borderWidth: 1,
+                            shadowColor: 'rgba(0, 230, 118, 0.4)',
+                            shadowBlur: 6
+                        }
                     }
                 },
                 title: {
                     offsetCenter: [0, '58%'],
                     fontSize: 13,
-                    color: '#94a3b8',
+                    color: isSuccess ? '#00e676' : (diff < 0 ? '#ff5252' : '#94a3b8'),
                     fontWeight: '700',
                     fontFamily: 'Montserrat'
                 },
@@ -513,14 +535,24 @@ function renderEmpresa() {
         if (item.percent >= 100) {
             realValEl.style.color = '#00e676';
         } else if (item.percent >= 80) {
-            realValEl.style.color = '#ffc107';
+            realValEl.style.color = '#ffd600';
         } else {
-            realValEl.style.color = '#ffffff';
+            realValEl.style.color = '#ff5252';
         }
     }
     if (realFillEl) {
         const pctFill = Math.min(100, Math.max(0, item.percent || 0));
         realFillEl.style.width = pctFill.toFixed(1) + '%';
+        if (item.percent >= 100) {
+            realFillEl.style.background = 'linear-gradient(90deg, #10b981, #00e676)';
+            realFillEl.style.boxShadow = '0 0 8px rgba(0, 230, 118, 0.6)';
+        } else if (item.percent >= 80) {
+            realFillEl.style.background = 'linear-gradient(90deg, #f59e0b, #ffd600)';
+            realFillEl.style.boxShadow = '0 0 8px rgba(255, 214, 0, 0.6)';
+        } else {
+            realFillEl.style.background = 'linear-gradient(90deg, #ef4444, #ff5252)';
+            realFillEl.style.boxShadow = '0 0 8px rgba(255, 82, 82, 0.6)';
+        }
     }
     if (momBadgeEl) {
         if (currentView === 'mes') {
@@ -600,7 +632,7 @@ function renderEmpresa() {
                 const dias = (item.dias_uteis_restantes !== undefined) ? item.dias_uteis_restantes : 20;
                 const rPct = (dias > 0 && gapPct > 0) ? (gapPct / dias) : 0;
                 ritmoValEl.innerText = rPct.toFixed(2) + '%/dia';
-                ritmoValEl.style.color = '#ffc107';
+                ritmoValEl.style.color = '#ffd600';
             }
         }
     } else {
