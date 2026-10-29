@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initClock();
     initChart();
-    
+
     // Carregamento concorrente do GeoJSON e dos Dados da API
     await Promise.allSettled([
         carregarGeoJson(),
@@ -108,7 +108,7 @@ function initChart() {
     }
 
     myChart = echarts.init(chartDom, 'dark', { renderer: 'canvas' });
-    
+
     // Auto-registro se o GeoJSON já estiver disponível globalmente no window
     if (window.BRAZIL_GEO_JSON && !isGeoJsonLoaded) {
         try {
@@ -121,7 +121,7 @@ function initChart() {
     }
 
     // Clique no mapa seleciona o estado
-    myChart.on('click', function(params) {
+    myChart.on('click', function (params) {
         if (params.name) {
             selecionarEstado(params.name, true);
         }
@@ -214,7 +214,7 @@ async function carregarGeoJson() {
                             window.BRAZIL_GEO_JSON = geoJson;
                             try {
                                 localStorage.setItem('mq_brazil_geo_v1', JSON.stringify(geoJson));
-                            } catch (_) {}
+                            } catch (_) { }
                             console.log(`[MAPA BRASIL] GeoJSON carregado via fetch (Camada 3, tentativa ${attempt}).`);
                             if (currentData) renderizarMapa(currentData);
                             return true;
@@ -236,7 +236,7 @@ async function carregarGeoJson() {
 async function carregarDadosApi(force = false) {
     const monthEl = document.getElementById('filter-month');
     const yearEl = document.getElementById('filter-year');
-    
+
     let mes = 9;
     if (monthEl && monthEl.value) {
         const v = parseInt(monthEl.value, 10);
@@ -324,7 +324,7 @@ function renderizarMapa(data) {
             try {
                 echarts.registerMap('brazil', window.BRAZIL_GEO_JSON);
                 isGeoJsonLoaded = true;
-            } catch (e) {}
+            } catch (e) { }
         }
     }
 
@@ -541,7 +541,7 @@ function renderizarMapa(data) {
                     show: true,
                     position: 'top',
                     distance: 12,
-                    formatter: function(params) {
+                    formatter: function (params) {
                         return `{badge|📍 ${params.data.uf}: ${params.data.share}%}`;
                     },
                     rich: {
@@ -801,7 +801,7 @@ function renderizarRankings(data) {
         catListEl.innerHTML = data.ranking_categorias.map(cat => {
             const isMaior = cat.status === 'MAIOR';
             const diffStr = (cat.diff_pp >= 0 ? '+' : '') + cat.diff_pp + ' p.p.';
-            
+
             // Sub-lista de produtos da categoria (TUDO EXPANDIDO)
             const prods = cat.produtos || [];
             const prodsHtml = prods.length > 0 ? `
@@ -810,9 +810,9 @@ function renderizarRankings(data) {
                         ⭐ Produtos da Categoria:
                     </div>
                     ${prods.map(p => {
-                        const isPMaior = p.status === 'MAIOR';
-                        const pDiffStr = (p.diff_pp >= 0 ? '+' : '') + p.diff_pp + ' p.p.';
-                        return `
+                const isPMaior = p.status === 'MAIOR';
+                const pDiffStr = (p.diff_pp >= 0 ? '+' : '') + p.diff_pp + ' p.p.';
+                return `
                             <div class="cat-prod-sub-row">
                                 <span class="p-sub-rank">#${p.rank}</span>
                                 <span class="p-sub-name" title="${p.produto}">${p.produto}</span>
@@ -823,7 +823,7 @@ function renderizarRankings(data) {
                                 </span>
                             </div>
                         `;
-                    }).join('')}
+            }).join('')}
                 </div>
             ` : '';
 
