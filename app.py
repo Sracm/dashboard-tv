@@ -869,6 +869,123 @@ def dashboard_trimestre():
 
 @app.route('/api/trimestre_tv')
 def api_trimestre_tv():
+    # 1. Verifica dados da BASE FINANCEIRA (Trimestral)
+    try:
+        from base_financeira_reader import obter_dados_base_financeira
+        dados_fin = obter_dados_base_financeira()
+    except Exception as fe:
+        print('[API TRIMESTRE] Erro ao carregar base financeira:', fe)
+        dados_fin = {}
+
+    ano_req = request.args.get('ano')
+    trim_req = request.args.get('trimestre') or request.args.get('tri')
+
+    if dados_fin:
+        ano_int = int(ano_req) if ano_req and ano_req.isdigit() else datetime.now().year
+        if ano_int not in dados_fin and 2026 in dados_fin:
+            ano_int = 2026
+
+        trims_do_ano = dados_fin.get(ano_int, {})
+        if not trim_req or trim_req.upper() not in trims_do_ano:
+            ordem_trims = ['4T', '3T', '2T', '1T']
+            trim_alvo = next((t for t in ordem_trims if t in trims_do_ano), '3T')
+        else:
+            trim_alvo = trim_req.upper()
+
+        dados_tri = trims_do_ano.get(trim_alvo)
+        if dados_tri:
+            itens_map = {it['tipo']: it for it in dados_tri.get('itens', [])}
+            
+# Mapeamento de histórico de todos os trimestres do ano para a régua inferior (T1, T2, T3, T4)
+            historico_todos_trimestres = {}
+            for t_k in ['1T', '2T', '3T', '4T']:
+                t_obj = trims_do_ano.get(t_k)
+                if t_obj:
+                    historico_todos_trimestres[t_k] = {it['tipo']: it for it in t_obj.get('itens', [])}
+                else:
+                    historico_todos_trimestres[t_k] = {}
+
+            def gerar_regua(tipo_nome):
+                regua = {}
+                for t_k in ['1T', '2T', '3T', '4T']:
+                    info = historico_todos_trimestres[t_k].get(tipo_nome)
+                    if info:
+                        regua[t_k] = {
+                            'percent': info.get('percentual', 0.0),
+                            'display': info.get('percentual_display', '0,00%')
+                        }
+                    else:
+                        regua[t_k] = None
+                return regua
+
+            cards_financeiros = [
+                {
+                    'id': 'gauge-0',
+                    'title': 'DESPESAS FIXAS',
+                    'percent': itens_map.get('DESPESAS FIXAS', {}).get('percentual', 0.0),
+                    'diff': round(itens_map.get('DESPESAS FIXAS', {}).get('percentual', 0.0) - 100.0, 2),
+                    'display': itens_map.get('DESPESAS FIXAS', {}).get('percentual_display', '0,00%'),
+                    'orcado': itens_map.get('DESPESAS FIXAS', {}).get('orcado'),
+                    'realizado': itens_map.get('DESPESAS FIXAS', {}).get('realizado'),
+                    'regua': gerar_regua('DESPESAS FIXAS')
+                },
+                {
+                    'id': 'gauge-1',
+                    'title': 'DESPESAS VARIAVEIS',
+                    'percent': itens_map.get('DESPESAS VARIAVEIS', {}).get('percentual', 0.0),
+                    'diff': round(itens_map.get('DESPESAS VARIAVEIS', {}).get('percentual', 0.0) - 100.0, 2),
+                    'display': itens_map.get('DESPESAS VARIAVEIS', {}).get('percentual_display', '0,00%'),
+                    'orcado': itens_map.get('DESPESAS VARIAVEIS', {}).get('orcado'),
+                    'realizado': itens_map.get('DESPESAS VARIAVEIS', {}).get('realizado'),
+                    'regua': gerar_regua('DESPESAS VARIAVEIS')
+                },
+                {
+                    'id': 'gauge-2',
+                    'title': 'DESPESAS TOTAIS',
+                    'percent': itens_map.get('DESPESAS TOTAIS', {}).get('percentual', 0.0),
+                    'diff': round(itens_map.get('DESPESAS TOTAIS', {}).get('percentual', 0.0) - 100.0, 2),
+                    'display': itens_map.get('DESPESAS TOTAIS', {}).get('percentual_display', '0,00%'),
+                    'orcado': itens_map.get('DESPESAS TOTAIS', {}).get('orcado'),
+                    'realizado': itens_map.get('DESPESAS TOTAIS', {}).get('realizado'),
+                    'regua': gerar_regua('DESPESAS TOTAIS')
+                },
+                {
+                    'id': 'gauge-3',
+                    'title': 'FATURAMENTO',
+                    'percent': itens_map.get('FATURAMENTO', {}).get('percentual', 0.0),
+                    'diff': round(itens_map.get('FATURAMENTO', {}).get('percentual', 0.0) - 100.0, 2),
+                    'display': itens_map.get('FATURAMENTO', {}).get('percentual_display', '0,00%'),
+                    'orcado': itens_map.get('FATURAMENTO', {}).get('orcado'),
+                    'realizado': itens_map.get('FATURAMENTO', {}).get('realizado'),
+                    'regua': gerar_regua('FATURAMENTO')
+                },
+                {
+                    'id': 'gauge-4',
+                    'title': 'LUCRO LIQUIDO',
+                    'percent': itens_map.get('LUCRO LIQUIDO', {}).get('percentual', 100.0),
+                    'diff': round(itens_map.get('LUCRO LIQUIDO', {}).get('percentual', 100.0) - 100.0, 2),
+                    'display': itens_map.get('LUCRO LIQUIDO', {}).get('percentual_display', '+100%'),
+                    'orcado': itens_map.get('LUCRO LIQUIDO', {}).get('orcado'),
+                    'realizado': itens_map.get('LUCRO LIQUIDO', {}).get('realizado'),
+                    'regua': gerar_regua('LUCRO LIQUIDO')
+                }
+            ]
+            
+            trimestres_disponiveis = [
+                {'chave': k, 'label': trims_do_ano[k]['label'], 'ativo': (k == trim_alvo)}
+                for k in ['1T', '2T', '3T', '4T'] if k in trims_do_ano
+            ]
+            
+            return jsonify({
+                'success': True,
+                'modo': 'financeiro',
+                'ano': ano_int,
+                'trimestre_selecionado': trim_alvo,
+                'trimestre_label': dados_tri['label'],
+                'trimestres_disponiveis': trimestres_disponiveis,
+                'data': cards_financeiros
+            })
+
     try:
         force = request.args.get('refresh') in ('1', 'true', 'True') or request.args.get('force') in ('1', 'true', 'True')
         now_dt = datetime.now()
@@ -1450,16 +1567,24 @@ def obter_dados_mapa_regionais(mes_ref, ano_ref, force_refresh=False):
                 return data
             except Exception:
                 pass
-        # Fallback de sobrevivência 2: qualquer arquivo do ano corrente
-        for fb_m in (9, 10, 8, 7, 6, 5):
-            fb_file = os.path.join(DISK_CACHE_DIR, f'mapa_regionais_ytd_nocomex_{ano_ref}_{fb_m}.json')
-            if os.path.exists(fb_file):
+        # Fallback de sobrevivência 2: buscar o arquivo de cache mais recente disponível em disco
+        try:
+            cached_files = [
+                os.path.join(DISK_CACHE_DIR, fn)
+                for fn in os.listdir(DISK_CACHE_DIR)
+                if fn.startswith('mapa_regionais_ytd_nocomex_') and fn.endswith('.json')
+            ]
+            cached_files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            for fb_file in cached_files:
                 try:
                     with open(fb_file, 'r', encoding='utf-8') as f:
                         data = json.load(f)
+                    print(f"[CACHE MAPA] Resgatado com sucesso via arquivo recente: {os.path.basename(fb_file)}")
                     return data
                 except Exception:
                     pass
+        except Exception as scan_err:
+            print(f"[CACHE MAPA] Erro ao escanear cache em disco: {scan_err}")
         raise
 
     # Exclui COMEX / Exportação da equação (foco 100% no mercado nacional do Brasil)
@@ -2463,6 +2588,14 @@ def api_paises_vendas():
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
+
+# ==============================================================================
+# SKUS EXCLUSIVOS PARA AS GUIAS DE ESTOQUE E PREVISÃO
+# ==============================================================================
+SKUS_ESTOQUE_PREVISAO = {'2.01.10.010.03', '2.01.10.001.03', '1.01.10.010.03', '1.01.05.011.03', '2.03.01.001.03', '2.01.01.003.03', '2.02.10.010.01', '2.02.10.010.02', '2.02.10.001.01', '2.02.10.001.02', '2.02.11.001.01', '2.02.11.001.02', '2.09.02.001.03', '2.09.03.001.03', '1.09.07.011.03', '1.09.08.011.03', '2.09.06.001.03', '6.10.002.014.03', '4.04.14.001.03', '4.04.12.002.03', '4.05.06.011.03', '2.01.10.010.03U', '2.01.10.010.03E', '2.01.10.010.03A', '2.01.10.010.03K', '2.01.10.001.032', '2.01.10.001.031', '2.01.10.001.033', '1.01.10.010.032', '1.01.10.010.031', '1.01.10.010.033', '1.01.10.010.03K', '2.02.10.001.012', '2.02.10.001.021', '2.02.10.010.012', '2.09.02.001.032', '2.09.03.001.032', '2.09.03.001.031'}
+
+CODPRODS_ESTOQUE_PREVISAO = {'30', '147', '38', '40', '39', '1792', '41', '4024', '4029', '5348', '5561', '5877', '5879', '5878', '5923', '5778', '5875', '5777', '5876', '5922', '5347', '6308', '6584', '6585', '6386', '6535', '6508', '6530', '6503', '6536', '6699', '6394', '6522', '6586', '6504', '6523', '6520'}
+
 cached_estoque_previsao = {
     'data': None,
     'timestamp': 0
@@ -2540,20 +2673,23 @@ def obter_dados_estoque_previsao(force=False):
         SELECT DISTINCT
             P.CODPROD,
             P.DESCRPROD,
+            TRIM(PR.REFERENCIA) AS REFERENCIA,
             P.MARCA,
             P.DESCRGRUPOPROD AS CATEGORIA,
             P.GRUPO_SINTETICO,
             P.GRUPO_ANALITICO,
             P.GRUPO_PAI AS TIPO_GRUPO
         FROM VW_MQ_TGFPRO_POWER_BI P
-        WHERE P.DESCRGRUPOPROD NOT IN ('EMBALAGENS', 'FABRICA', 'SERVICOS', 'SERVIÇOS', 'USO E CONSUMO', 'USO E COMSUMO', 'SPARE PARTS')
-          AND P.DESCRGRUPOPROD NOT LIKE 'MAQUINAS P/ IND VIDRAC%'
-          AND P.DESCRGRUPOPROD NOT LIKE 'MAQUINA P INDUSTRIA DE VIDRO%'
-          AND P.MARCA <> 'TERMIX'
+        JOIN TGFPRO PR ON PR.CODPROD = P.CODPROD
+        WHERE (
+            TRIM(PR.REFERENCIA) IN ('2.01.10.010.03', '2.01.10.001.03', '1.01.10.010.03', '1.01.05.011.03', '2.03.01.001.03', '2.01.01.003.03', '2.02.10.010.01', '2.02.10.010.02', '2.02.10.001.01', '2.02.10.001.02', '2.02.11.001.01', '2.02.11.001.02', '2.09.02.001.03', '2.09.03.001.03', '1.09.07.011.03', '1.09.08.011.03', '2.09.06.001.03', '6.10.002.014.03', '4.04.14.001.03', '4.04.12.002.03', '4.05.06.011.03', '2.01.10.010.03U', '2.01.10.010.03E', '2.01.10.010.03A', '2.01.10.010.03K', '2.01.10.001.032', '2.01.10.001.031', '2.01.10.001.033', '1.01.10.010.032', '1.01.10.010.031', '1.01.10.010.033', '1.01.10.010.03K', '2.02.10.001.012', '2.02.10.001.021', '2.02.10.010.012', '2.09.02.001.032', '2.09.03.001.032', '2.09.03.001.031')
+            OR TO_CHAR(P.CODPROD) IN ('30', '147', '38', '40', '39', '1792', '41', '4024', '4029', '5348', '5561', '5877', '5879', '5878', '5923', '5778', '5875', '5777', '5876', '5922', '5347', '6308', '6584', '6585', '6386', '6535', '6508', '6530', '6503', '6536', '6699', '6394', '6522', '6586', '6504', '6523', '6520')
+        )
     )
     SELECT 
         PB.CODPROD,
         PB.DESCRPROD      AS NOME_PRODUTO,
+        PB.REFERENCIA,
         PB.MARCA,
         PB.CATEGORIA,
         PB.GRUPO_SINTETICO,
@@ -2577,13 +2713,6 @@ def obter_dados_estoque_previsao(force=False):
         NVL(VM.QTD_M3,  0) AS QTD_M3
     FROM PROD_BASE PB
     LEFT JOIN VENDA_MEDIA VM ON PB.CODPROD = VM.CODPROD
-    WHERE (
-        NVL(VM.QTD_VENDAS_MES, 0) > 0
-        OR NVL(VM.QTD_M1, 0) > 0
-        OR NVL(VM.QTD_M2, 0) > 0
-        OR NVL(VM.QTD_M3, 0) > 0
-        OR NVL((SELECT SUM(E.SALDO_ESTQ) FROM EST_POR_EMP E WHERE E.CODPROD = PB.CODPROD), 0) > 0
-    )
     ORDER BY PB.DESCRPROD ASC
     """
     try:
@@ -2764,6 +2893,7 @@ def obter_dados_teste_estoque(force=False):
             TO_CHAR(CAB.DTENTSAI, 'YYYY-MM') as MES_ENTSAI,
             TO_CHAR(ITE.CODPROD) as CODPROD,
             PRO.DESCRPROD AS PRODUTO,
+            TRIM(PRO.REFERENCIA) AS REFERENCIA,
             PRO.MARCA,
             (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,1),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,2),8,'0') END) AS GRUPO_GERAL,
             (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,4),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,5),8,'0') END) AS GRUPO_SINTETICO,
@@ -2804,6 +2934,7 @@ def obter_dados_teste_estoque(force=False):
         SELECT 
             TO_CHAR(PRO.CODPROD) AS CODPROD,
             PRO.DESCRPROD AS PRODUTO,
+            TRIM(PRO.REFERENCIA) AS REFERENCIA,
             PRO.MARCA,
             (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,1),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,2),8,'0') END) AS GRUPO_GERAL,
             (SELECT G.DESCRGRUPOPROD FROM TGFGRU G WHERE G.CODGRUPOPROD = CASE WHEN LENGTH(TO_CHAR(PRO.codgrupoprod))=7 THEN RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,4),7,'0') ELSE RPAD(SUBSTR(TO_CHAR(PRO.codgrupoprod),1,5),8,'0') END) AS GRUPO_SINTETICO,
@@ -2846,7 +2977,7 @@ def obter_dados_teste_estoque(force=False):
             df_pivot[m] = 0
 
     # Metadados de produto unificados
-    df_meta_sales = df_filt[['CODPROD', 'PRODUTO', 'MARCA', 'GRUPO_GERAL', 'GRUPO_SINTETICO', 'GRUPO_ANALITICO']].drop_duplicates('CODPROD')
+    df_meta_sales = df_filt[['CODPROD', 'PRODUTO', 'REFERENCIA', 'MARCA', 'GRUPO_GERAL', 'GRUPO_SINTETICO', 'GRUPO_ANALITICO']].drop_duplicates('CODPROD')
     df_meta_all = pd.concat([df_meta_sales, df_prods], ignore_index=True).drop_duplicates('CODPROD')
 
     # Agrupamento Estoque:
@@ -2867,6 +2998,14 @@ def obter_dados_teste_estoque(force=False):
 
     for m in meses_fechados + [mes_atual_periodo]:
         df_res[m] = df_res[m].fillna(0)
+
+    # FILTRAR ESTRITAMENTE APENAS OS SKUS SOLICITADOS PELO USUÁRIO PARA ESTOQUE E PREVISÃO
+    df_res['REFERENCIA'] = df_res['REFERENCIA'].fillna('').astype(str).str.strip()
+    df_res['CODPROD_STR'] = df_res['CODPROD'].fillna('').astype(str).str.strip()
+    df_res = df_res[
+        df_res['REFERENCIA'].isin(SKUS_ESTOQUE_PREVISAO) |
+        df_res['CODPROD_STR'].isin(CODPRODS_ESTOQUE_PREVISAO)
+    ].copy()
 
     df_res['ESTOQUE_EMPRESA'] = df_res['ESTOQUE_EMPRESA'].fillna(0).astype(int)
     df_res['ESTOQUE_MCR'] = df_res['ESTOQUE_MCR'].fillna(0).astype(int)
@@ -2921,16 +3060,8 @@ def obter_dados_teste_estoque(force=False):
 
     ultimos_3_fechados = meses_fechados[-3:] if len(meses_fechados) >= 3 else meses_fechados
     soma_vendas_3m = df_res[ultimos_3_fechados].sum(axis=1)
-    cond_inativo = (
-        (soma_vendas_3m == 0) &
-        (df_res['MEDIA_CONSUMO'] == 0) &
-        (df_res['VENDA_MES_ATUAL'] == 0) &
-        (df_res['DIAS_ESTOQUE_TOTAL'] == 0) &
-        (df_res['ESTOQUE_EMPRESA'] == 0) &
-        (df_res['ESTOQUE_MCR'] == 0) &
-        (df_res['GIRO_ESTOQUE'] == 0)
-    )
-    df_res = df_res[~(cond_zero_todas_colunas | cond_inativo)].copy()
+    # Mantém todos os SKUs da lista solicitada (inclusive itens com 0 estoque para apontar ruptura com clareza)
+    # df_res = df_res[~(cond_zero_todas_colunas | cond_inativo)].copy()
 
     # Também excluir marcas de peças de reposição (SP MQ PRO, SP PARLUX, SP FORCE B, SP MQ B, etc.)
     df_res = df_res[~df_res['MARCA'].str.startswith(('SP ', 'SPARE'))].copy()

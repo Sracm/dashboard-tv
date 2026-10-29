@@ -444,9 +444,9 @@
             <span class="rotator-divider">|</span>
             <span class="rotator-data-label">Dados:</span>
             <span class="rotator-data-time" id="tv-data-refresh-time">10:00</span>
-            <button type="button" class="rotator-toggle-btn" id="tv-rotator-toggle-btn" title="Pausar / Retomar Rotação">⏸</button>
-            <button type="button" class="rotator-test-btn" id="tv-rotator-test-btn" title="Testar Alerta de Oscilação (Simula Subida e Caixa Registradora)" onclick="window.simularOscilacaoGlobal('cima', 'distribuicao'); event.stopPropagation();">⚡ Alerta</button>
-        `;
+            <button type="button" class="rotator-toggle-btn" id="tv-rotator-toggle-btn" title="Pausar / Retomar Rotação">⏸️</button>
+            <button type="button" class="rotator-vanhalen-btn" id="tv-rotator-vanhalen-btn" title="Tocar Van Halen - Jump (A tela só muda após o fim da música)" onclick="window.tocarVanHalenGlobal(); event.stopPropagation();">🎸 Van Halen</button>
+            <button type="button" class="rotator-test-btn" id="tv-rotator-test-btn" title="Testar Alerta de Oscilação (Simula Subida e Caixa Registradora)" onclick="window.simularOscilacaoGlobal('cima', 'distribuicao'); event.stopPropagation();">⚡ Alerta</button>`;
 
         pill.addEventListener('click', togglePause);
 
@@ -470,10 +470,21 @@
 
     // Ciclo de segundo a segundo
     function tick() {
+        // Bloqueio de rotação: se qualquer música ou áudio de celebração estiver tocando, a tela JAMAIS muda!
+        if (window.isMusicaVanHalenTocando && window.isMusicaVanHalenTocando()) {
+            updateCountdownUI();
+            return;
+        }
+
         // 1. Contador de Rotação (2.5 min)
         if (!isPaused) {
             timeLeft--;
             if (timeLeft <= 0) {
+                if (window.isMusicaVanHalenTocando && window.isMusicaVanHalenTocando()) {
+                    timeLeft = 1; // Mantém segurando enquanto toca
+                    updateCountdownUI();
+                    return;
+                }
                 timeLeft = 0;
                 updateCountdownUI();
                 goToNextTab();
@@ -572,6 +583,37 @@
                 background: rgba(203, 151, 39, 0.4);
                 border-color: var(--mq-gold);
             }
+            .rotator-vanhalen-btn {
+                background: linear-gradient(135deg, rgba(239, 68, 68, 0.4), rgba(220, 38, 38, 0.2));
+                border: 1px solid #ef4444;
+                color: #fca5a5;
+                border-radius: 4px;
+                padding: 1px 8px;
+                font-size: 0.70rem;
+                font-weight: 800;
+                cursor: pointer;
+                transition: all 0.2s;
+                font-family: Montserrat, sans-serif;
+                display: inline-flex;
+                align-items: center;
+                gap: 3px;
+            }
+            .rotator-vanhalen-btn:hover {
+                background: #ef4444;
+                color: #ffffff;
+                box-shadow: 0 0 12px rgba(239, 68, 68, 0.7);
+            }
+            .rotator-vanhalen-btn.playing {
+                background: #ef4444 !important;
+                color: #ffffff !important;
+                border-color: #fca5a5 !important;
+                box-shadow: 0 0 15px rgba(239, 68, 68, 0.9);
+                animation: vanHalenPulsing 1s infinite alternate;
+            }
+            @keyframes vanHalenPulsing {
+                from { transform: scale(1); filter: brightness(1); }
+                to { transform: scale(1.06); filter: brightness(1.25); }
+            }
             .rotator-test-btn {
                 background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.15));
                 border: 1px solid #10b981;
@@ -610,6 +652,82 @@
     }
 
     // Controle global de pausa para áudio/música de meta
+
+    // ========================================================
+    // Tocar Van Halen e Segurar a Tela ate Acabar
+    // ========================================================
+    let _vanHalenAudioObj = null;
+
+    window.isMusicaVanHalenTocando = function () {
+        if (_vanHalenAudioObj && !_vanHalenAudioObj.paused && !_vanHalenAudioObj.ended && _vanHalenAudioObj.currentTime > 0) {
+            return true;
+        }
+        const audioEl = document.getElementById('music-sound') || document.getElementById('victory-sound');
+        if (audioEl && !audioEl.paused && !audioEl.ended && audioEl.currentTime > 0) {
+            return true;
+        }
+        return false;
+    };
+
+    window.tocarVanHalenGlobal = function () {
+        let audioEl = document.getElementById('music-sound') || document.getElementById('victory-sound');
+        if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'music-sound';
+            audioEl.src = '/static/audio/van_halen_jump.mp3';
+            audioEl.preload = 'auto';
+            document.body.appendChild(audioEl);
+        }
+        _vanHalenAudioObj = audioEl;
+
+        const btnVanHalen = document.getElementById('tv-rotator-vanhalen-btn');
+
+        // Se ja estiver tocando, pausa
+        if (!audioEl.paused && audioEl.currentTime > 0) {
+            audioEl.pause();
+            audioEl.currentTime = 0;
+            if (btnVanHalen) {
+                btnVanHalen.classList.remove('playing');
+                btnVanHalen.innerHTML = '🎸 Van Halen';
+            }
+            window.tvRotator.retomarAposAudio();
+            mostrarToastTV('⏸️ Musica interrompida. Rotacao restaurada.', '#f59e0b');
+            return;
+        }
+
+        // Toca a musica e PAUSA a rotacao da TV
+        window.tvRotator.pausarParaAudio('Van Halen - Jump');
+        if (btnVanHalen) {
+            btnVanHalen.classList.add('playing');
+            btnVanHalen.innerHTML = '🔊 Tocando Jump...';
+        }
+
+        mostrarToastTV('🎸 <strong>Van Halen - Jump</strong> tocando! A tela so mudara apos o termino da musica.', '#ef4444');
+
+        audioEl.currentTime = 0;
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('[VAN HALEN] Reproducao iniciada com sucesso. Rotacao travada ate o termino.');
+            }).catch(err => {
+                console.warn('[VAN HALEN] Reproducao requer interacao ou falhou:', err);
+                mostrarToastTV('⚠️ Clique no botao novamente para liberar o audio no navegador!', '#f59e0b');
+            });
+        }
+
+        // Evento QUANDO A MUSICA ACABAR:
+        audioEl.onended = function () {
+            console.log('[VAN HALEN] Musica terminada! Liberando rotacao da TV...');
+            if (btnVanHalen) {
+                btnVanHalen.classList.remove('playing');
+                btnVanHalen.innerHTML = '🎸 Van Halen';
+            }
+            mostrarToastTV('🏁 Fim da musica! A tela continuara a rotacao normalmente.', '#10b981');
+            window.tvRotator.retomarAposAudio();
+            goToNextTab();
+        };
+    };
+
     window.tvRotator = {
         pausarParaAudio: function (motivo = 'Música de Meta') {
             console.log(`[TV ROTATOR] ⏸️ Rotação pausada temporariamente para: ${motivo}`);

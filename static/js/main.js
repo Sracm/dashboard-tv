@@ -39,26 +39,57 @@ function navigateTab(path) {
 window.addEventListener('beforeunload', () => pararTodosAudios());
 window.addEventListener('pagehide', () => pararTodosAudios());
 
-// Controle para tocar o áudio da meta: Toca SOMENTE UMA VEZ quando a meta for realmente atingida.
-// Persistido em localStorage por canal/mês/ano para que NUNCA repita ao abrir o dashboard nos dias seguintes.
-function jaTocouMeta(chave, mes, ano) {
+// Sistema de Marcos / Supermetas:
+// Empresa: 100% e 105% (toca Van Halen novamente ao bater 105%)
+// Distribuição: 100% e 170% (toca Black Sabbath novamente ao bater 170%)
+// Demais canais: 100% (padrão)
+const MARCOS_METAS = {
+    'empresa': [100, 105],
+    'distribuicao': [100, 170]
+};
+
+function obterMarcosCanal(chave) {
+    return MARCOS_METAS[chave] || [100];
+}
+
+function jaTocouMarco(chave, marco, mes, ano) {
     try {
-        return localStorage.getItem(`meta_som_tocada_${chave}_${mes}_${ano}`) === 'true';
+        const k = `meta_marco_tocado_${chave}_${marco}_${mes}_${ano}`;
+        return localStorage.getItem(k) === 'true';
     } catch (e) {
         return false;
     }
 }
 
-function marcarMetaComoTocada(chave, mes, ano) {
+function marcarMarcoComoTocado(chave, marco, mes, ano) {
     try {
-        localStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}`, 'true');
+        const k = `meta_marco_tocado_${chave}_${marco}_${mes}_${ano}`;
+        localStorage.setItem(k, 'true');
+        if (marco === 100) {
+            localStorage.setItem(`meta_som_tocada_${chave}_${mes}_${ano}`, 'true');
+        }
     } catch (e) {}
 }
 
-function resetarMetaTocada(chave, mes, ano) {
+function resetarMarcoTocado(chave, marco, mes, ano) {
     try {
-        localStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}`);
+        localStorage.removeItem(`meta_marco_tocado_${chave}_${marco}_${mes}_${ano}`);
+        if (marco === 100) {
+            localStorage.removeItem(`meta_som_tocada_${chave}_${mes}_${ano}`);
+        }
     } catch (e) {}
+}
+
+function jaTocouMeta(chave, mes, ano) {
+    return jaTocouMarco(chave, 100, mes, ano);
+}
+
+function marcarMetaComoTocada(chave, mes, ano) {
+    marcarMarcoComoTocado(chave, 100, mes, ano);
+}
+
+function resetarMetaTocada(chave, mes, ano) {
+    resetarMarcoTocado(chave, 100, mes, ano);
 }
 
 function resetarTodasMetasTocadasDoMes(mes, ano) {
@@ -67,8 +98,26 @@ function resetarTodasMetasTocadasDoMes(mes, ano) {
         chaves.forEach(k => {
             localStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}`);
             sessionStorage.removeItem(`meta_som_tocada_${k}_${mes}_${ano}`);
+            const marcos = obterMarcosCanal(k);
+            marcos.forEach(m => {
+                localStorage.removeItem(`meta_marco_tocado_${k}_${m}_${mes}_${ano}`);
+                sessionStorage.removeItem(`meta_marco_tocado_${k}_${m}_${mes}_${ano}`);
+            });
         });
     } catch (e) {}
+}
+
+function formatarTextoBadgeObjetivo(chave, percent, isEmpresa) {
+    const p = Number(percent) || 0;
+    if (chave === 'empresa' || isEmpresa) {
+        if (p >= 105) return 'OBJETIVO ALCANÇADO — 105% SUPERADO!';
+        return 'OBJETIVO ALCANÇADO — META SUPERADA!';
+    }
+    if (chave === 'distribuicao') {
+        if (p >= 170) return 'OBJETIVO ALCANÇADO — 170% SUPERADO!';
+        return 'OBJETIVO ALCANÇADO!!!';
+    }
+    return 'OBJETIVO ALCANÇADO!!!';
 }
 
 // Função para formatar as opções do Gauge
@@ -279,9 +328,7 @@ function renderCharts(data, mes, ano, contexto) {
             
             const badgeObjetivo = document.createElement('div');
             badgeObjetivo.className = 'badge-objetivo-alcancado';
-            badgeObjetivo.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
-                ? 'OBJETIVO ALCANÇADO — META SUPERADA!'
-                : 'OBJETIVO ALCANÇADO!!!';
+            badgeObjetivo.innerHTML = formatarTextoBadgeObjetivo(chave, equipe.percent, equipe.name.toUpperCase() === 'EMPRESA');
             
             const chartDiv = document.createElement('div');
             chartDiv.className = 'gauge-chart';
@@ -310,9 +357,7 @@ function renderCharts(data, mes, ano, contexto) {
         if (!badgeEl) {
             badgeEl = document.createElement('div');
             badgeEl.className = 'badge-objetivo-alcancado';
-            badgeEl.innerHTML = equipe.name.toUpperCase() === 'EMPRESA'
-                ? 'OBJETIVO ALCANÇADO — META SUPERADA!'
-                : 'OBJETIVO ALCANÇADO!!!';
+            badgeEl.innerHTML = formatarTextoBadgeObjetivo(chave, equipe.percent, equipe.name.toUpperCase() === 'EMPRESA');
             const titleEl = cardElement.querySelector('.gauge-title');
             if (titleEl && titleEl.nextSibling) {
                 cardElement.insertBefore(badgeEl, titleEl.nextSibling);
@@ -348,14 +393,18 @@ function renderCharts(data, mes, ano, contexto) {
         data.forEach(equipe => {
             const chave = obterChaveCanal(equipe.name);
             if (chave) {
-                ultimosPercentuaisCanais[chave] = Number(equipe.percent) || 0;
-                if (Number(equipe.percent) >= 100) {
-                    marcarMetaComoTocada(chave, mes, ano);
-                }
+                const p = Number(equipe.percent) || 0;
+                ultimosPercentuaisCanais[chave] = p;
+                const marcos = obterMarcosCanal(chave);
+                marcos.forEach(marco => {
+                    if (p >= marco) {
+                        marcarMarcoComoTocado(chave, marco, mes, ano);
+                    }
+                });
             }
         });
         isFirstDataLoad = false;
-        console.log('[TV Áudio Metas] Carga inicial: baseline memorizado. Nenhuma música tocada na abertura.');
+        console.log('[TV Áudio Metas] Carga inicial: baseline e marcos memorizados.');
     } else {
         const canaisRecemBatidos = [];
 
@@ -364,22 +413,35 @@ function renderCharts(data, mes, ano, contexto) {
             if (chave) {
                 const pAnt = ultimosPercentuaisCanais[chave];
                 const pAtual = Number(equipe.percent) || 0;
+                const marcos = obterMarcosCanal(chave);
 
-                // Atingiu a meta AGORA se antes estava < 100% e agora está >= 100%, e ainda não tocou neste mês
-                if (pAnt !== undefined && pAnt < 100 && pAtual >= 100 && !jaTocouMeta(chave, mes, ano)) {
-                    console.log(`[TV Áudio Metas] 🎯 META ATINGIDA AGORA: ${equipe.name} (${pAnt.toFixed(1)}% -> ${pAtual.toFixed(1)}%)!`);
-                    canaisRecemBatidos.push({ chave, percent: pAtual, name: equipe.name });
+                if (pAnt !== undefined) {
+                    marcos.forEach(marco => {
+                        // Cruza o marco agora (estava abaixo do marco e agora atingiu ou superou >= marco)
+                        if (pAnt < marco && pAtual >= marco && !jaTocouMarco(chave, marco, mes, ano)) {
+                            console.log(`[TV Áudio Metas] 🎉 MARCO ${marco}% ATINGIDO AGORA: ${equipe.name} (${pAnt.toFixed(1)}% -> ${pAtual.toFixed(1)}%)!`);
+                            canaisRecemBatidos.push({ chave, marco, percent: pAtual, name: equipe.name });
+                            marcarMarcoComoTocado(chave, marco, mes, ano);
+                        }
+                    });
                 }
 
                 ultimosPercentuaisCanais[chave] = pAtual;
             }
         });
 
-        canaisRecemBatidos.sort((a, b) => b.percent - a.percent);
+        canaisRecemBatidos.sort((a, b) => {
+            // REGRA MQ: Se Empresa e Canal atingiram meta, o Canal toca PRIMEIRO e a Empresa toca por ÚLTIMO
+            if (a.chave === 'empresa' && b.chave !== 'empresa') return 1;
+            if (b.chave === 'empresa' && a.chave !== 'empresa') return -1;
+            return b.percent - a.percent;
+        });
 
         canaisRecemBatidos.forEach(item => {
+            const labelMarco = item.marco > 100 ? ` (Supermeta ${item.marco}%)` : '';
+            console.log(`[TV Áudio Metas] 🎉 Enfileirando música para ${item.name}${labelMarco}`);
+            mostrarStatusAudio(`🎉 ${item.name} bateu ${item.marco}% de Meta! Tocando comemoração...`, '#28a745', 'rgba(40, 167, 69, 0.25)');
             enfileirarAudio(item.chave);
-            marcarMetaComoTocada(item.chave, mes, ano);
         });
     }
 }
@@ -836,7 +898,18 @@ function enfileirarAudio(tipo) {
     // Evita duplicar se já estiver na fila
     if (audioQueue.includes(tipo)) return;
 
-    audioQueue.push(tipo);
+    // REGRA DE OURO MQ: Canal que atingiu meta toca primeiro.
+    // Se a Empresa também atingiu, a música da Empresa sempre toca por ÚLTIMO na fila.
+    if (tipo === 'empresa') {
+        audioQueue.push(tipo);
+    } else {
+        const empIdx = audioQueue.indexOf('empresa');
+        if (empIdx !== -1) {
+            audioQueue.splice(empIdx, 0, tipo);
+        } else {
+            audioQueue.push(tipo);
+        }
+    }
     if (!audioQueueRunning) {
         totalMusicasNaFila = audioQueue.length;
         musicaAtualIndex = 0;
@@ -957,7 +1030,7 @@ function processarFilaAudios() {
             const proxNome = proxConfig ? proxConfig.nome.split('(')[0].trim() : proximoCanal;
             
             const isCurto = (config.id === 'audio-caixa' || config.id === 'audio-policia');
-            let segundosRestantes = isCurto ? 0 : 20;
+            let segundosRestantes = isCurto ? 0 : 10;
             console.log(`[Áudio Fila] Finalizado: ${config.nome}. Aguardando ${segundosRestantes} segundos de intervalo antes da próxima música. Restantes na fila: ${audioQueue.length}`);
             
             mostrarStatusAudio(`⏳ Intervalo: <strong>${segundosRestantes}s</strong> (Próxima: ${proxNome})`, '#ffc107', 'rgba(255, 193, 7, 0.2)');
@@ -975,7 +1048,7 @@ function processarFilaAudios() {
                 }, 1000);
             }
             
-            const msEspera = isCurto ? 500 : 20000;
+            const msEspera = isCurto ? 500 : 10000;
             currentAudioTimeout = setTimeout(() => {
                 currentAudioTimeout = null;
                 if (intervalCountdownTimer) {
@@ -1266,3 +1339,39 @@ window.addEventListener('resize', function() {
         chart.resize();
     });
 });
+
+
+// Simulação de Supermetas para teste rápido na TV
+window.simularSupermetaTV = function(canal, marco) {
+    pararTodosAudios();
+    desbloquearAudiosNavegador();
+    const chave = canal.toLowerCase();
+    const nomeCanal = (chave === 'empresa') ? 'Empresa' : 'Distribuição';
+    console.log(`[TESTE TV] Simulando Supermeta de ${marco}% para ${nomeCanal}...`);
+    
+    const cardElement = document.querySelector(`[data-canal="${chave}"]`) || document.getElementById(`card-${chave}`);
+    if (cardElement) {
+        cardElement.classList.add('meta-batida');
+        const badgeEl = cardElement.querySelector('.badge-objetivo-alcancado');
+        if (badgeEl) {
+            badgeEl.innerHTML = formatarTextoBadgeObjetivo(chave, marco, chave === 'empresa');
+        }
+    }
+    
+    mostrarStatusAudio(`🎉 [TESTE SUPERMETA] ${nomeCanal} atingiu ${marco}% de Meta!`, '#10b981', 'rgba(16, 185, 129, 0.25)');
+    enfileirarAudio(chave);
+};
+
+
+// Simulação de teste da regra: Canal toca primeiro até o fim -> 10s de intervalo -> Empresa toca
+window.simularCanalEEmpresaTV = function(canal = 'distribuicao') {
+    pararTodosAudios();
+    desbloquearAudiosNavegador();
+    const chaveCanal = canal.toLowerCase();
+    const nomeCanal = (chaveCanal === 'distribuicao') ? 'Distribuição' : 'Canal';
+    console.log(`[TESTE TV] Simulando ${nomeCanal} + Empresa atingindo metas...`);
+    mostrarStatusAudio(`🎉 [TESTE] ${nomeCanal} e Empresa bateram meta! Tocando ${nomeCanal} primeiro e Empresa após 10s.`, '#10b981', 'rgba(16, 185, 129, 0.25)');
+    
+    enfileirarAudio(chaveCanal);
+    enfileirarAudio('empresa');
+};

@@ -1,0 +1,312 @@
+{
+  "2025": {
+    "2T": {
+      "trimestre_num": 2,
+      "label": "2º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 99.99,
+          "is_plus_100": false,
+          "percentual_display": "99.99%",
+          "orcado": -4028773,
+          "realizado": -4028291
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 99.43,
+          "is_plus_100": false,
+          "percentual_display": "99.43%",
+          "orcado": -12011795,
+          "realizado": 14432650
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 99.71,
+          "is_plus_100": false,
+          "percentual_display": "99.71%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 112.56,
+          "is_plus_100": false,
+          "percentual_display": "112.56%",
+          "orcado": 16336168,
+          "realizado": 18388177
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": 916505,
+          "realizado": 2179842
+        }
+      ]
+    },
+    "3T": {
+      "trimestre_num": 3,
+      "label": "3º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 92.94,
+          "is_plus_100": false,
+          "percentual_display": "92.94%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 90.45,
+          "is_plus_100": false,
+          "percentual_display": "90.45%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 91.7,
+          "is_plus_100": false,
+          "percentual_display": "91.70%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 93.3,
+          "is_plus_100": false,
+          "percentual_display": "93.30%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": null,
+          "realizado": null
+        }
+      ]
+    },
+    "4T": {
+      "trimestre_num": 4,
+      "label": "4º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 103.33,
+          "is_plus_100": false,
+          "percentual_display": "103.33%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 92.9,
+          "is_plus_100": false,
+          "percentual_display": "92.90%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 98.11,
+          "is_plus_100": false,
+          "percentual_display": "98.11%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 107.55,
+          "is_plus_100": false,
+          "percentual_display": "107.55%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": null,
+          "realizado": null
+        }
+      ]
+    }
+  },
+  "2026": {
+    "1T": {
+      "trimestre_num": 1,
+      "label": "1º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 99.97,
+          "is_plus_100": false,
+          "percentual_display": "99.97%",
+          "orcado": 3961813,
+          "realizado": 3960671
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 86.94,
+          "is_plus_100": false,
+          "percentual_display": "86.94%",
+          "orcado": 11746493,
+          "realizado": 13360549
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 93.46,
+          "is_plus_100": false,
+          "percentual_display": "93.46%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 122.85,
+          "is_plus_100": false,
+          "percentual_display": "122.85%",
+          "orcado": 16336168,
+          "realizado": 18388177
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": 916505,
+          "realizado": 2179842
+        }
+      ]
+    },
+    "2T": {
+      "trimestre_num": 2,
+      "label": "2º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 91.61,
+          "is_plus_100": false,
+          "percentual_display": "91.61%",
+          "orcado": -4535142,
+          "realizado": 4154867
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 86.6,
+          "is_plus_100": false,
+          "percentual_display": "86.60%",
+          "orcado": 14927685,
+          "realizado": 15835701
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 89.11,
+          "is_plus_100": false,
+          "percentual_display": "89.11%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 113.87,
+          "is_plus_100": false,
+          "percentual_display": "113.87%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": null,
+          "realizado": null
+        }
+      ]
+    },
+    "3T": {
+      "trimestre_num": 3,
+      "label": "3º TRIMESTRE",
+      "itens": [
+        {
+          "sequencia": 1,
+          "tipo": "DESPESAS FIXAS",
+          "percentual": 86.42,
+          "is_plus_100": false,
+          "percentual_display": "86.42%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 2,
+          "tipo": "DESPESAS VARIAVEIS",
+          "percentual": 86.96,
+          "is_plus_100": false,
+          "percentual_display": "86.96%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 3,
+          "tipo": "DESPESAS TOTAIS",
+          "percentual": 86.69,
+          "is_plus_100": false,
+          "percentual_display": "86.69%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 4,
+          "tipo": "FATURAMENTO",
+          "percentual": 102.52,
+          "is_plus_100": false,
+          "percentual_display": "102.52%",
+          "orcado": null,
+          "realizado": null
+        },
+        {
+          "sequencia": 5,
+          "tipo": "LUCRO LIQUIDO",
+          "percentual": 100.0,
+          "is_plus_100": true,
+          "percentual_display": "+100%",
+          "orcado": null,
+          "realizado": null
+        }
+      ]
+    }
+  }
+}

@@ -494,77 +494,69 @@ body {
     height: 100%;
 }
 
-/* Animação para quando a meta for batida (>= 100%): Piscar Verde e Azul Alternado */
+/* Animação para quando a meta for batida (>= 100%): Verde Esmeralda Nobre e Suave (sem cansar a vista) */
 @keyframes blink-green-blue {
     0%, 100% {
-        border-color: #00E676;
-        box-shadow: 0 0 26px rgba(0, 230, 118, 0.85), inset 0 0 16px rgba(0, 230, 118, 0.35);
-        background: linear-gradient(180deg, rgba(0, 230, 118, 0.14) 0%, rgba(13, 16, 23, 0.95) 100%);
+        border-color: #10B981;
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.45), inset 0 0 12px rgba(16, 185, 129, 0.15);
+        background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(13, 16, 23, 0.98) 100%);
     }
     50% {
-        border-color: #00B0FF;
-        box-shadow: 0 0 26px rgba(0, 176, 255, 0.85), inset 0 0 16px rgba(0, 176, 255, 0.35);
-        background: linear-gradient(180deg, rgba(0, 176, 255, 0.14) 0%, rgba(13, 16, 23, 0.95) 100%);
+        border-color: #34D399;
+        box-shadow: 0 0 32px rgba(16, 185, 129, 0.75), inset 0 0 18px rgba(16, 185, 129, 0.25);
+        background: linear-gradient(180deg, rgba(16, 185, 129, 0.15) 0%, rgba(13, 16, 23, 0.98) 100%);
     }
 }
 
 @keyframes badge-glow-pulse {
     0%, 100% {
-        background: linear-gradient(90deg, #00B0FF 0%, #00E676 100%);
-        box-shadow: 0 0 16px rgba(0, 230, 118, 0.85), 0 0 28px rgba(0, 176, 255, 0.6);
-        border-color: rgba(255, 255, 255, 0.55);
-        color: #FFFFFF;
-        transform: scale(1);
+        border-color: #34D399;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7), 0 0 14px rgba(16, 185, 129, 0.45);
     }
     50% {
-        background: linear-gradient(90deg, #00E5FF 0%, #00C853 100%);
-        box-shadow: 0 0 24px rgba(0, 230, 118, 0.95), 0 0 38px rgba(0, 176, 255, 0.75);
-        border-color: rgba(255, 255, 255, 0.85);
-        color: #FFFFFF;
-        transform: scale(1.03);
+        border-color: #6EE7B7;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 26px rgba(16, 185, 129, 0.85);
     }
 }
 
 @keyframes text-shine-celebrate {
-    0% {
-        filter: drop-shadow(0 0 6px #00E676);
-        color: #E5B244;
+    0%, 100% {
+        color: #FBBF24;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 12px rgba(251, 191, 36, 0.5);
     }
     50% {
-        filter: drop-shadow(0 0 8px #00B0FF);
-        color: #00B0FF;
-    }
-    100% {
-        filter: drop-shadow(0 0 6px #00E676);
-        color: #E5B244;
+        color: #34D399;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9), 0 0 14px rgba(52, 211, 153, 0.6);
     }
 }
 
 .gauge-card.meta-batida {
-    animation: blink-green-blue 1.2s infinite ease-in-out !important;
+    animation: blink-green-blue 2.5s infinite ease-in-out !important;
     border-width: 2px !important;
 }
 
-/* Badge / Faixa Objetivo Alcançado */
+/* Badge / Faixa Objetivo Alcançado - Alto Contraste e Legibilidade Perfeita na TV */
 .badge-objetivo-alcancado {
     display: none;
     align-items: center;
     justify-content: center;
-    padding: 5px 22px;
+    padding: 3px 16px;
     border-radius: 999px;
     font-family: 'Montserrat', sans-serif;
     font-weight: 900;
-    font-size: 0.95rem;
-    letter-spacing: 1.1px;
+    font-size: 0.76rem;
+    letter-spacing: 1.0px;
     text-transform: uppercase;
-    color: #FFFFFF;
-    border: 1px solid rgba(255, 255, 255, 0.55);
+    color: #FFFFFF !important;
+    background: linear-gradient(90deg, #047857 0%, #059669 50%, #047857 100%) !important;
+    border: 2px solid #34D399 !important;
     z-index: 15;
-    animation: badge-glow-pulse 1.2s infinite ease-in-out;
-    margin: 3px auto 4px auto;
+    animation: badge-glow-pulse 2.5s infinite ease-in-out;
+    margin: 4px auto 5px auto;
     user-select: none;
     white-space: nowrap;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.85) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.7), 0 0 14px rgba(16, 185, 129, 0.45);
 }
 
 .gauge-card.meta-batida .badge-objetivo-alcancado,
@@ -574,14 +566,15 @@ body {
 
 /* Na Empresa (card grande em destaque) */
 .gauge-card.empresa-card .badge-objetivo-alcancado {
-    font-size: 1.25rem;
-    padding: 7px 32px;
-    letter-spacing: 1.5px;
-    box-shadow: 0 0 28px rgba(0, 230, 118, 0.95), 0 0 45px rgba(0, 176, 255, 0.75);
+    font-size: 0.92rem;
+    padding: 5px 24px;
+    letter-spacing: 1.2px;
+    border-width: 2px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8), 0 0 28px rgba(16, 185, 129, 0.7);
 }
 
 .gauge-card.meta-batida .gauge-title {
-    animation: text-shine-celebrate 1.2s infinite ease-in-out;
+    animation: text-shine-celebrate 2.5s infinite ease-in-out;
 }
 
 

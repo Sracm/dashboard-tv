@@ -119,7 +119,7 @@
 }
 
 .canal-card.meta-batida {
-    animation: blink-green-blue 1.2s infinite ease-in-out !important;
+    animation: blink-green-blue 2.5s infinite ease-in-out !important;
     border-width: 2px !important;
 }
 

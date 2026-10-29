@@ -1,11 +1,18 @@
 // ============================================================
-// trimestre.js — Aba TRIMESTRE
-// Acompanhamento de Performance Trimestral e Semestral
+// trimestre.js - Painel Financeiro Trimestral (Layout Canais TV)
+// Despesas Fixas, Variáveis, Totais, Faturamento e Lucro Líquido
 // ============================================================
 
-const NUM_CARDS = 5;
-let trimestreCharts = [];
+let chartInstances = {};
 let nextUpdateSeconds = 600;
+let currentTrimestre = '3T'; // Default: 3º TRIM
+
+const TRI_LABELS = {
+    '1T': '1º TRI (JAN-MAR)',
+    '2T': '2º TRI (ABR-JUN)',
+    '3T': '3º TRI (JUL-SET)',
+    '4T': '4º TRI (OUT-DEZ)'
+};
 
 function navigateTab(path) {
     pararTodosAudios();
@@ -32,7 +39,7 @@ function updateClock() {
         nextUpdateSeconds = 600;
         fetchData(true);
     }
-    
+
     const nextUpdateEl = document.getElementById('next-update');
     if (nextUpdateEl) {
         const min = Math.floor(nextUpdateSeconds / 60);
@@ -41,11 +48,23 @@ function updateClock() {
     }
 }
 
-function getTrimestreGaugeOption(percent, diff) {
-    const isSuccess = percent >= 100;
+/**
+ * Cria o Gauge Radial idêntico aos Canais de Vendas
+ */
+function getCanalGaugeOption(percent, displayStr, diffVal, isLarge) {
+    const diff = (diffVal !== undefined && diffVal !== null) ? Number(diffVal) : (percent - 100);
     const sign = diff >= 0 ? '+' : '';
     const diffText = sign + diff.toFixed(1) + '%';
     const diffColor = diff >= 0 ? '#00d26a' : '#ff2424';
+
+    const radius = isLarge ? '120%' : '125%';
+    const center = isLarge ? ['50%', '70%'] : ['50%', '65%'];
+    const lineWidth = isLarge ? 24 : 18;
+    const pointerWidth = isLarge ? 8 : 7;
+    const titleSize = isLarge ? 26 : 22;
+    const detailSize = isLarge ? 16 : 14;
+
+    const mainDisplay = displayStr || (percent.toFixed(1) + '%');
 
     return {
         series: [
@@ -56,11 +75,11 @@ function getTrimestreGaugeOption(percent, diff) {
                 min: 0,
                 max: 120,
                 splitNumber: 12,
-                radius: '118%',
-                center: ['50%', '67%'],
+                radius: radius,
+                center: center,
                 axisLine: {
                     lineStyle: {
-                        width: 22,
+                        width: lineWidth,
                         color: [
                             [80 / 120, '#ff2424'],
                             [100 / 120, '#ffd600'],
@@ -71,36 +90,36 @@ function getTrimestreGaugeOption(percent, diff) {
                 pointer: {
                     icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
                     length: '62%',
-                    width: 8,
+                    width: pointerWidth,
                     offsetCenter: [0, '-4%'],
-                    itemStyle: { 
+                    itemStyle: {
                         color: '#f5c518',
                         shadowColor: 'rgba(0,0,0,0.6)',
                         shadowBlur: 4
                     }
                 },
                 axisTick: {
-                    length: 6,
+                    length: isLarge ? 8 : 5,
                     lineStyle: { color: 'auto', width: 1.2 }
                 },
                 splitLine: {
-                    length: 12,
+                    length: isLarge ? 14 : 10,
                     lineStyle: { color: 'auto', width: 2 }
                 },
                 axisLabel: {
                     show: false
                 },
                 title: {
-                    offsetCenter: [0, '16%'],
-                    fontSize: 24,
+                    offsetCenter: [0, '15%'],
+                    fontSize: titleSize,
                     color: '#ffffff',
                     fontWeight: '800',
                     fontFamily: 'Montserrat'
                 },
                 detail: {
-                    fontSize: 16,
-                    offsetCenter: [0, '40%'],
-                    valueAnimation: true,
+                    fontSize: detailSize,
+                    offsetCenter: [0, '38%'],
+                    valueAnimation: false,
                     formatter: function () {
                         return diffText;
                     },
@@ -108,43 +127,125 @@ function getTrimestreGaugeOption(percent, diff) {
                     fontWeight: '700',
                     fontFamily: 'Montserrat'
                 },
-                data: [{ value: Math.min(Math.max(percent, 0), 120), name: percent.toFixed(1) + '%' }]
+                data: [{
+                    value: Math.min(Math.max(percent, 0), 120),
+                    name: mainDisplay
+                }]
             }
         ]
     };
 }
 
-function initCharts() {
-    for (let i = 0; i < NUM_CARDS; i++) {
-        const el = document.getElementById(`gauge-${i}`);
-        if (el) {
-            trimestreCharts[i] = echarts.init(el);
+/**
+ * Renderiza os badges de trimestres (T1, T2, T3, T4) na base do card
+ */
+function renderQuarterBadges(reguaObj, activeTri) {
+    const quarters = ['1T', '2T', '3T', '4T'];
+    return quarters.map(tKey => {
+        const item = reguaObj ? reguaObj[tKey] : null;
+        let pct = item ? Number(item.percent) : null;
+        let valStr = '—';
+        let cls = 'val-neutral';
+
+        if (pct !== null && !isNaN(pct)) {
+            valStr = item.display || (pct.toFixed(1) + '%');
+            if (pct >= 100) cls = 'val-success';
+            else if (pct >= 80) cls = 'val-warning';
+            else cls = 'val-danger';
         }
-    }
+
+        const isSelected = (activeTri === tKey);
+        const selClass = isSelected ? 'selected' : '';
+
+        return `
+            <div class="tri-badge-btn ${selClass}" onclick="setTrimestreView('${tKey}')" title="Clique para exibir o ${TRI_LABELS[tKey]} (${valStr})">
+                <span>${tKey}</span>
+                <span class="tri-badge-val ${cls}">${valStr}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderCards(cardsList, selectedTri) {
+    const container = document.getElementById('trimestre-cards-container');
+    if (!container) return;
+
+    Object.values(chartInstances).forEach(c => c && c.dispose());
+    chartInstances = {};
+    container.innerHTML = '';
+
+    cardsList.forEach((item, idx) => {
+        const isBatida = (Number(item.percent) >= 100);
+        const card = document.createElement('div');
+        card.className = 'canal-card';
+        if (isBatida) {
+            card.classList.add('meta-batida');
+        }
+        card.id = `card-trimestre-${idx}`;
+
+        const isLarge = (idx === 0 || idx === 1); // 1ª linha mais larga
+
+        card.innerHTML = `
+            <div class="canal-title">${item.title}</div>
+            <div class="badge-objetivo-alcancado">OBJETIVO ALCANÇADO!!!</div>
+            <div class="canal-chart" id="chart-tri-${idx}"></div>
+            <div class="canal-tri-footer">
+                <div class="canal-tri-badges">
+                    ${renderQuarterBadges(item.regua, selectedTri)}
+                </div>
+            </div>
+        `;
+
+        container.appendChild(card);
+
+        const chartEl = document.getElementById(`chart-tri-${idx}`);
+        if (chartEl) {
+            const chart = echarts.init(chartEl);
+            chart.setOption(getCanalGaugeOption(item.percent, item.display, item.diff, isLarge));
+            chartInstances[idx] = chart;
+        }
+    });
+}
+
+function setTrimestreView(triKey) {
+    currentTrimestre = triKey;
+    document.querySelectorAll('#trimestres-pills-container .sub-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.id === `btn-tri-${triKey}`);
+    });
+    fetchData();
+}
+
+function trocarAno() {
+    fetchData();
 }
 
 async function fetchData(forceRefresh = false) {
-    const mes = document.getElementById('filter-month')?.value || (new Date().getMonth() + 1);
-    const ano = document.getElementById('filter-year').value;
-    
+    const ano = document.getElementById('filter-year')?.value || '2026';
+
     try {
-        let url = `/api/trimestre_tv?mes=${mes}&ano=${ano}`;
+        let url = `/api/trimestre_tv?ano=${ano}&trimestre=${currentTrimestre}`;
         if (forceRefresh) {
             url += `&refresh=1&_t=${Date.now()}`;
         }
         const response = await fetch(url);
         const json = await response.json();
-        
+
         if (json.success && json.data) {
-            json.data.forEach((item, index) => {
-                const titleEl = document.getElementById(`title-${index}`);
-                if (titleEl && item.title) {
-                    titleEl.innerText = item.title;
+            if (json.trimestres_disponiveis && json.trimestres_disponiveis.length > 0) {
+                const pillsCont = document.getElementById('trimestres-pills-container');
+                if (pillsCont) {
+                    pillsCont.innerHTML = json.trimestres_disponiveis.map(t => {
+                        const labelFull = TRI_LABELS[t.chave] || t.chave;
+                        return `
+                            <button class="sub-tab-btn ${t.ativo ? 'active' : ''}" id="btn-tri-${t.chave}" onclick="setTrimestreView('${t.chave}')">
+                                ${labelFull}
+                            </button>
+                        `;
+                    }).join('');
                 }
-                if (trimestreCharts[index]) {
-                    trimestreCharts[index].setOption(getTrimestreGaugeOption(item.percent, item.diff));
-                }
-            });
+            }
+
+            renderCards(json.data, json.trimestre_selecionado || currentTrimestre);
 
             const lastUpdateEl = document.getElementById('last-update');
             if (lastUpdateEl) {
@@ -161,82 +262,32 @@ function manualRefresh() {
     fetchData(true);
 }
 
-let sireneTimeout = null;
-let musicaTimeout = null;
-
 function pararTodosAudios() {
-    if (sireneTimeout) {
-        clearTimeout(sireneTimeout);
-        sireneTimeout = null;
-    }
-    if (musicaTimeout) {
-        clearTimeout(musicaTimeout);
-        musicaTimeout = null;
-    }
-    const audioSirene = document.getElementById('victory-sound');
     const audioMusica = document.getElementById('music-sound');
-    if (audioSirene) {
-        audioSirene.pause();
-        audioSirene.currentTime = 0;
-        audioSirene.onended = null;
-    }
     if (audioMusica) {
         audioMusica.pause();
         audioMusica.currentTime = 0;
     }
 }
 
-function testarAudio() {
-    tocarAudioMetaEmpresa();
-}
-
-function tocarAudioMetaEmpresa() {
-    pararTodosAudios();
-
-    const audioMusica = document.getElementById('music-sound');
-    if (audioMusica) {
-        audioMusica.currentTime = 0;
-
-        if (window.tvRotator && window.tvRotator.pausarParaAudio) {
-            window.tvRotator.pausarParaAudio('Meta Empresa (Van Halen - Jump)');
-        }
-
-        audioMusica.onended = function () {
-            console.log("[Trimestre] 🎵 Música completa finalizada.");
-            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
-                window.tvRotator.retomarAposAudio();
-            }
-        };
-
-        audioMusica.play().then(() => {
-            console.log("[Trimestre] 🎵 Tocando Van Halen - Jump na íntegra!");
-        }).catch(e => {
-            console.warn("Erro ao tocar música Trimestre:", e);
-            if (window.tvRotator && window.tvRotator.retomarAposAudio) {
-                window.tvRotator.retomarAposAudio();
-            }
-        });
-    }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Sincronizar parâmetros de URL
     const params = new URLSearchParams(window.location.search);
     const anoParam = params.get('ano');
-    
+    const triParam = params.get('trimestre') || params.get('tri');
+
     if (anoParam && document.getElementById('filter-year')) {
         document.getElementById('filter-year').value = anoParam;
-    } else if (document.getElementById('filter-year')) {
-        document.getElementById('filter-year').value = new Date().getFullYear();
+    }
+    if (triParam) {
+        currentTrimestre = triParam.toUpperCase();
     }
 
-    initCharts();
     fetchData();
 
     setInterval(updateClock, 1000);
     updateClock();
 
     window.addEventListener('resize', () => {
-        trimestreCharts.forEach(c => c && c.resize());
+        Object.values(chartInstances).forEach(c => c && c.resize());
     });
 });

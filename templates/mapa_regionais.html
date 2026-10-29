@@ -251,9 +251,16 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
-    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261015_V10"></script>
+    <script src="{{ url_for('static', filename='js/echarts.min.js') }}?v=5.5.0"></script>
+    <script>
+        if (typeof echarts === 'undefined') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"><\/script>');
+        }
+    </script>
+    <!-- GeoJSON do Brasil Pré-carregado Localmente (Zero Delay de Rede) -->
+    <script src="{{ url_for('static', filename='js/brazil_geo.js') }}?v=20261029"></script>
+    <script src="{{ url_for('static', filename='js/mapa_regionais.js') }}?v=20261029_V11"></script>
     <!-- Auto-Rotacao TV (Carrossel Continuo) -->
-    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=20261015_V10"></script>
+    <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=20261027_vh"></script>
 </body>
 </html>

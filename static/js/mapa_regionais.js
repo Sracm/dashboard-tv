@@ -100,8 +100,26 @@ function initClock() {
 function initChart() {
     const chartDom = document.getElementById('echarts-map-container');
     if (!chartDom) return;
+
+    if (typeof echarts === 'undefined') {
+        console.error('[MAPA BRASIL] Biblioteca ECharts ainda não carregada!');
+        setTimeout(initChart, 300);
+        return;
+    }
+
     myChart = echarts.init(chartDom, 'dark', { renderer: 'canvas' });
     
+    // Auto-registro se o GeoJSON já estiver disponível globalmente no window
+    if (window.BRAZIL_GEO_JSON && !isGeoJsonLoaded) {
+        try {
+            echarts.registerMap('brazil', window.BRAZIL_GEO_JSON);
+            isGeoJsonLoaded = true;
+            console.log('[MAPA BRASIL] GeoJSON auto-registrado com sucesso durante initChart()');
+        } catch (e) {
+            console.warn('[MAPA BRASIL] Erro ao registrar GeoJSON em initChart:', e);
+        }
+    }
+
     // Clique no mapa seleciona o estado
     myChart.on('click', function(params) {
         if (params.name) {
@@ -120,24 +138,98 @@ function initChart() {
         });
         ro.observe(chartDom);
     }
+
+    // Resizes garantidos para adaptação inicial em TVs e transições CSS de abas
+    [100, 300, 800, 1500, 3000].forEach(delay => {
+        setTimeout(() => { if (myChart) myChart.resize(); }, delay);
+    });
+
+    // Ao focar a janela ou mudar visibilidade na TV
+    window.addEventListener('focus', () => { if (myChart) myChart.resize(); });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && myChart) {
+            myChart.resize();
+            if (currentData && isGeoJsonLoaded) renderizarMapa(currentData);
+        }
+    });
 }
 
-// ── Carregamento do GeoJSON do Brasil ─────────────────────────────────────────
+// ── Carregamento do GeoJSON do Brasil (Multi-Camada Definitivo) ───────────────
 async function carregarGeoJson() {
     if (isGeoJsonLoaded) return true;
-    try {
-        const resp = await fetch('/static/js/brazil_geo.json');
-        const geoJson = await resp.json();
-        echarts.registerMap('brazil', geoJson);
-        isGeoJsonLoaded = true;
-        if (currentData) {
-            renderizarMapa(currentData);
+
+    // Camada 1: GeoJSON pré-carregado no objeto window via script local
+    if (window.BRAZIL_GEO_JSON && typeof echarts !== 'undefined') {
+        try {
+            echarts.registerMap('brazil', window.BRAZIL_GEO_JSON);
+            isGeoJsonLoaded = true;
+            console.log('[MAPA BRASIL] GeoJSON carregado com sucesso via script local (Camada 1).');
+            if (currentData) renderizarMapa(currentData);
+            return true;
+        } catch (err) {
+            console.warn('[MAPA BRASIL] Falha na Camada 1:', err);
         }
-        return true;
-    } catch (err) {
-        console.error('Erro ao carregar brazil_geo.json:', err);
-        return false;
     }
+
+    // Camada 2: Cache em LocalStorage (Persistência Offline no Navegador)
+    try {
+        const cached = localStorage.getItem('mq_brazil_geo_v1');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.features && parsed.features.length >= 27) {
+                if (typeof echarts !== 'undefined') {
+                    echarts.registerMap('brazil', parsed);
+                    isGeoJsonLoaded = true;
+                    window.BRAZIL_GEO_JSON = parsed;
+                    console.log('[MAPA BRASIL] GeoJSON carregado do LocalStorage (Camada 2).');
+                    if (currentData) renderizarMapa(currentData);
+                    return true;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[MAPA BRASIL] Falha na Camada 2 (LocalStorage):', e);
+    }
+
+    // Camada 3: Fetch assíncrono com retentativas automáticas
+    const candidateUrls = [
+        '/static/js/brazil_geo.json',
+        window.location.origin + '/static/js/brazil_geo.json'
+    ];
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        for (const url of candidateUrls) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 7000);
+                const resp = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (resp.ok) {
+                    const geoJson = await resp.json();
+                    if (geoJson && geoJson.features && geoJson.features.length >= 27) {
+                        if (typeof echarts !== 'undefined') {
+                            echarts.registerMap('brazil', geoJson);
+                            isGeoJsonLoaded = true;
+                            window.BRAZIL_GEO_JSON = geoJson;
+                            try {
+                                localStorage.setItem('mq_brazil_geo_v1', JSON.stringify(geoJson));
+                            } catch (_) {}
+                            console.log(`[MAPA BRASIL] GeoJSON carregado via fetch (Camada 3, tentativa ${attempt}).`);
+                            if (currentData) renderizarMapa(currentData);
+                            return true;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn(`[MAPA BRASIL] Erro ao buscar ${url} (tentativa ${attempt}):`, err.message);
+            }
+        }
+        await new Promise(r => setTimeout(r, 800));
+    }
+
+    console.error('[MAPA BRASIL] Todas as camadas de carregamento do GeoJSON falharam.');
+    return false;
 }
 
 // ── Carregamento de Dados da API ─────────────────────────────────────────────
@@ -225,7 +317,24 @@ const COORDENADAS_ESTADOS = {
 
 // ── Renderização do Mapa do Brasil ────────────────────────────────────────────
 function renderizarMapa(data) {
-    if (!myChart || !isGeoJsonLoaded) return;
+    if (!myChart) return;
+
+    if (!isGeoJsonLoaded) {
+        if (window.BRAZIL_GEO_JSON && typeof echarts !== 'undefined') {
+            try {
+                echarts.registerMap('brazil', window.BRAZIL_GEO_JSON);
+                isGeoJsonLoaded = true;
+            } catch (e) {}
+        }
+    }
+
+    if (!isGeoJsonLoaded) {
+        console.warn('[MAPA BRASIL] GeoJSON ainda não disponível ao renderizar. Solicitando carga...');
+        carregarGeoJson().then(ok => {
+            if (ok && currentData) renderizarMapa(currentData);
+        });
+        return;
+    }
 
     const ufsMap = data.ufs_map || {};
     const regionsConfig = [];
