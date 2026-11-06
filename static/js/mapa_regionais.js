@@ -624,24 +624,19 @@ function selecionarEstado(uf, autoScroll = false) {
             `).join('');
     }
 
-    // Destaca linha na tabela e expande categorias e produtos
+    // Regra: ao trocar de estado no lado esquerdo, a tabela à direita expande exatamente 1 nível no estado mostrado
+    expandedUfs.clear();
+    expandedCats.clear();
+    expandedUfs.add(uf);
+    renderizarTabelaHierarquia(currentData);
+
     if (autoScroll && uf !== 'EX') {
-        expandedUfs.add(uf);
-        if (estadoObj && estadoObj.categorias && estadoObj.categorias.length > 0) {
-            // Expande também a categoria líder da UF para expor seus produtos na tabela
-            expandedCats.add(`${uf}_${estadoObj.categorias[0].categoria}`);
-        }
-        renderizarTabelaHierarquia(currentData);
         setTimeout(() => {
             const targetRow = document.querySelector(`.row-uf[data-uf="${uf}"]`);
             if (targetRow) {
-                targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
-        }, 50);
-    } else {
-        document.querySelectorAll('.row-uf').forEach(row => {
-            row.classList.toggle('selected', row.getAttribute('data-uf') === uf);
-        });
+        }, 60);
     }
 
     // Atualiza mapa com destaque em evidência máxima
@@ -732,11 +727,10 @@ function toggleUfExpand(uf, event) {
     if (event) event.stopPropagation();
     if (expandedUfs.has(uf)) {
         expandedUfs.delete(uf);
+        renderizarTabelaHierarquia(currentData);
     } else {
-        expandedUfs.add(uf);
+        selecionarEstado(uf, false);
     }
-    selecionarEstado(uf, false);
-    renderizarTabelaHierarquia(currentData);
 }
 
 function toggleCatExpand(catKey, event) {
