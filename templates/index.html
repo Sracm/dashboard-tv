@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>Painel TV - Acompanhamento de Performance</title>
     
     <!-- Google Fonts: Montserrat (MQ Design System) -->
@@ -66,6 +66,7 @@
                         <option value="2025">2025</option>
                         <option value="2026">2026</option>
                     </select>
+                    <button id="btn-fullscreen-tv" onclick="toggleFullscreen()" class="btn-refresh" style="background: rgba(99, 102, 241, 0.25); border-color: #6366f1; color: #a5b4fc; font-weight: 700;" title="Modo Tela Cheia (F11 ou tecla F)">⛶ Tela Cheia</button>
                     <button id="btn-refresh" onclick="manualRefresh()" class="btn-refresh" title="Atualizar dados agora">🔄 Atualizar</button>
                     
                     <!-- Botões Rápidos de Teste de Alerta -->
@@ -150,6 +151,41 @@
     <script src="{{ url_for('static', filename='js/tv_rotator.js') }}?v=7"></script>
 
     <!-- MQIA (TypeSafe Jev + GPT-4o-mini via OpenRouter) -->
+
+    <script>
+    function toggleFullscreen() {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) docEl.requestFullscreen();
+            else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+            else if (docEl.msRequestFullscreen) docEl.msRequestFullscreen();
+        } else {
+            if (document.exitFullscreen) document.exitFullscreen();
+            else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            else if (document.msExitFullscreen) document.msExitFullscreen();
+        }
+    }
+
+    function updateFullscreenTV() {
+        const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+        const btn = document.getElementById('btn-fullscreen-tv');
+        if (btn) {
+            btn.innerHTML = isFS ? '🗗 Sair Tela Cheia' : '⛶ Tela Cheia';
+            btn.style.background = isFS ? 'rgba(16, 185, 129, 0.35)' : 'rgba(99, 102, 241, 0.25)';
+            btn.style.borderColor = isFS ? '#10b981' : '#6366f1';
+            btn.style.color = isFS ? '#34d399' : '#a5b4fc';
+        }
+    }
+
+    document.addEventListener('fullscreenchange', updateFullscreenTV);
+    document.addEventListener('webkitfullscreenchange', updateFullscreenTV);
+    document.addEventListener('msfullscreenchange', updateFullscreenTV);
+    document.addEventListener('keydown', (e) => {
+        if ((e.key === 'f' || e.key === 'F') && !['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            toggleFullscreen();
+        }
+    });
+    </script>
 </body>
 </html>
 
