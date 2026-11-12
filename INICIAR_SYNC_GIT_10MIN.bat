@@ -9,3 +9,4 @@ echo.
 cd /d "C:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\ANTIGRAVITY\PROJETOS\DASHBOARD_tv"
 python auto_git_sync.py
 pause
+
