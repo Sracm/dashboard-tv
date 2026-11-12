@@ -1,6 +1,8 @@
 import os
 import subprocess
 import time
+import urllib.request
+import json
 from datetime import datetime
 
 REPOSITORIES = [
@@ -17,7 +19,7 @@ REPOSITORIES = [
 ]
 
 LOG_FILE = r"C:\Users\amello\OneDrive - MQHAIR\T.I\PROJETOS BI\ANTIGRAVITY\PROJETOS\DASHBOARD_tv\auto_git_sync.log"
-INTERVAL_SECONDS = 600  # 10 minutos
+INTERVAL_SECONDS = 600  # 10 minutos (600 segundos)
 
 def log(msg):
     now_str = datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
@@ -28,6 +30,31 @@ def log(msg):
             f.write(line + "\n")
     except Exception:
         pass
+
+def atualizar_dados_dashboard_tv():
+    """Aciona a atualizacao dos dados e renovacao de cache do Dashboard TV (porta 5050)."""
+    now = datetime.now()
+    ano = now.year
+    mes = now.month
+    log(f"[DASHBOARD TV] 🔄 Iniciando rotina de atualizacao dos dados ({mes:02d}/{ano})...")
+
+    endpoints = [
+        ("Invalidar Cache /api/refresh", f"http://127.0.0.1:5050/api/refresh?ano={ano}"),
+        ("Aquecer Vendas TV Mensal", f"http://127.0.0.1:5050/api/vendas_tv?mes={mes}&ano={ano}"),
+        ("Aquecer Acumulado TV", f"http://127.0.0.1:5050/api/acumulado_tv?mes={mes}&ano={ano}"),
+        ("Aquecer Categorias/Marcas", f"http://127.0.0.1:5050/api/categorias_dados?mes={mes}&ano={ano}")
+    ]
+
+    for nome, url in endpoints:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "AutoRefreshDaemon/1.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                status = resp.status
+                log(f"  [DASHBOARD TV] {nome}: HTTP {status} OK")
+        except Exception as e:
+            log(f"  [DASHBOARD TV] {nome}: {e}")
+
+    log("[DASHBOARD TV] ✅ Atualização dos dados do dashboard concluída!")
 
 def sync_repo(repo):
     path = repo["path"]
@@ -50,7 +77,7 @@ def sync_repo(repo):
         changes = status_res.stdout.strip()
 
         if not changes:
-            log(f"[{nome}] Sem alteracoes pendentes. Tudo sincronizado.")
+            log(f"[{nome}] Sem alteracoes de arquivos pendentes no Git.")
             return
 
         log(f"[{nome}] Alteracoes detectadas:\n{changes}")
@@ -59,7 +86,7 @@ def sync_repo(repo):
         subprocess.run(["git", "add", "-A"], cwd=path, check=True, timeout=30)
 
         # 3. git commit
-        commit_msg = f"auto: sincronizacao automatica {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+        commit_msg = f"auto: atualizacao e sincronizacao {datetime.now().strftime('%Y-%m-%d %H:%M')}"
         commit_res = subprocess.run(
             ["git", "commit", "-m", commit_msg],
             cwd=path,
@@ -86,18 +113,26 @@ def sync_repo(repo):
         log(f"[{nome}] Erro ao sincronizar: {e}")
 
 def main():
-    log("=" * 60)
-    log("ROTINA DE SINCRONIZACAO AUTOMATICA GIT (A CADA 10 MINUTOS) INICIADA")
-    log("=" * 60)
+    log("=" * 65)
+    log("ROTINA ATIVA: ATUALIZAR DADOS DO DASHBOARD E SALVAR NO GIT (10 MIN)")
+    log("=" * 65)
 
     while True:
-        log("Iniciando ciclo de verificacao...")
+        ciclo_inicio = datetime.now()
+        log(f"--- Novo Ciclo de Atualizacao & Git Sync Iniciado ({ciclo_inicio.strftime('%H:%M:%S')}) ---")
+
+        # 1. Atualizar dados do Dashboard TV
+        try:
+            atualizar_dados_dashboard_tv()
+        except Exception as e:
+            log(f"[DASHBOARD TV] Erro na rotina de atualizacao: {e}")
+
+        # 2. Sincronizar e salvar no GitHub
         for repo in REPOSITORIES:
             sync_repo(repo)
 
-        log(f"Ciclo concluido. Aguardando {INTERVAL_SECONDS // 60} minutos para o proximo ciclo...")
+        log(f"Ciclo finalizado. Proxima atualizacao em {INTERVAL_SECONDS // 60} minutos.")
         time.sleep(INTERVAL_SECONDS)
 
 if __name__ == "__main__":
     main()
-
